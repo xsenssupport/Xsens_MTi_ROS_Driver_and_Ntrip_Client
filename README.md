@@ -5,7 +5,7 @@ This code was based on the official ``xsens_ros_mti_driver`` and tested on MTi-3
 
 ## ROS vs ROS2 Versions
 
-Note that this branch contains the ROS1 implementation for the packages. If you are looking for the ROS2 version, you should go to the [`ros2`](https://github.com/jiminghe/Xsens_MTi_ROS_Driver_and_Ntrip_Client/tree/ros2) branch
+Note that this branch contains the ROS1 implementation for the packages. If you are looking for the ROS2 version, you should go to the [`ros2`](https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client/tree/ros2) branch
 
 ## Device Settings - Output Configurations
 ### Note: 
