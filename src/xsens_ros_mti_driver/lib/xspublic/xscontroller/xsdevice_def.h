@@ -1,37 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
-//  All rights reserved.
-//  
-//  Redistribution and use in source and binary forms, with or without modification,
-//  are permitted provided that the following conditions are met:
-//  
-//  1.	Redistributions of source code must retain the above copyright notice,
-//  	this list of conditions, and the following disclaimer.
-//  
-//  2.	Redistributions in binary form must reproduce the above copyright notice,
-//  	this list of conditions, and the following disclaimer in the documentation
-//  	and/or other materials provided with the distribution.
-//  
-//  3.	Neither the names of the copyright holders nor the names of their contributors
-//  	may be used to endorse or promote products derived from this software without
-//  	specific prior written permission.
-//  
-//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
-//  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-//  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-//  THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-//  SPECIAL, EXEMPLARY OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
-//  OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-//  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR
-//  TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-//  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.THE LAWS OF THE NETHERLANDS 
-//  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
-//  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
-//  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
-
-
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -73,15 +41,19 @@
 #include <xstypes/xsresetmethod.h>
 #include "callbackmanagerxda.h"
 #include <xstypes/xsoption.h>
+#include "xsrejectreason.h"
 #include "communicator.h"
 #include "xsalignmentframe.h"
+#include "xsaccesscontrolmode.h"
 #include "datapacketcache.h"
 #include <xstypes/xsdeviceoptionflag.h>
 #include <xstypes/xsoutputconfigurationarray.h>
 #include "lastresultmanager.h"
 #include "xsgnssplatform.h"
 #include <functional>
+#include "xsoperationalmode.h"
 
+class XSNOEXPORT MtContainer;
 class XSNOEXPORT DataLogger;
 class XSNOEXPORT PacketProcessor;
 
@@ -146,7 +118,9 @@ struct XsFilterProfile;
 //AUTO enum XsErrorMode;
 //AUTO struct XsDeviceConfiguration;
 //AUTO enum XsProtocolType;
+//AUTO enum XsRejectReason;
 //AUTO enum XsAlignmentFrame;
+//AUTO enum XsOperationalMode;
 //AUTO enum XsAccessControlMode;
 //AUTO struct XsDeviceParameter;
 //AUTO enum XsUbloxGnssPlatform;
@@ -168,6 +142,8 @@ public:
 
 	virtual XsDevice* findDevice(XsDeviceId const& deviceid) const;
 	XsDevice const* findDeviceConst(XsDeviceId const& deviceid) const;
+	virtual XsDevice* subDevice(int subDeviceId) const;
+	virtual int subDeviceCount() const;
 	virtual int busId() const;
 	XsDeviceId const& deviceId() const;
 	virtual XsVersion firmwareVersion() const;
@@ -249,6 +225,7 @@ public:
 	virtual bool XSNOEXPORT initializeSoftwareCalibration();
 	virtual void XSNOEXPORT deinitializeSoftwareCalibration();
 
+	virtual int batteryLevel() const;
 	virtual int updateRateForDataIdentifier(XsDataIdentifier dataType) const;
 	virtual int updateRateForProcessedDataIdentifier(XsDataIdentifier dataType) const;
 	virtual std::vector<int> supportedUpdateRates(XsDataIdentifier dataType = XDI_None) const;
@@ -296,6 +273,9 @@ public:
 	virtual bool setPortConfiguration(XsIntArray& config);
 
 	virtual bool isMotionTracker() const;
+
+	virtual XsOperationalMode operationalMode() const;
+	virtual bool setOperationalMode(XsOperationalMode mode);
 
 	virtual int updateRate() const;
 	virtual bool setUpdateRate(int rate);
@@ -357,7 +337,42 @@ public:
 	virtual bool disableProtocol(XsProtocolType protocol);
 	virtual bool isProtocolEnabled(XsProtocolType protocol) const;
 
+	virtual uint32_t deviceBufferSize();
+	virtual bool setDeviceBufferSize(uint32_t frames);
+
 	virtual XsConnectivityState connectivityState() const;
+	virtual void waitForAllDevicesInitialized();
+
+	// MtContainer
+	virtual std::vector<XsDevice*> children() const;
+	virtual int childCount() const;
+
+	// Awinda Station
+	virtual bool enableRadio(int channel);
+	virtual bool disableRadio();
+	virtual int radioChannel() const;
+	virtual bool isRadioEnabled() const;
+	virtual bool makeOperational();
+	virtual bool isOperational() const;
+	virtual bool isInSyncStationMode();
+	virtual bool setSyncStationMode(bool enabled);
+
+	virtual bool stealthMode() const;
+	virtual bool setStealthMode(bool enabled);
+
+	virtual void discardRetransmissions(int64_t firstNewPacketId);
+
+	//virtual int radioQualityIndication() const;
+	XSNOEXPORT virtual void handleMasterIndication(const XsMessage& message);
+	virtual bool abortFlushing();
+	virtual bool setDeviceAccepted(const XsDeviceId& deviceId);
+	virtual bool setDeviceRejected(const XsDeviceId& deviceId);
+	virtual bool setAccessControlMode(XsAccessControlMode mode, const XsDeviceIdArray& initialList);
+	virtual XsAccessControlMode accessControlMode() const;
+	virtual XsDeviceIdArray currentAccessControlList() const;
+
+	virtual XsResultValue setDeviceParameter(XsDeviceParameter const& parameter);
+	virtual XsResultValue deviceParameter(XsDeviceParameter& parameter) const;
 
 	XSNOEXPORT XSDEPRECATED XsGnssPlatform gnssPlatform() const;
 	XSNOEXPORT XSDEPRECATED virtual bool setGnssPlatform(XsGnssPlatform gnssPlatform);
@@ -366,6 +381,26 @@ public:
 	virtual XsIntArray gnssReceiverSettings() const;
 	virtual bool setGnssReceiverSettings(const XsIntArray& gnssReceiverSettings);
 
+	// MTw
+	virtual bool acceptConnection();
+	virtual bool rejectConnection();
+	virtual int wirelessPriority() const;
+	virtual bool setWirelessPriority(int priority);
+	virtual XsRejectReason rejectReason() const;
+
+	virtual bool requestBatteryLevel();
+	virtual XsTimeStamp batteryLevelTime();
+	virtual bool setTransportMode(bool transportModeEnabled);
+	virtual bool transportMode();
+	virtual int16_t lastKnownRssi() const;
+	XSNOEXPORT virtual void setPacketErrorRate(int per);
+	virtual int packetErrorRate() const;
+
+	virtual bool isBlueToothEnabled() const;
+	virtual bool setBlueToothEnabled(bool enabled);
+	virtual bool isBusPowerEnabled() const;
+	virtual bool setBusPowerEnabled(bool enabled);
+	virtual bool powerDown();
 	virtual XsErrorMode errorMode() const;
 	virtual bool setErrorMode(XsErrorMode errormode);
 
@@ -433,6 +468,8 @@ public:
 		return &m_deviceMutex;
 	}
 
+	virtual bool deviceIsDocked(XsDevice* dev) const;
+
 	bool isLoadLogFileInProgress() const;
 	void waitForLoadLogFileDone() const;
 
@@ -481,6 +518,7 @@ protected:
 
 	explicit XsDevice(XsDeviceId const& id);
 	explicit XsDevice(Communicator* comm);
+	explicit XsDevice(XsDevice* master, const XsDeviceId& childDeviceId);
 
 	/*! \return A const reference to the cached device configuration */
 	inline const XsDeviceConfiguration& deviceConfig() const
@@ -559,6 +597,7 @@ public:
 	XSNOEXPORT virtual void onSessionRestarted();
 	XSNOEXPORT virtual void onConnectionLost();
 	XSNOEXPORT virtual void onEofReached();
+	XSNOEXPORT virtual void onWirelessConnectionLost();
 	XSNOEXPORT virtual int64_t deviceRecordingBufferItemCount(int64_t& lastCompletePacketId) const;
 
 protected:
@@ -577,6 +616,7 @@ protected:
 	virtual void clearDataCache();
 	virtual void insertIntoDataCache(int64_t pid, XsDataPacket* pack);
 	virtual void reinitializeProcessors();
+	virtual bool expectingRetransmissionForPacket(int64_t packetId) const;
 
 	virtual bool resetRemovesPort() const;
 
@@ -613,6 +653,7 @@ protected:
 	static bool checkDataEnabled(XsDataIdentifier dataType, XsOutputConfigurationArray const& configurations);
 	virtual bool shouldDataMsgBeRecorded(const XsMessage& msg) const;
 	virtual bool shouldDoRecordedCallback(XsDataPacket const& packet) const;
+	virtual bool interpolateMissingData(XsDataPacket const& pack, XsDataPacket const& prev, std::function<void (XsDataPacket*)> packetHandler);
 
 	//! \brief A data cache
 	DataPacketCache m_dataCache;
@@ -701,6 +742,7 @@ protected:
 	virtual void clearExternalPacketCaches();
 	void updateLastAvailableLiveDataCache(XsDataPacket const& pack);
 	void retainPacket(XsDataPacket const& pack);
+	static bool packetContainsRetransmission(XsDataPacket const& pack);
 
 	//! \brief A linear data packet cache
 	std::deque<XsDataPacket*> m_linearPacketCache;

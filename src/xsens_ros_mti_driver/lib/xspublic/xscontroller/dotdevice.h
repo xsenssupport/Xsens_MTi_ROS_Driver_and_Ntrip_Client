@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -30,36 +30,50 @@
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
 //  
 
-#ifndef XDACALLBACK_H
-#define XDACALLBACK_H
+#ifndef XSDOTDEVICE_H
+#define XSDOTDEVICE_H
 
-#include <ros/ros.h>
-#include <xscontroller/xscallback.h>
-#include <mutex>
-#include <condition_variable>
-#include <list>
+#include "mtibasedevice.h"
 
-struct XsDataPacket;
-struct XsDevice;
-
-typedef std::pair<ros::Time, XsDataPacket> RosXsDataPacket;
-
-class XdaCallback : public XsCallback
+/*! \class DotDevice
+	\brief The MTi device used for the Xsens DOT
+*/
+class DotDevice : public MtiBaseDeviceEx
 {
 public:
-	XdaCallback(size_t maxBufferSize = 5);
-	virtual ~XdaCallback() throw();
+	/*! \brief Constructs a standalone device using a provided communicator
+		\param comm The communicator to use
+		\return The constructed device
+	*/
+	static XsDevice* constructStandalone(Communicator* comm)
+	{
+		return new DotDevice(comm);
+	}
 
-	RosXsDataPacket next(const std::chrono::milliseconds &timeout);
+	explicit DotDevice(Communicator* comm);
+
+	//! \brief An empty constructor for a master device
+	explicit DotDevice(XsDevice* master) : MtiBaseDeviceEx(master) {}
+	virtual ~DotDevice();
 
 protected:
-	void onLiveDataAvailable(XsDevice *, const XsDataPacket *packet) override;
-
-private:
-	std::mutex m_mutex;
-	std::condition_variable m_condition;
-	std::list<RosXsDataPacket> m_buffer;
-	size_t m_maxBufferSize;
+	MtiBaseDevice::BaseFrequencyResult getBaseFrequencyInternal(XsDataIdentifier dataType = XDI_None) const override;
 };
+
+#ifndef XDA_PRIVATE_BUILD
+/*! \class DotDeviceEx
+	\brief The internal base class for MTi-3X0 series devices
+*/
+struct DotDeviceEx : public DotDevice
+{
+	//! \copybrief DotDevice::DotDevice
+	explicit DotDeviceEx(Communicator* comm) : DotDevice(comm) {};
+
+	//! \copybrief DotDevice::DotDevice
+	explicit DotDeviceEx(XsDevice* master) : DotDevice(master) {};
+};
+#else
+#include "dotdeviceex.h"
+#endif
 
 #endif

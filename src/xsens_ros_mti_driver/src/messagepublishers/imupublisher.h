@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -34,34 +34,14 @@
 #define IMUPUBLISHER_H
 
 #include "packetcallback.h"
+#include "publisherhelperfunctions.h"
 #include <sensor_msgs/Imu.h>
 
-static void variance_from_stddev_param(std::string param, double *variance_out)
-{
-    std::vector<double> stddev;
-    if (ros::param::get(param, stddev))
-    {
-        if (stddev.size() == 3)
-        {
-            auto squared = [](double x) { return x * x; };
-            std::transform(stddev.begin(), stddev.end(), variance_out, squared);
-        }
-        else
-        {
-            ROS_WARN("Wrong size of param: %s, must be of size 3", param.c_str());
-        }
-    }
-    else
-    {
-        memset(variance_out, 0, 3 * sizeof(double));
-    }
-}
 
-struct ImuPublisher : public PacketCallback
+struct ImuPublisher : public PacketCallback, PublisherHelperFunctions
 {
     ros::Publisher pub;
     std::string frame_id = DEFAULT_FRAME_ID;
-
 
     double orientation_variance[3];
     double linear_acceleration_variance[3];

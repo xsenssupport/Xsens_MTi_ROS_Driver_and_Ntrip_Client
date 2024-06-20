@@ -1,37 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
-//  All rights reserved.
-//  
-//  Redistribution and use in source and binary forms, with or without modification,
-//  are permitted provided that the following conditions are met:
-//  
-//  1.	Redistributions of source code must retain the above copyright notice,
-//  	this list of conditions, and the following disclaimer.
-//  
-//  2.	Redistributions in binary form must reproduce the above copyright notice,
-//  	this list of conditions, and the following disclaimer in the documentation
-//  	and/or other materials provided with the distribution.
-//  
-//  3.	Neither the names of the copyright holders nor the names of their contributors
-//  	may be used to endorse or promote products derived from this software without
-//  	specific prior written permission.
-//  
-//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
-//  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-//  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-//  THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-//  SPECIAL, EXEMPLARY OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
-//  OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-//  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR
-//  TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-//  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.THE LAWS OF THE NETHERLANDS 
-//  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
-//  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
-//  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
-
-
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -215,6 +183,14 @@ Variant* createVariant(XsDataIdentifier id)
 
 		case XDI_RawBlob				:// 0xA080
 			return new XsByteArrayVariant(id);
+
+		case XDI_GloveSnapshotLeft:			// 0xC830
+		case XDI_GloveSnapshotRight:		// 0xC840
+			return new XsGloveSnapshotVariant(id);
+
+		case XDI_GloveDataLeft:				// 0xC930
+		case XDI_GloveDataRight:			// 0xC940
+			return new XsGloveDataVariant(id);
 
 		default:
 			//JLERRORG("Unknown id: " << id);
@@ -1243,6 +1219,65 @@ extern "C" {
 	{
 		genericSet<XsQuaternion, XsQuaternionVariant>(thisPtr, &data->orientationIncrement(), XDI_DeltaQ | XDI_SubFormatDouble);
 		genericSet<XsVector3, XsVector3Variant>(thisPtr, &data->velocityIncrement(), XDI_DeltaV | XDI_SubFormatDouble);
+	}
+
+	/*! \brief Return the glove data component of a data item.
+		\param returnVal Storage for the requested data
+		\param hand Which hand to get data for, must be either XHI_LeftHand or XHI_RightHand
+		\returns Returns the supplied \a returnVal filled with the requested data
+	*/
+	XsGloveData* XsDataPacket_gloveData(const XsDataPacket* thisPtr, XsGloveData* returnVal, XsHandId hand)
+	{
+		switch (hand)
+		{
+			case XHI_LeftHand:
+				return genericGet<XsGloveData, XsGloveDataVariant>(thisPtr, returnVal, XDI_GloveDataLeft);
+			case XHI_RightHand:
+				return genericGet<XsGloveData, XsGloveDataVariant>(thisPtr, returnVal, XDI_GloveDataRight);
+			case XHI_Unknown:
+			default:
+				XsGloveData_destruct(returnVal);
+				return returnVal;
+		}
+	}
+
+	/*! \brief Check if data item contains glove data
+		\param hand Which hand to get data for, must be either XHI_LeftHand or XHI_RightHand for a particular side or XHI_Unknown for any side
+		\returns Returns true if this packet contains sdi data
+	*/
+	int XsDataPacket_containsGloveData(const XsDataPacket* thisPtr, XsHandId hand)
+	{
+		switch (hand)
+		{
+			case XHI_LeftHand:
+				return genericContains(thisPtr, XDI_GloveDataLeft);
+			case XHI_RightHand:
+				return genericContains(thisPtr, XDI_GloveDataRight);
+			case XHI_Unknown:
+				return genericContains(thisPtr, XDI_GloveDataLeft) || genericContains(thisPtr, XDI_GloveDataRight);
+			default:
+				return false;
+		}
+	}
+
+	/*! \brief Add/update strapdown integration data for the item
+		\param data The updated data
+		\param hand Which hand to get data for, must be either XHI_LeftHand or XHI_RightHand
+	*/
+	void XsDataPacket_setGloveData(XsDataPacket* thisPtr, const XsGloveData* data, XsHandId hand)
+	{
+		switch (hand)
+		{
+			case XHI_LeftHand:
+				genericSet<XsGloveData, XsGloveDataVariant>(thisPtr, data, XDI_GloveDataLeft);
+				break;
+			case XHI_RightHand:
+				genericSet<XsGloveData, XsGloveDataVariant>(thisPtr, data, XDI_GloveDataRight);
+				break;
+			case XHI_Unknown:
+			default:
+				break;
+		}
 	}
 
 	/*! \brief The device id of a data item.
@@ -2353,6 +2388,69 @@ extern "C" {
 		if (it == MAP.end())
 			return false;
 		return (it->second->dataId() & XDI_RetransmissionMask) == XDI_RetransmissionFlag;
+	}
+
+	/*! \brief Returns the Glove Snapshot part of the XsDataPacket
+		\details Glove Snapshot is an internal format used by Xsens devices for high accuracy data transfer.
+		In most cases XDA processing will remove this item from the XsDataPacket and replace it with items that
+		are more directly usable.
+		\param returnVal The object to store the requested data in. This must be a properly constructed object.
+		\param hand Which hand to get data for, must be either XHI_LeftHand or XHI_RightHand
+		\returns The supplied \a returnVal, filled with the requested data or cleared if it was not available
+	*/
+	XsGloveSnapshot* XsDataPacket_gloveSnapshot(const XsDataPacket* thisPtr, XsGloveSnapshot* returnVal, XsHandId hand)
+	{
+		switch (hand)
+		{
+			case XHI_LeftHand:
+				return genericGet<XsGloveSnapshot, XsGloveSnapshotVariant>(thisPtr, returnVal, XDI_GloveSnapshotLeft);
+			case XHI_RightHand:
+				return genericGet<XsGloveSnapshot, XsGloveSnapshotVariant>(thisPtr, returnVal, XDI_GloveSnapshotRight);
+			case XHI_Unknown:
+			default:
+				memset(returnVal, 0, sizeof(XsGloveSnapshot));
+				return returnVal;
+		}
+	}
+
+	/*! \brief Returns true if the XsDataPacket contains Glove Snapshot data
+		\param hand Which hand to get data for, must be either XHI_LeftHand or XHI_RightHand for a particular side or XHI_Unknown for any side
+		\returns true if the XsDataPacket contains Glove Snapshot data
+	*/
+	int XsDataPacket_containsGloveSnapshot(const XsDataPacket* thisPtr, XsHandId hand)
+	{
+		switch (hand)
+		{
+			case XHI_LeftHand:
+				return genericContains(thisPtr, XDI_GloveSnapshotLeft);
+			case XHI_RightHand:
+				return genericContains(thisPtr, XDI_GloveSnapshotRight);
+			case XHI_Unknown:
+				return genericContains(thisPtr, XDI_GloveSnapshotLeft) || genericContains(thisPtr, XDI_GloveSnapshotRight);
+			default:
+				return false;
+		}
+	}
+
+	/*! \brief Sets the Glove Snapshot part of the XsDataPacket
+		\param data The new data to set
+		\param retransmission When non-zero, the item is marked as a retransmitted packet
+		\param hand Which hand to get data for, must be either XHI_LeftHand or XHI_RightHand
+	*/
+	void XsDataPacket_setGloveSnapshot(XsDataPacket* thisPtr, XsGloveSnapshot const* data, int retransmission, XsHandId hand)
+	{
+		switch (hand)
+		{
+			case XHI_LeftHand:
+				genericSet<XsGloveSnapshot, XsGloveSnapshotVariant>(thisPtr, data, XDI_GloveSnapshotLeft | (retransmission ? XDI_RetransmissionFlag : XDI_None));
+				break;
+			case XHI_RightHand:
+				genericSet<XsGloveSnapshot, XsGloveSnapshotVariant>(thisPtr, data, XDI_GloveSnapshotRight | (retransmission ? XDI_RetransmissionFlag : XDI_None));
+				break;
+			case XHI_Unknown:
+			default:
+				break;
+		}
 	}
 
 	/*! \brief Converts input vector \a input with data identifier \a id to output XsVector \a returnVal */

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -59,11 +59,11 @@ struct FreeAccelerationPublisher : public PacketCallback
             msg.header.stamp = timestamp;
             msg.header.frame_id = frame_id;
 
-            XsVector accel = packet.freeAcceleration();
+            XsVector free_accel = packet.freeAcceleration();
 
-            msg.vector.x = accel[0];
-            msg.vector.y = accel[1];
-            msg.vector.z = accel[2];
+            msg.vector.x = free_accel[0];
+            msg.vector.y = free_accel[1];
+            msg.vector.z = free_accel[2];
 
             pub.publish(msg);
         }

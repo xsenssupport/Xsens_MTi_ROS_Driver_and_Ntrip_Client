@@ -1,37 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
-//  All rights reserved.
-//  
-//  Redistribution and use in source and binary forms, with or without modification,
-//  are permitted provided that the following conditions are met:
-//  
-//  1.	Redistributions of source code must retain the above copyright notice,
-//  	this list of conditions, and the following disclaimer.
-//  
-//  2.	Redistributions in binary form must reproduce the above copyright notice,
-//  	this list of conditions, and the following disclaimer in the documentation
-//  	and/or other materials provided with the distribution.
-//  
-//  3.	Neither the names of the copyright holders nor the names of their contributors
-//  	may be used to endorse or promote products derived from this software without
-//  	specific prior written permission.
-//  
-//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
-//  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-//  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-//  THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-//  SPECIAL, EXEMPLARY OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
-//  OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-//  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR
-//  TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-//  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.THE LAWS OF THE NETHERLANDS 
-//  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
-//  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
-//  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
-
-
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -87,6 +55,8 @@
 #include "xsrange.h"
 #include "xstriggerindicationdata.h"
 #include "xssnapshot.h"
+#include "xsglovesnapshot.h"
+#include "xsglovedata.h"
 #include "xshandid.h"
 
 #ifndef XSNOEXPORT
@@ -171,6 +141,9 @@ XSTYPES_DLL_API XsDataIdentifier XsDataPacket_coordinateSystemOrientation(const 
 XSTYPES_DLL_API XsSdiData* XsDataPacket_sdiData(const XsDataPacket* thisPtr, XsSdiData* returnVal);
 XSTYPES_DLL_API int XsDataPacket_containsSdiData(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API void XsDataPacket_setSdiData(XsDataPacket* thisPtr, const XsSdiData* data);
+XSTYPES_DLL_API XsGloveData* XsDataPacket_gloveData(const XsDataPacket* thisPtr, XsGloveData* returnVal, XsHandId hand);
+XSTYPES_DLL_API int XsDataPacket_containsGloveData(const XsDataPacket* thisPtr, XsHandId hand);
+XSTYPES_DLL_API void XsDataPacket_setGloveData(XsDataPacket* thisPtr, const XsGloveData* data, XsHandId hand);
 XSTYPES_DLL_API XsDeviceId* XsDataPacket_storedDeviceId(const XsDataPacket* thisPtr, XsDeviceId* returnVal);
 XSTYPES_DLL_API int XsDataPacket_containsStoredDeviceId(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API void XsDataPacket_setStoredDeviceId(XsDataPacket* thisPtr, const XsDeviceId* data);
@@ -270,6 +243,10 @@ XSTYPES_DLL_API int XsDataPacket_isAwindaSnapshotARetransmission(const XsDataPac
 XSTYPES_DLL_API void XsDataPacket_setFullSnapshot(XsDataPacket* thisPtr, XsSnapshot const* data, int retransmission);
 XSTYPES_DLL_API XsSnapshot* XsDataPacket_fullSnapshot(const XsDataPacket* thisPtr, XsSnapshot* returnVal);
 XSTYPES_DLL_API int XsDataPacket_containsFullSnapshot(const XsDataPacket* thisPtr);
+
+XSTYPES_DLL_API void XsDataPacket_setGloveSnapshot(XsDataPacket* thisPtr, XsGloveSnapshot const* data, int retransmission, XsHandId hand);
+XSTYPES_DLL_API XsGloveSnapshot* XsDataPacket_gloveSnapshot(const XsDataPacket* thisPtr, XsGloveSnapshot* returnVal, XsHandId hand);
+XSTYPES_DLL_API int XsDataPacket_containsGloveSnapshot(const XsDataPacket* thisPtr, XsHandId hand);
 
 XSTYPES_DLL_API void XsDataPacket_setRawBlob(XsDataPacket* thisPtr, const XsByteArray* data);
 XSTYPES_DLL_API XsByteArray* XsDataPacket_rawBlob(const XsDataPacket* thisPtr, XsByteArray* returnVal);
@@ -784,6 +761,25 @@ struct XsDataPacket
 	inline void setSdiData(const XsSdiData& data)
 	{
 		XsDataPacket_setSdiData(this, &data);
+	}
+
+	/*! \brief \copybrief XsDataPacket_gloveData(const XsDataPacket*, XsGloveData*, XsHandId) */
+	XSNOCOMEXPORT inline XsGloveData gloveData(XsHandId hand) const
+	{
+		XsGloveData returnVal;
+		return *XsDataPacket_gloveData(this, &returnVal, hand);
+	}
+
+	/*! \copydoc XsDataPacket_containsGloveData(const XsDataPacket*, XsHandId) */
+	XSNOCOMEXPORT inline bool containsGloveData(XsHandId hand = XHI_Unknown) const
+	{
+		return 0 != XsDataPacket_containsGloveData(this, hand);
+	}
+
+	/*! \copydoc XsDataPacket_setGloveData(XsDataPacket*, const XsGloveData*, XsHandId) */
+	XSNOEXPORT inline void setGloveData(const XsGloveData& data, XsHandId hand)
+	{
+		XsDataPacket_setGloveData(this, &data, hand);
 	}
 
 	/*! \brief \copybrief XsDataPacket_storedDeviceId(const XsDataPacket*, XsDeviceId*)
@@ -1361,6 +1357,25 @@ struct XsDataPacket
 	inline bool isAwindaSnapshotARetransmission(void) const
 	{
 		return 0 != XsDataPacket_isAwindaSnapshotARetransmission(this);
+	}
+
+	/*! \brief \copybrief XsDataPacket_gloveSnapshot(const XsDataPacket*, XsGloveSnapshot*, XsHandId) */
+	XSNOEXPORT inline XsGloveSnapshot gloveSnapshot(XsHandId hand) const
+	{
+		XsGloveSnapshot returnVal;
+		return *XsDataPacket_gloveSnapshot(this, &returnVal, hand);
+	}
+
+	/*! \brief \copybrief XsDataPacket_containsGloveSnapshot(const XsDataPacket*, XsHandId) */
+	XSNOEXPORT inline bool containsGloveSnapshot(XsHandId hand = XHI_Unknown) const
+	{
+		return 0 != XsDataPacket_containsGloveSnapshot(this, hand);
+	}
+
+	/*! \copydoc XsDataPacket_setGloveSnapshot(XsDataPacket*, XsGloveSnapshot const *, int, XsHandId) */
+	XSNOEXPORT inline void setGloveSnapshot(XsGloveSnapshot const& data, bool retransmission, XsHandId hand)
+	{
+		XsDataPacket_setGloveSnapshot(this, &data, retransmission ? 1 : 0, hand);
 	}
 
 	/*! \copydoc XsDataPacket_merge(XsDataPacket*, const XsDataPacket*, int) */

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -30,44 +30,58 @@
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
 //  
 
-#ifndef XDAINTERFACE_H
-#define XDAINTERFACE_H
+#ifndef NEMAPUBLISHER_H
+#define NEMAPUBLISHER_H
 
-#include <ros/ros.h>
+#include "packetcallback.h"
+#include <nmea_msgs/Sentence.h>
+#include <string>
+#include <sstream>
+#include <iomanip>
+#include <cmath>
+#include "ntrip_util.h"
 
-#include "xdacallback.h"
-#include <xstypes/xsportinfo.h>
-
-#include "chrono"
-
-struct XsControl;
-struct XsDevice;
-
-
-class PacketCallback;
-
-class XdaInterface
+struct NMEAPublisher : public PacketCallback
 {
-public:
-	XdaInterface();
-	~XdaInterface();
+    ros::Publisher pub;
+    std::string frame_id = DEFAULT_FRAME_ID;
 
-	void spinFor(std::chrono::milliseconds timeout);
-	void registerPublishers(ros::NodeHandle &node);
+    XsDataPacket latest_packet; // to store the latest packet
+    bool new_data_available = false;
+    int packet_counter = 0; // Counter to track the number of packets received
 
-	bool connectDevice();
-	bool prepare();
-	void close();
+    NMEAPublisher(ros::NodeHandle &node)
+    {
+        int pub_queue_size = 5;
+        ros::param::get("~publisher_queue_size", pub_queue_size);
+        pub = node.advertise<nmea_msgs::Sentence>("nmea", pub_queue_size);
+        ros::param::get("~frame_id", frame_id);
+    }
 
-private:
-	void registerCallback(PacketCallback *cb);
-	bool handleError(std::string error);
+    void operator()(const XsDataPacket &packet, ros::Time timestamp)
+    {
+        nmea_msgs::Sentence nmea_msg;
+        nmea_msg.header.stamp = timestamp;
+        nmea_msg.header.frame_id = frame_id;
+        
+        if (packet.containsRawGnssPvtData() && packet.containsStatus())
+        {
+            std::string gga_buffer;
+            int result = libntrip::generateGGA(packet, &gga_buffer);
+            if (result == 0) // Check if generateGGA was successful and there's no checksum error
+            {
+                nmea_msg.sentence = gga_buffer;
+                pub.publish(nmea_msg);
+            }
+            else
+            {
+                // Optionally, log an error or take other actions if generateGGA fails
+                ROS_WARN("Failed to generate valid GPGGA message. Checksum error detected.");
+            }
+        }
+        
+    }
 
-	XsControl *m_control;
-	XsDevice *m_device;
-	XsPortInfo m_port;
-	XdaCallback m_xdaCallback;
-	std::list<PacketCallback *> m_callbacks;
 };
 
 #endif

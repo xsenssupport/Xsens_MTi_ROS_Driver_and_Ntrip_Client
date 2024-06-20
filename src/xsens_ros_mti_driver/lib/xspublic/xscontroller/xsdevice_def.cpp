@@ -1,37 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
-//  All rights reserved.
-//  
-//  Redistribution and use in source and binary forms, with or without modification,
-//  are permitted provided that the following conditions are met:
-//  
-//  1.	Redistributions of source code must retain the above copyright notice,
-//  	this list of conditions, and the following disclaimer.
-//  
-//  2.	Redistributions in binary form must reproduce the above copyright notice,
-//  	this list of conditions, and the following disclaimer in the documentation
-//  	and/or other materials provided with the distribution.
-//  
-//  3.	Neither the names of the copyright holders nor the names of their contributors
-//  	may be used to endorse or promote products derived from this software without
-//  	specific prior written permission.
-//  
-//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
-//  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-//  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-//  THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-//  SPECIAL, EXEMPLARY OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
-//  OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-//  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR
-//  TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-//  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.THE LAWS OF THE NETHERLANDS 
-//  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
-//  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
-//  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
-
-
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -99,6 +67,13 @@
 //! \cond DOXYGEN_SHOULD_SKIP_THIS
 using namespace xsens;
 using namespace XsTime;
+
+#if 1 && defined(XSENS_RELEASE) && defined(XSENS_DEBUG)
+	// prevent spamming logs with identical "packet missed" loglines
+	#define ONLYFIRSTMTX2	if (!deviceId().isMtx2() || firstChild() == this)
+#else
+	#define ONLYFIRSTMTX2
+#endif
 //! \endcond
 
 #define TOADUMP	0	// set to 0 to disable
@@ -230,6 +205,39 @@ XsDevice::XsDevice(Communicator* comm)
 	JLDEBUGG(this << " Created device " << deviceId());
 }
 
+/*!	\brief Construct a device with device id \a childDeviceId for master \a masterDevice
+	\param masterDevice The master device ID to construct for
+	\param childDeviceId The child device ID to construct with
+	\details Communication uses \a masterDevice's channel
+*/
+XsDevice::XsDevice(XsDevice* masterDevice, const XsDeviceId& childDeviceId)
+	: m_latestLivePacket(new XsDataPacket)
+	, m_latestBufferedPacket(new XsDataPacket)
+	, m_unavailableDataBoundary(-1)
+	, m_deviceId(childDeviceId)
+	, m_state(XDS_Initial)
+	, m_connectivity(XCS_Unknown)
+	, m_communicator(nullptr)
+	, m_logFileInterface(nullptr)
+	, m_master(masterDevice)
+	, m_refCounter(0)
+	, m_writeToFile(false)
+	, m_isInitialized(false)
+	, m_terminationPrepared(false)
+	, m_gotoConfigOnClose(true)
+	, m_justWriteSetting(false)
+	, m_skipEmtsReadOnInit(true)
+	, m_options(XSO_None)
+	, m_startRecordingPacketId(-1)
+	, m_stopRecordingPacketId(-1)
+	, m_stoppedRecordingPacketId(-1)
+	, m_lastAvailableLiveDataCache(new XsDataPacket)
+	, m_toaDumpFile(nullptr)
+{
+	(void)masterDevice;
+	JLDEBUGG(this << " Created device " << deviceId() << " child of " << masterDevice << " " << (masterDevice ? masterDevice->deviceId() : XsDeviceId()));
+}
+
 /*! \brief Destroy the device */
 XsDevice::~XsDevice()
 {
@@ -340,10 +348,34 @@ void XsDevice::updateDeviceState(XsDeviceState newState)
 	XsDeviceState oldState = m_state;
 	if (oldState != newState)
 	{
+		ONLYFIRSTMTX2
 		JLDEBUGG("did: " << m_deviceId << " new: " << newState << " old: " << m_state);
 		// some special case handling
 		switch (newState)
 		{
+			case XDS_FlushingData:	// to
+				switch (oldState)
+				{
+					case XDS_Measurement:	// from
+						return;
+
+					case XDS_Recording:	// from
+						if (m_stopRecordingPacketId == -1 && isMasterDevice())
+							m_stopRecordingPacketId = latestLivePacketId();
+						m_stoppedRecordingPacketId = m_stopRecordingPacketId;
+						ONLYFIRSTMTX2
+						JLDEBUGG(this << " " << deviceId() << " m_startRecordingPacketId = " << m_startRecordingPacketId << " m_stopRecordingPacketId = " << m_stopRecordingPacketId << " m_stoppedRecordingPacketId = " << m_stoppedRecordingPacketId);
+						break;
+
+					case XDS_WaitingForRecordingStart:	// from
+						updateDeviceState(XDS_Measurement);
+						return;
+
+					default:
+						break;
+				}
+				break;
+
 			case XDS_Recording:	// to
 				switch (oldState)
 				{
@@ -352,6 +384,22 @@ void XsDevice::updateDeviceState(XsDeviceState newState)
 						m_stoppedRecordingPacketId = -1;
 						if (m_startRecordingPacketId == -1 && isMasterDevice() && latestLivePacketId() >= 0)
 							m_startRecordingPacketId = latestLivePacketId() + 1;
+						ONLYFIRSTMTX2
+						JLDEBUGG(this << " " << deviceId() << " m_startRecordingPacketId = " << m_startRecordingPacketId << " m_stopRecordingPacketId = " << m_stopRecordingPacketId << " m_stoppedRecordingPacketId = " << m_stoppedRecordingPacketId);
+						break;
+					default:
+						break;
+				}
+				break;
+
+			case XDS_WaitingForRecordingStart:	// to
+				switch (oldState)
+				{
+					case XDS_Measurement:	// from
+						m_stopRecordingPacketId = -1;
+						m_startRecordingPacketId = -1;
+						m_stoppedRecordingPacketId = -1;
+						ONLYFIRSTMTX2
 						JLDEBUGG(this << " " << deviceId() << " m_startRecordingPacketId = " << m_startRecordingPacketId << " m_stopRecordingPacketId = " << m_stopRecordingPacketId << " m_stoppedRecordingPacketId = " << m_stoppedRecordingPacketId);
 						break;
 					default:
@@ -363,12 +411,14 @@ void XsDevice::updateDeviceState(XsDeviceState newState)
 				switch (oldState)
 				{
 					case XDS_Recording:		// from
+					case XDS_FlushingData:	// from
 						m_stoppedRecordingPacketId = m_stopRecordingPacketId;
 						if (m_stoppedRecordingPacketId == -1 && isMasterDevice())
 							m_stoppedRecordingPacketId = latestLivePacketId();
 						m_stopRecordingPacketId = -1;
 						m_startRecordingPacketId = -1;
 						//m_latestBufferedPacket->clear();
+						ONLYFIRSTMTX2
 						JLDEBUGG(this << " " << deviceId() << " m_startRecordingPacketId = " << m_startRecordingPacketId << " m_stopRecordingPacketId = " << m_stopRecordingPacketId << " m_stoppedRecordingPacketId = " << m_stoppedRecordingPacketId);
 						break;
 
@@ -377,6 +427,7 @@ void XsDevice::updateDeviceState(XsDeviceState newState)
 						m_stopRecordingPacketId = -1;
 						m_startRecordingPacketId = -1;
 						m_stoppedRecordingPacketId = -1;
+						ONLYFIRSTMTX2
 						JLDEBUGG(this << " " << deviceId() << " m_startRecordingPacketId = " << m_startRecordingPacketId << " m_stopRecordingPacketId = " << m_stopRecordingPacketId << " m_stoppedRecordingPacketId = " << m_stoppedRecordingPacketId);
 						resetPacketStamping();
 						reinitializeProcessors();
@@ -436,6 +487,22 @@ XsDevice const* XsDevice::findDeviceConst(XsDeviceId const& deviceid) const
 void XsDevice::setGotoConfigOnClose(bool gotoConfigOnClose)
 {
 	m_gotoConfigOnClose = gotoConfigOnClose;
+}
+/*! \brief Get the batterylevel of this device
+	The battery level is a value between 0 and 100 that indicates the remaining capacity as a percentage.
+	Due to battery characteristics, this is not directly the remaining time, but just a rough indication.
+
+	Bodypack: The amount of time remaining for measurement given any battery level greatly depends on the type of batteries used,
+				the number of sensors attached to the Bodypack and the used output options.
+	Mtw: The last known battery level for this motion tracker. First call \sa requestBatteryLevel to have a battery level available.
+		 The callback \sa onInfoResponse with ID XIR_BatteryLevel will indicate when the requested battery level is available.
+		 This function is available in both config and measurement mode.
+		 For devices in wired mode this function can be called without calling \sa requestBatteryLevel first
+	\returns The battery level in the range 0-100
+*/
+int XsDevice::batteryLevel() const
+{
+	return 0;
 }
 
 /*! \brief Get the legacy update rate of the device
@@ -708,7 +775,8 @@ XsString XsDevice::lastResultText() const
 }
 
 /*! \brief Returns true if this is a motion tracker
-	\returns true if this is a motion tracker, false if not
+	\returns true if this is a motion tracker or false if it is a master device such as an Awinda
+	Station or a Bodypack
 */
 bool XsDevice::isMotionTracker() const
 {
@@ -1352,6 +1420,10 @@ void XsDevice::handleMessage(const XsMessage& msg)
 			handleWarningMessage(msg);
 			break;
 
+		case XMID_MasterIndication:
+			handleMasterIndication(msg);
+			break;
+
 		case XMID_Wakeup:
 			handleWakeupMessage(msg);
 			break;
@@ -1444,6 +1516,7 @@ void XsDevice::clearDataCache()
 }
 
 /*! \brief Handles the inability to obtain specific measurement data
+	\details Should be called when it is not possible to retransmit specific data. The data should be considered lost
 	\param frameNumber The frame number of the data that is lost
 */
 void XsDevice::handleUnavailableData(int64_t frameNumber)
@@ -1477,6 +1550,7 @@ bool XsDevice::shouldDoRecordedCallback(XsDataPacket const& p) const
 	switch (deviceState())
 	{
 		case XDS_Recording:
+		case XDS_FlushingData:
 			break;
 
 		default:
@@ -1517,6 +1591,19 @@ void XsDevice::handleDataPacket(const XsDataPacket& packet)
 	fprintf(master()->m_toaDumpFile, "%llu,%llu,%llu\n", current, pack->timeOfArrival().msTime(), pack->estimatedTimeOfSampling().msTime());
 #endif
 
+#if 0
+	ONLYFIRSTMTX2
+	JLWRITEG(this << " [TOALOG] pid: " << current <<
+		" did: " << deviceId() <<
+		" awindaframenr: " << packet.awindaSnapshot().m_frameNumber <<
+		" packetTOA: " << pack->timeOfArrival().msTime() <<
+		" fastest: " << fastest <<
+		" slowest: " << slowest <<
+		" etos " << pack->estimatedTimeOfSampling().msTime());
+	JLDEBUGG("stamped: " << current << " new latestlive: " << latestLivePacketConst().packetId());
+#endif
+
+	bool interpolate = false;
 	if (fastest >= 0)
 	{
 		int64_t dpc = current - fastest;
@@ -1525,26 +1612,44 @@ void XsDevice::handleDataPacket(const XsDataPacket& packet)
 		{
 			int64_t firstMissed = fastest + 1;
 			int64_t lastMissed = current - 1;
+			ONLYFIRSTMTX2
+			JLDEBUGG("Detected " << (dpc - 1) << " packets have been missed by device " << deviceId() << ", last was " << fastest << " (" << (uint16_t) fastest << ") current is " << current << " (" << (uint16_t) current << ")");
 			onMissedPackets(this, (int) dpc - 1, (int) firstMissed, (int) lastMissed);
 
 			for (int64_t i = firstMissed; i <= lastMissed; ++i)
 			{
-				//JLDEBUGG("not expecting retransmission for packet " << i);
-				handleUnavailableData(i);
+				if (!expectingRetransmissionForPacket(i))
+				{
+					//JLDEBUGG("not expecting retransmission for packet " << i);
+					handleUnavailableData(i);
+					if (m_options & XSO_InterpolateMissingData)
+						interpolate = true;
+				}
 			}
 		}
 	}
 	else if (isReadingFromFile() && getStartRecordingPacketId() == -1)
-	{
 		setStartRecordingPacketId(current);
-	}
-
 
 	if (current >= fastest)
 	{
 		JLTRACEG("Processing (live) packet " << current);
 		std::unique_ptr<XsDataPacket> copy(new XsDataPacket(*pack));
 		processLivePacket(*copy);
+
+		if (interpolate)
+		{
+			// when this returns true, the packet has been processed properly already so we should return
+			if (interpolateMissingData(*copy, latestLivePacketConst(),
+					[this](XsDataPacket * ppp)
+		{
+			handleDataPacket(*ppp);
+				delete ppp;
+			}))
+			{
+				return;
+			}
+		}
 
 		// store result
 		latestLivePacket().swap(*copy);
@@ -1592,6 +1697,7 @@ void XsDevice::handleDataPacket(const XsDataPacket& packet)
 	else
 	{
 		// not correct, weird old retransmission
+		ONLYFIRSTMTX2
 		JLDEBUGG("Device " << deviceId() << " ignoring (buffered) packet " << current << " because it is not newer than " << slowest);
 	}
 }
@@ -1605,7 +1711,9 @@ bool XsDevice::isMeasuring() const
 	switch (deviceState()) //lint !e788
 	{
 		case XDS_Measurement:
+		case XDS_WaitingForRecordingStart:
 		case XDS_Recording:
+		case XDS_FlushingData:
 			return true;
 
 		case XDS_Initial:
@@ -1623,7 +1731,9 @@ bool XsDevice::isRecording() const
 {
 	switch (deviceState()) //lint !e788
 	{
+		case XDS_WaitingForRecordingStart:
 		case XDS_Recording:
+		case XDS_FlushingData:
 			return true;
 
 		case XDS_Measurement:
@@ -2068,6 +2178,15 @@ bool XsDevice::stopRecording()
 }
 
 /*! \cond XS_INTERNAL */
+/*! \brief Returns whether the packet contains a retransmission or not */
+bool XsDevice::packetContainsRetransmission(XsDataPacket const& packet)
+{
+	if (packet.containsAwindaSnapshot())
+		return packet.isAwindaSnapshotARetransmission();
+
+	return false;
+}
+
 /*! \brief Handles the end of the recording stream
 */
 void XsDevice::endRecordingStream()
@@ -2104,6 +2223,7 @@ void XsDevice::checkDataCache()
 	while (!m_dataCache.empty())
 	{
 		auto it = m_dataCache.begin();
+		//JLWRITEG("pid: " << it->second->packetId() << " range? " << it->second->containsFrameRange() << " retransmission? " << it->second->isAwindaSnapshotARetransmission() << " snapshotA,F? " << it->second->containsAwindaSnapshot() << "," << it->second->containsFullSnapshot());
 
 		int64_t expectedPacketId = latestBufferedPacketId() < 0 ? -1 : latestBufferedPacketId() + 1;
 		if (expectedPacketId < m_startRecordingPacketId)
@@ -2133,12 +2253,14 @@ void XsDevice::checkDataCache()
 						rLast = m_stopRecordingPacketId;
 					if (rFirst < rLast)
 					{
+						ONLYFIRSTMTX2
 						JLDEBUGG("Device " << m_deviceId << " Data is unavailable in reported range " << rFirst << " - " << rLast << " Stop Recording Packet ID " << m_stopRecordingPacketId << " Unavailable Data Boundary " << m_unavailableDataBoundary);
 						for (int64_t r = rFirst; r < rLast; ++r)
 							onDataUnavailable(this, r);
 					}
 					else
 					{
+						//ONLYFIRSTMTX2
 						//JLDEBUGG("Device " << m_deviceId << " NOT Reporting data unavailable");
 					}
 				}
@@ -2179,6 +2301,7 @@ void XsDevice::checkDataCache()
 
 		// store result
 		latestBufferedPacket().swap(*it->second);
+		//		ONLYFIRSTMTX2
 		//		JLDEBUGG("latestBufferedPacket is now " << latestBufferedPacket().packetId() << " old: " << it->second->packetId());
 		delete it->second;
 		m_dataCache.erase(it);
@@ -2249,6 +2372,55 @@ std::vector<int> XsDevice::supportedUpdateRates(XsDataIdentifier dataType) const
 	return std::vector<int>();
 }
 
+/*! \brief Returns true if the device has its BlueTooth radio enabled
+	\returns true if the device has its BlueTooth radio enabled
+	\sa setBlueToothEnabled
+*/
+bool XsDevice::isBlueToothEnabled() const
+{
+	return false;
+}
+/*! \brief Enable or disable the BlueTooth radio of the device
+	\param enabled Set to true to enable the BlueTooth radio
+	\returns true if the device was successfully updated
+	\sa isBlueToothEnabled
+*/
+bool XsDevice::setBlueToothEnabled(bool enabled)
+{
+	(void)enabled;
+	return false;
+}
+
+/*! \brief Returns if the Xbus is powering its child devices or not
+	\details When the bus power is off, the child devices are disabled
+	\returns true If the Xbus is currently providing power to its child devices
+*/
+bool XsDevice::isBusPowerEnabled() const
+{
+	return false;
+}
+/*! \brief Tell the Xbus to provide power to its child devices or not
+	\details This function can be used to tell the Xbus to stop and start powering its child
+	devices. By default when the Xbus starts up it will provide power to its child devices.
+	Switching the power off can save a lot of energy, but powering the system up again will take some
+	time, depending on the number of connected devices.
+	\param enabled true to enable bus power, false to disable the bus power
+	\returns true If the Xbus' bus power state was successfully updated.
+*/
+bool XsDevice::setBusPowerEnabled(bool enabled)
+{
+	(void)enabled;
+	return false;
+}
+/*! \brief Tell the device to power down completely
+	\details This function can be used to tell the device to shut down completely, requiring a physical
+	button press on the device to power up again.
+	\returns true if the device was successfully powered down
+*/
+bool XsDevice::powerDown()
+{
+	return false;
+}
 /*! \brief Returns the error mode of the device
 	\details The error mode tells the device what to do if a problem occurs.
 	\returns The currently configured error mode of the device
@@ -2757,6 +2929,50 @@ bool XsDevice::requestUtcTime()
 }
 /*! \endcond */
 
+// Mtw device
+/*! \brief Request the battery level from the device
+	\details This is an asynchronous operation. The Awinda station or MTw sends the battery level when
+	possible. For devices in wired mode the \sa batteryLevel() function can be called without calling this
+	function first.
+	\returns true If the battery level request was successfully sent
+*/
+bool XsDevice::requestBatteryLevel()
+{
+	return false;
+}
+
+/*! \brief Requests the time the battery level was last updated
+	\returns the XsTimeStamp the battery level was last set
+*/
+XsTimeStamp XsDevice::batteryLevelTime()
+{
+	return 0;
+}
+
+/*! \brief Enable or disable the transport mode for the device
+	\details The MTw has a "wake up by motion" feature that requires some power and can cause
+	unnecessary wakeups when transporting the device. This function can be used to put the device in
+	"transport mode", which effectively disables the motion wake up feature until the device is plugged
+	into something or the transport mode is explicitly disabled by this function again.
+	\param transportModeEnabled true to enable transport mode (which disables the motion wakeup)
+	\returns true if the device was successfully put in transport mode (or taken out of it)
+	\note MTw only
+*/
+bool XsDevice::setTransportMode(bool transportModeEnabled)
+{
+	(void)transportModeEnabled;
+	return false;
+}
+
+/*! \brief Returns the current state of the transport mode feature
+	\returns true if tranport mode is currently enabled
+	\sa setTransportMode
+*/
+bool XsDevice::transportMode()
+{
+	return false;
+}
+
 /*! \brief Returns if the device is outputting data in string mode
 	\details In string mode only NMEA packets are transmitted at the legacy update rate
 	\returns true if the device is configured for string mode output.
@@ -3106,6 +3322,24 @@ uint16_t XsDevice::stringOutputType() const
 	return 0x0000;
 }
 
+/*!	\brief Returns the operational mode
+	\returns The current operational mode of the device
+*/
+XsOperationalMode XsDevice::operationalMode() const
+{
+	return XOP_LiveStream;
+}
+
+/*!	\brief Set the device in the given operational mode.
+	\param mode: Desired operional mode.
+	\returns True when successful, false otherwise.
+*/
+bool XsDevice::setOperationalMode(XsOperationalMode mode)
+{
+	(void)mode;
+	return true;
+}
+
 /*! \brief Returns the currently configured output of the device
 	\returns The output configuration of the device
 */
@@ -3201,6 +3435,121 @@ XsVersion XsDevice::hardwareVersion() const
 	return XsVersion();
 }
 
+/*! \brief Set the radio channel to use for wireless communication
+	\details This function can be used to enable or disable the radio of an Awinda Station.
+	\param channel A valid channel number in the range [11..25] or -1 to disable the radio
+	\returns true if the radio was successfully reconfigured
+	\note Awinda Station only
+*/
+bool XsDevice::enableRadio(int channel)
+{
+	(void)channel;
+	return false;
+}
+
+/*! \brief Disables the radio for this station, resetting all children to disconnected state
+	\returns true if the radio was successfully disabled
+	\note Awinda Station only
+*/
+bool XsDevice::disableRadio()
+{
+	return false;
+}
+
+/*! \brief Returns if the radio is enabled
+	\returns true if the radio is enabled
+	\note Awinda Sation only
+*/
+bool XsDevice::isRadioEnabled() const
+{
+	return false;
+}
+
+/*! \brief Returns the radio channel used for wireless communication
+	\returns The radio channel used for wireless communication or -1 if the radio is disabled
+	\note Awinda Sation only
+*/
+int XsDevice::radioChannel() const
+{
+	return -1;
+}
+
+#if 0
+/*! \brief Returns a quality indication for the current wireless communication
+	\returns A quality indication in the range [0-100] where 100 is the best quality. If the function
+	return -1, no radio quality indication could be given.
+	\note Awinda Station only
+*/
+int XsDevice::radioQualityIndication() const
+{
+	return -1;
+}
+#endif
+
+/*! \cond XS_INTERNAL */
+/*! \brief Handles master indication message.
+	\param message The message to handle.
+*/
+void XsDevice::handleMasterIndication(const XsMessage& message)
+{
+	onNonDataMessage(this, &message);
+}
+/*! \endcond */
+
+/*! \brief Abort the wireless flushing operation and finalize the recording
+	\returns true if no flushing is in progress when the function exits
+	\note Awinda Station only
+*/
+bool XsDevice::abortFlushing()
+{
+	return true;
+}
+
+/*! \brief Accept connections from the device on the parent/master device
+	\details This function can be used to accept connections from a device that has been rejected.
+	Call this function from within the onConnectivityChanged callback.
+	\returns true if the device will be accepted next time it tries to connect
+	\note MTw rejected to Awinda Station only
+*/
+bool XsDevice::acceptConnection()
+{
+	return false;
+}
+
+/*! \brief Reject connections from the device on the parent/master device
+	\details This function can be used to reject connections from a device that has connected.
+	This function can be called from within the onConnectivityChanged callback or at other times
+	when a device is connected.
+	\returns true if the device will be rejected next time it tries to connect
+	\note After the function returns, this XsDevice should no longer be used.
+	\note MTw connected to Awinda Station only
+	\sa rejectReason
+*/
+bool XsDevice::rejectConnection()
+{
+	return false;
+}
+
+/*! \brief Returns the wireless priority of the device
+	\returns The wireless priority of the device or 0 if it has none.
+	\note MTw connected to Awinda Station only
+*/
+int XsDevice::wirelessPriority() const
+{
+	return 0;
+}
+
+/*! \brief Sets the wireless priority of the device
+	\param priority The desired wireless priority of the device in the range 0-255.
+	\returns true if the wireless priority has been successfully updated
+	\note MTw connected to Awinda Station only
+*/
+bool XsDevice::setWirelessPriority(int priority)
+{
+	(void)priority;
+	return false;
+}
+
 /*! \cond XS_INTERNAL */
 /*!	\brief Sets the connectivity state to \a newState if different than the old state.
 	\param[in] newState the new state
@@ -3223,6 +3572,55 @@ XsConnectivityState XsDevice::defaultChildConnectivityState() const
 }
 /*! \endcond */
 
+/*! \brief Returns the reason why a device's connection was rejected.
+	\details This function is typically called from within the onConnectivityChanged callback when
+	the connectivity has changed to XCS_Rejected.
+	\returns The reason why the connection was rejected
+*/
+XsRejectReason XsDevice::rejectReason() const
+{
+	return XRR_Unknown;
+}
+
+/*! \brief Returns the last known RSSI value of the device.
+	\details RSSI values are only relevant for wireless devices. Since the value is measured passively,
+	any time an RSSI value is received by XDA, the last known value is updated.
+	\returns The last known biased RSSI value or XS_RSSI_UNKNOWN if no RSSI value is available (yet)
+*/
+int16_t XsDevice::lastKnownRssi() const
+{
+	return XS_RSSI_UNKNOWN;
+}
+
+/*! \cond XS_INTERNAL */
+/*! \brief Set the packet error rate for the device.
+	\param per The packet error rate of the device expressed as a percentage.
+*/
+void XsDevice::setPacketErrorRate(int per)
+{
+	(void)per;
+}
+/*! \endcond */
+
+/*!
+	\brief Returns the packet error rate for the for the device.
+
+	\details The packet error rate indicates the proportion of data packets from
+	the device that are lost or corrupted in some manner over some time window.
+	Depending on the device the packet error rate may be updated actively or
+	passively, and the time window may vary, so packet error rates cannot be
+	compared directly between different types of device.
+
+	\note Not all devices support packet error rate estimation. Those that don't
+	will always report a 0% packet error rate.
+
+	\returns The packet error rate as a percentage.
+*/
+int XsDevice::packetErrorRate() const
+{
+	return 0;
+}
+
 /*! \brief Returns the connectivity state of the device
 	\details The connectivity describes how and if the device is connected to XDA.
 	\returns The current connectivity of the device
@@ -3231,6 +3629,17 @@ XsConnectivityState XsDevice::defaultChildConnectivityState() const
 XsConnectivityState XsDevice::connectivityState() const
 {
 	return m_connectivity;
+}
+
+/*! \brief Check if the device is docked
+	\details Checks if device \a dev is docked in this device
+	\param dev The device to check
+	\return true if the device is docked in this device
+*/
+bool XsDevice::deviceIsDocked(XsDevice* dev) const
+{
+	(void)dev;
+	return false;
 }
 
 /*! \brief The port name of the connection
@@ -3278,6 +3687,86 @@ int XsDevice::portNumber() const
 bool XsDevice::isInitialized() const
 {
 	return m_isInitialized;
+}
+
+/*! \brief Accepts a device
+	\param[in] deviceId The device to accept
+	\returns true when the device has been successfully accepted
+*/
+bool XsDevice::setDeviceAccepted(const XsDeviceId&)
+{
+	return false;
+}
+
+/*! \brief Rejects a device
+	\param[in] deviceId The device to reject
+	\returns true when the device has been successfully rejected
+*/
+bool XsDevice::setDeviceRejected(const XsDeviceId&)
+{
+	return false;
+}
+
+/*! \brief Set the access control mode of the master device
+	\details The access control mode determines which connections are allowed.
+	\param mode The access control mode to use, the choice is between blacklist or whitelist
+	\param initialList The initial list to use for the selected access control mode
+	\returns true if the access control mode was successfully changed
+	\sa accessControlMode() \sa currentAccessControlList
+*/
+bool XsDevice::setAccessControlMode(XsAccessControlMode, const XsDeviceIdArray&)
+{
+	return false;
+}
+
+/*! \brief Request the access control mode of the master device
+	\returns The currently configured access control mode
+	\sa setAccessControlMode \sa currentAccessControlList
+*/
+XsAccessControlMode XsDevice::accessControlMode() const
+{
+	return XACM_None;
+}
+
+/*! \brief Request the access control list of the master device
+	\returns The currently configured access control list. This can be either a blacklist or a whitelist.
+	\sa setAccessControlMode \sa accessControlMode
+*/
+XsDeviceIdArray XsDevice::currentAccessControlList() const
+{
+	return XsDeviceIdArray();
+}
+
+/*! \brief Sets the Awinda station to operational state
+	\note this is considered an extension to the config state, not a new state.
+	\returns true when the awindastation is put in operational mode.
+*/
+bool XsDevice::makeOperational()
+{
+	return false;
+}
+
+/*! \returns true when the device is operational
+	\sa AwindaStationDevice::makeOperational()
+*/
+bool XsDevice::isOperational() const
+{
+	return false;
+}
+
+/*! \returns true when the device is in Sync Station mode (Awinda Station and Sync Station only) */
+bool XsDevice::isInSyncStationMode()
+{
+	return false;
+}
+
+/*! \brief Set the Sync Station mode of the Awinda Station device
+	\param enabled true to enable Sync Station mode, false to disable it
+	\returns true if successful
+*/
+bool XsDevice::setSyncStationMode(bool)
+{
+	return false;
 }
 
 /*! \brief Increase reference count of XsDevice pointer
@@ -3342,6 +3831,11 @@ void XsDevice::removeIfNoRefs()
 {
 	// If any child has refs, no need to delete this device
 	LockSuspendable lock(&m_deviceMutex, LS_Write);
+	if (childCount())
+		return;
+	//for (XsDevice* dev:m_children)
+	//	if (dev->refCounter() > 0)
+	//		return;
 
 	if (m_refCounter.load() == 0)
 	{
@@ -3386,6 +3880,11 @@ void XsDevice::onEofReached()
 	LockGuarded locky(&m_deviceMutex);
 	setStopRecordingPacketId(latestLivePacketId());
 	endRecordingStream();
+}
+
+void XsDevice::onWirelessConnectionLost()
+{
+	updateConnectivityState(XCS_Disconnected);
 }
 
 /*! \return The packet ID of the cached latest Live packet */
@@ -3482,6 +3981,27 @@ bool XsDevice::doTransaction(const XsMessage& snd, XsMessage& rcv, uint32_t time
 }
 /*! \endcond */
 
+/*! \brief Enable or disable stealth mode
+	\details In stealth mode, the MVN hardware will be silent and all LEDs will be dimmed or disabled.
+	Some minimal user feedback will remain enabled. The change will be applied immediately to all detected
+	systems, resetting the mocap data stream.
+	\param enabled Set to true if you wish to enable stealth mode, false to disable it.
+	\return true if the setting was successfully updated
+*/
+bool XsDevice::setStealthMode(bool)
+{
+	return false;
+}
+
+/*! \brief Return the state of the stealth mode setting.
+	\return the state of the stealth mode setting.
+	\sa setStealthMode
+*/
+bool XsDevice::stealthMode() const
+{
+	return false;
+}
+
 /*! \brief Return the supported synchronization settings for a specified \a deviceId or deviceId mask
 	\param[in] deviceId The device id to request the supported synchronization settings for
 	\returns the supported synchronization settings for the specified deviceId
@@ -3523,6 +4043,22 @@ bool XsDevice::isCompatibleSyncSetting(XsDeviceId const& deviceId, XsSyncSetting
 unsigned int XsDevice::syncSettingsTimeResolutionInMicroSeconds(XsDeviceId const& deviceId)
 {
 	return Synchronization::timeResolutionInMicroseconds(deviceId);
+}
+
+/*! \brief Return the number of child-devices this device has. For standalone devices this is always 0
+	\returns The number of child devices of the device
+*/
+int XsDevice::childCount() const
+{
+	return 0;
+}
+
+/*! \brief Return a managed array containing the child-devices this device has. For standalone devices this is always an empty array
+	\returns An array of pointers to the child devices of the device
+*/
+std::vector<XsDevice*> XsDevice::children() const
+{
+	return std::vector<XsDevice*>();
 }
 
 /*! \cond XS_INTERNAL */
@@ -3676,6 +4212,7 @@ void XsDevice::setStartRecordingPacketId(int64_t startFrame)
 {
 	LockGuarded lockG(&m_deviceMutex);
 	m_startRecordingPacketId = startFrame;
+	ONLYFIRSTMTX2
 	JLDEBUGG(this << " " << deviceId() << " m_startRecordingPacketId = " << m_startRecordingPacketId << " m_stopRecordingPacketId = " << m_stopRecordingPacketId << " m_stoppedRecordingPacketId = " << m_stoppedRecordingPacketId);
 }
 
@@ -3687,6 +4224,7 @@ void XsDevice::setStopRecordingPacketId(int64_t stopFrame)
 	LockGuarded lockG(&m_deviceMutex);
 	m_stopRecordingPacketId = stopFrame;
 	m_stoppedRecordingPacketId = m_stopRecordingPacketId;
+	ONLYFIRSTMTX2
 	JLDEBUGG(this << " " << deviceId() << " m_startRecordingPacketId = " << m_startRecordingPacketId << " m_stopRecordingPacketId = " << m_stopRecordingPacketId << " m_stoppedRecordingPacketId = " << m_stoppedRecordingPacketId);
 }
 
@@ -3741,6 +4279,35 @@ int64_t XsDevice::deviceRecordingBufferItemCount(int64_t& lastCompletePacketId) 
 }
 /*! \endcond */
 
+/*!	\brief Request the size of the interal buffer
+	\return Buffer size in number of frames
+*/
+uint32_t XsDevice::deviceBufferSize()
+{
+	return 0;
+}
+
+/*!	\brief Request the device to set it's internal buffer to the specified size
+	\param frames: buffer size in frames
+	\return True if the setting was successfully updated
+*/
+bool XsDevice::setDeviceBufferSize(uint32_t frames)
+{
+	(void)frames;
+	return true;
+}
+
+/*! \brief Wait until are known devices are initialized
+	\details Container devices such as Awinda Master and Bodypack can have (slightly) delayed initialization
+	of child devices after they have been detected. This function can be used to wait for all currently
+	detected trackers to have been properly initialized.
+*/
+void XsDevice::waitForAllDevicesInitialized()
+{
+	while (!isInitialized())
+		XsTime::msleep(0);
+}
+
 /*! \brief Returns true if the file operation started by loadLogFile is still in progress
 	\return true if the file operation started by loadLogFile is still in progress
 	\sa loadLogFile \sa waitForLoadLogFileDone
@@ -3782,6 +4349,92 @@ int64_t XsDevice::getStartRecordingPacketId() const
 int64_t XsDevice::getStopRecordingPacketId() const
 {
 	return m_stopRecordingPacketId == -1 ? m_stoppedRecordingPacketId : m_stopRecordingPacketId;
+}
+
+/*!	\brief Sets the given parameter for the device
+	\details Settings device parameters is only valid after initialization and before switching the device to be operational.
+	\param parameter: a parameter object, corresponding to a row in the table below.
+	\return Result value indicating success (XRV_OK) or unsupported with current device or firmware version (XRV_UNSUPPORTED).
+
+	For Awinda stations this function needs to be called before enabling the radio (\a XsDevice::enableRadio).
+
+	<table>
+		<tr>
+			<th rowspan="2">XsDeviceParameterIdentifier</th>
+			<th rowspan="2">Value type/range</th>
+			<th rowspan="2">Description</th>
+			<th colspan="6">Supported devices</th>
+		</tr>
+		<tr>
+			<th>Awinda 2 (Station, Dongle)</th>
+			<th>BodyPack</th>
+			<th>MTmk4</th>
+			<th>MTw2</th>
+			<th>MTx2</th>
+			<th>SyncStation</th>
+		</tr>
+		<tr>
+			<td>XDPI_PacketErrorRate</td>
+			<td>boolean</td>
+			<td>Report packet error rate for each child device.</td>
+			<td>Y</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+		</tr>
+		<tr>
+			<td>XDPI_SyncLossTimeout</td>
+			<td>uint16_t</td>
+			<td>Network timeout in seconds used by connected child devices.<br/>For Awinda2: this timeout is measured by connected MTw2 devices based on received data from the station.</td>
+			<td>Y</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+		</tr>
+		<tr>
+			<td>XDPI_UplinkTimeout</td>
+			<td>uint16_t</td>
+			<td>Network timeout in seconds used by the master devices.<br/>For Awinda2: this timeout is measured based on received data from each connected MTw2 individually.</td>
+			<td>Y</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+		</tr>
+		<tr>
+			<td>XDPI_ExtendedBuffer</td>
+			<td>bool</td>
+			<td>If set, enables the extended buffer on connected MTw2 devices.</td>
+			<td>Y</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+			<td>-</td>
+		</tr>
+	</table>
+*/
+XsResultValue XsDevice::setDeviceParameter(XsDeviceParameter const& parameter)
+{
+	(void)parameter;
+	return XRV_UNSUPPORTED;
+}
+
+/*!	\brief Retrieves the requested parameter's current value
+	\details Retrieving device parameters is only valid after initialization
+	\param parameter: a parameter object, corresponding to a row in the table listed under \a XsDevice::setParameter
+	\return Result value indicating success (XRV_OK) or unsupported with current or current firmware version (XRV_UNSUPPORTED)
+	\sa XsDevice::setParameter
+*/
+XsResultValue XsDevice::deviceParameter(XsDeviceParameter& parameter) const
+{
+	(void)parameter;
+	return XRV_UNSUPPORTED;
 }
 
 /*! \cond XS_INTERNAL */
@@ -3852,6 +4505,21 @@ void XsDevice::reinitializeProcessors()
 	// intentionally empty, private implementation
 }
 
+/*! \brief This function indicates if the device supports retransmissions (at all)
+	\details This is required for the handleDataPacket to deal with missed data properly.
+	\param packetId The ID of the packet that we want to check
+	\return true if a retransmission is expected for the given packet
+	\note Devices that return true are expected to handle their retransmissions properly themselves!
+*/
+bool XsDevice::expectingRetransmissionForPacket(int64_t packetId) const
+{
+	if (isMasterDevice())
+		return false;
+
+	// child devices use their parent's decision
+	return master()->expectingRetransmissionForPacket(packetId);
+}
+
 bool XsDevice::initializeSoftwareCalibration()
 {
 	// intentionally empty, private implementation
@@ -3869,7 +4537,34 @@ XsDevice const* XsDevice::firstChild() const
 {
 	return this;
 }
+
+/*! \brief Tell XDA to interpolate missing items from \a prev to \a pack
+	\param pack The latest received packet
+	\param prev The previously received packet
+	\param packetHandler The function to call with all newly created intermediate and the final packet. packetHandler is expected to take control of its argument.
+	\return true if interpolation was successful, false if it was not
+	\note The default implementation does nothing
+*/
+bool XsDevice::interpolateMissingData(XsDataPacket const& pack, XsDataPacket const& prev, std::function<void (XsDataPacket*)> packetHandler)
+{
+	(void) pack;
+	(void) prev;
+	(void) packetHandler;
+	return false;
+}
 /*! \endcond */
+
+/*! \brief Tell XDA and the device that any data from before \a firstNewPacketId may be lossy
+	\details Tell the device to not request retransmissions of missed data older than the supplied \a firstNewPacketId.
+	If \a firstNewPacketId is beyond the end of the recording or beyond the highest received packet ID,
+	the lower value is used instead. This means that you can't set this for future packets.
+	\param firstNewPacketId The first packet that (if missing) <i>should</i> be retransmitted.
+	\note This applies to master devices that support retransmissions only: Awinda and Bodypack.
+*/
+void XsDevice::discardRetransmissions(int64_t firstNewPacketId)
+{
+	(void) firstNewPacketId;
+}
 
 /*! \brief Returns a bitmask with all the status flags supported by this device
 	\details Not all devices support all status flags. When receiving an XsDataPacket with a status in it,
@@ -3892,6 +4587,29 @@ XsResultValue XsDevice::updatePortInfo(XsPortInfo const& newInfo)
 {
 	(void) newInfo;
 	return XRV_NOTIMPLEMENTED;
+}
+
+/*! \brief Returns the sub-device at index \a index
+	\details This function returns a software-only sub device of a larger device. It could for example return an XsDevice representing a single finger segment of an Xsens Glove.
+	These devices have only limited functionality and are typically only used for data extraction as all communication goes through the main device.
+	\param subDeviceId The sub device id of the device to return. Which ids are valid depends on the type of device, 0 always indicates the main device.
+	\returns A pointer to the found %XsDevice or 0 if the device could not be found or the device does not have sub-devices.
+*/
+XsDevice* XsDevice::subDevice(int subDeviceId) const
+{
+	if (subDeviceId)
+		return nullptr;
+	return const_cast<XsDevice*>(this);
+}
+
+/*! \brief Returns the number of sub-devices of this device
+	\details This function returns the number of software-only sub devices of a larger device.
+	\returns The number of available sub-devices or 0 if none are available
+	\sa subDevice
+*/
+int XsDevice::subDeviceCount() const
+{
+	return 0;
 }
 
 /*! \brief Returns internal meta-data about the recording that some devices store in the mtb logfile

@@ -13,7 +13,24 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   std_msgs
   geometry_msgs
+  nmea_msgs
   sensor_msgs
+  message_generation
+)
+
+
+################################################
+## Declare ROS messages, services and actions ##
+################################################
+
+## Generate messages in the 'msg' folder
+add_message_files(FILES
+  XsStatusWord.msg
+)
+
+## Generate added messages and services with any dependencies listed here
+generate_messages(DEPENDENCIES
+  std_msgs
 )
 
 
@@ -30,12 +47,15 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES xsens_mti_driver
   CATKIN_DEPENDS
+  message_runtime
   roscpp
   tf2
   tf2_ros
+  nmea_msgs
   sensor_msgs
   std_msgs
   geometry_msgs
+  
 #  DEPENDS system_lib
 )
 
@@ -46,8 +66,8 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
   lib/xspublic
+  ${PROJECT_SOURCE_DIR}/include/ #to include headers in the include directory
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -57,7 +77,14 @@ add_executable(
 	src/main.cpp
 	src/xdainterface.cpp
 	src/xdacallback.cpp
+	src/xsens_log_handler.cpp
+  src/ntrip_util.cpp
+  src/xsens_time_handler.cpp
 )
+
+# Specify that xsens_mti_node needs to wait for message headers to be generated
+add_dependencies(xsens_mti_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 target_link_libraries(
 	xsens_mti_node
 	xscontroller
@@ -67,4 +94,31 @@ target_link_libraries(
 	dl
 	${catkin_LIBRARIES}
 )
+
+#############
+## Install ##
+#############
+
+# all install targets should use catkin DESTINATION variables
+# See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
+
+## Mark executables and/or libraries for installation
+install(TARGETS xsens_mti_node
+#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+## Mark cpp header files for installation
+install(DIRECTORY include/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  FILES_MATCHING PATTERN "*.h"
+  PATTERN ".svn" EXCLUDE
+  PATTERN ".git" EXCLUDE
+)
+
+# Mark other files for installation (e.g. launch and bag files, etc.)
+install(DIRECTORY launch/
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
+  PATTERN ".git" EXCLUDE)
 

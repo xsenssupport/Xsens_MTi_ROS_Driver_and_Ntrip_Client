@@ -1,37 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
-//  All rights reserved.
-//  
-//  Redistribution and use in source and binary forms, with or without modification,
-//  are permitted provided that the following conditions are met:
-//  
-//  1.	Redistributions of source code must retain the above copyright notice,
-//  	this list of conditions, and the following disclaimer.
-//  
-//  2.	Redistributions in binary form must reproduce the above copyright notice,
-//  	this list of conditions, and the following disclaimer in the documentation
-//  	and/or other materials provided with the distribution.
-//  
-//  3.	Neither the names of the copyright holders nor the names of their contributors
-//  	may be used to endorse or promote products derived from this software without
-//  	specific prior written permission.
-//  
-//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
-//  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-//  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-//  THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-//  SPECIAL, EXEMPLARY OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
-//  OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-//  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR
-//  TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-//  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.THE LAWS OF THE NETHERLANDS 
-//  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
-//  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
-//  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
-
-
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -141,6 +109,7 @@ XsControl::XsControl()
 	: m_useFakeMessages(true)
 	, m_lastHwError(XRV_OK)
 	, m_lastHwErrorDeviceId(0)
+	, m_recording(false)
 	, m_broadcaster(0)
 	, m_optionsEnable(XSO_Calibrate | XSO_Orientation)
 	, m_optionsDisable(XSO_None)
@@ -315,8 +284,14 @@ void XsControl::flushInputBuffers()
 */
 int XsControl::deviceCount() const
 {
+	int count = 0;
+	for (uint32_t i = 0; i < m_deviceList.size(); i++)
+	{
+		XsDevice* dev = m_deviceList[i];
+		count += 1 + (int) dev->childCount();
+	}
 	m_lastResult = XRV_OK;
-	return static_cast<int>(m_deviceList.size());
+	return count;
 }
 
 /*!
@@ -332,6 +307,10 @@ std::vector<XsDeviceId> XsControl::deviceIds() const
 	{
 		XsDevice const* dev = m_deviceList[index];
 		result.push_back(dev->deviceId());
+		auto childrn = dev->children();
+		for (auto child : childrn)
+			if (child)
+				result.push_back(child->deviceId());
 	}
 	return result;
 }
@@ -447,7 +426,9 @@ int XsControl::mtCount() const
 
 /*!
 	\brief Get the device IDs of the available main devices.
-	Main devices are the devices communicating with the serial port, typically stand-alone MTis.
+
+	Main devices are the devices communicating with the serial port, typically Bodypacks,
+	Awinda Stations and stand-alone MTis or MTxs.
 	\returns a std::vector with the device IDs.
 */
 std::vector<XsDeviceId> XsControl::mainDeviceIds() const
@@ -532,6 +513,34 @@ XsResultValue XsControl::startRestoreCommunication(const XsString& portName)
 void XsControl::stopRestoreCommunication()
 {
 	m_restoreCommunication->stop();
+}
+
+/*! \brief Test if the given \a deviceId is docked
+
+	Only wireless devices can be regarded as docked.
+
+	\param deviceId the ID of the device to investigate
+
+	\returns true if the device is docked, false otherwise
+*/
+bool XsControl::isDeviceDocked(const XsDeviceId& deviceId) const
+{
+	(void)deviceId;
+	return false;
+}
+
+/*!
+	\brief Test if the given \a deviceId is an MTw and if it is wirelessly connected.
+	\details If the device ID is not found, the function returns false and the lastResult value is set.
+
+	\param deviceId the ID of the device to investigate
+
+	\returns true if the device is wirelessly connected, false otherwise
+*/
+bool XsControl::isDeviceWireless(const XsDeviceId& deviceId) const
+{
+	(void)deviceId;
+	return false;
 }
 
 /*! \cond XS_INTERNAL */
@@ -841,6 +850,46 @@ bool XsControl::openImarPort_internal(const XsString&, XsBaudRate, int, uint32_t
 	return false;
 }
 
+/*!
+	\brief Get the device ID of the dock device for the given \a deviceId.
+
+	This function returns the ID of the docking station that deviceId is plugged into.
+	If the docking station itself is not an open port in this XsControl or the device is not
+	plugged into a docking station, the function will return a 0 id.
+
+	\param deviceId the ID of the device to find the dock parent for
+
+	\returns the ID of the device that has \a deviceId docked
+
+	\sa isDeviceDocked
+*/
+XsDeviceId XsControl::dockDeviceId(const XsDeviceId& deviceId) const
+{
+	JLDEBUGG(deviceId.toString().toStdString());
+
+	LockReadWrite portLock(&m_portMutex);
+	portLock.lock(false);
+
+	m_lastResult = XRV_OK;
+	if (!deviceId.isMtw())
+		return XsDeviceId();
+
+	XsDevice* dev = findDevice(deviceId);
+	if (!dev)
+	{
+		m_lastResult = XRV_INVALIDID;
+		return XsDeviceId();
+	}
+
+	for (uint32_t index = 0; index < m_deviceList.size(); ++index)
+	{
+		if (m_deviceList[index]->deviceIsDocked(dev))
+			return m_deviceList[index]->deviceId();
+	}
+
+	return XsDeviceId();
+}
+
 /*!	\brief Sets the current GNSS position of the system
 	\details This function will update the Latitude, Longitude and Altitude of the system and all
 	connected devices. This differs from broadcast()->setInitialPositionLLA() in that the setting is persistent
@@ -890,6 +939,16 @@ XsDevice* XsControl::broadcast() const
 }
 
 /*! \cond XS_INTERNAL */
+/*! \brief Check if there are devices in a recording state and update m_recording accordingly
+*/
+void XsControl::updateRecordingState()
+{
+	for (size_t i = 0 ; i < m_deviceList.size(); ++i)
+		if (m_deviceList[i]->isRecording())
+			m_recording = true;
+
+	m_recording = false;
+}
 
 /*! \brief Find the device info of the supplied \a deviceId and return a pointer to the item in the list
 

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -28,11 +28,11 @@
 //  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
 //  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
 
 #include <ros/ros.h>
 #include "xdainterface.h"
 
+#include <mavros_msgs/RTCM.h>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -44,27 +44,32 @@ Journaller *gJournal = 0;
 
 int main(int argc, char *argv[])
 {
-	ros::init(argc, argv, "xsens_driver");
-	ros::NodeHandle node;
+    ros::init(argc, argv, "xsens_driver");
+    ros::NodeHandle node;
 
-	XdaInterface *xdaInterface = new XdaInterface();
+    // Pass the node to the XdaInterface constructor
+    XdaInterface xdaInterface(node);
 
-	xdaInterface->registerPublishers(node);
+    if (!xdaInterface.connectDevice())
+        return -1;
+    
+    xdaInterface.registerPublishers();
 
-	if (!xdaInterface->connectDevice())
-		return -1;
+    if (!xdaInterface.prepare())
+        return -1;
 
-	if (!xdaInterface->prepare())
-		return -1;
+    ros::Subscriber sub = node.subscribe("/rtcm", 100, &XdaInterface::rtcmCallback, &xdaInterface);
 
-	while (ros::ok())
-	{
-		xdaInterface->spinFor(milliseconds(100));
+    while (ros::ok())
+    {
+        xdaInterface.spinFor(milliseconds(1));
 
-		ros::spinOnce();
-	}
+        ros::spinOnce();
+    }
 
-	delete xdaInterface;
+    xdaInterface.close();
 
-	return 0;
+    return 0;
 }
+
+

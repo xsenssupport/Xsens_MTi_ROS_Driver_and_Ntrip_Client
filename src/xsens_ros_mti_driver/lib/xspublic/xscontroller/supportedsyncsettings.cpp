@@ -1,37 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
-//  All rights reserved.
-//  
-//  Redistribution and use in source and binary forms, with or without modification,
-//  are permitted provided that the following conditions are met:
-//  
-//  1.	Redistributions of source code must retain the above copyright notice,
-//  	this list of conditions, and the following disclaimer.
-//  
-//  2.	Redistributions in binary form must reproduce the above copyright notice,
-//  	this list of conditions, and the following disclaimer in the documentation
-//  	and/or other materials provided with the distribution.
-//  
-//  3.	Neither the names of the copyright holders nor the names of their contributors
-//  	may be used to endorse or promote products derived from this software without
-//  	specific prior written permission.
-//  
-//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
-//  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-//  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-//  THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-//  SPECIAL, EXEMPLARY OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
-//  OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-//  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR
-//  TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-//  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.THE LAWS OF THE NETHERLANDS 
-//  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
-//  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
-//  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
-
-
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -77,7 +45,15 @@ namespace Synchronization
 */
 XsSyncSettingArray supportedSyncSettings(XsDeviceId const& deviceId)
 {
-	if (deviceId.isMtMark5() && deviceId.isMtigX10())
+	if (deviceId.isAwindaXDongle() ||
+		deviceId.isBodyPack())
+		return XsSyncSettingArray();
+
+	if (deviceId.isAwindaX())
+		return supportedSyncSettingsForAwindaBaseStation();
+	else if (deviceId.isSyncStationX())
+		return supportedSyncSettingsForAwindaBaseStation();
+	else if (deviceId.isMtMark5() && deviceId.isMtigX10())
 		return supportedSyncSettingsForMark5MtigX10Device();
 	else if (deviceId.isMtig())
 		return supportedSyncSettingsForMtigDevice();
@@ -113,10 +89,12 @@ bool supportsSyncSettings(XsDeviceId const& deviceId)
 */
 bool isCompatibleSyncSetting(XsDeviceId const& deviceId, XsSyncSetting const& setting1, XsSyncSetting const& setting2)
 {
-	(void)deviceId;
-	(void)setting1;
-	(void)setting2;
-	return true;
+	if (deviceId.isAwindaX())
+		return isAwindaSettingCompatible(setting1, setting2);
+	else if (deviceId.isSyncStationX())
+		return isSyncStationSettingCompatible(setting1, setting2);
+	else
+		return true; // Always compatible for devices other than awinda for now
 }
 
 /*! \returns the time resolution in microseconds for a device with device id \a deviceId
@@ -125,8 +103,14 @@ bool isCompatibleSyncSetting(XsDeviceId const& deviceId, XsSyncSetting const& se
 */
 unsigned int timeResolutionInMicroseconds(XsDeviceId const& deviceId)
 {
-	if (deviceId.isMti() || deviceId.isMtig())
+	if (deviceId.isAwindaX())
+		return awindaTimeResolutionInMicroseconds();
+	else if (deviceId.isSyncStationX())
+		return syncStationTimeResolutionInMicroseconds();
+	else if (deviceId.isMti() || deviceId.isMtig())
 		return mtiTimeResolutionInMicroseconds();
+	else if (deviceId.isMtx2())
+		return mtx2TimeResolutionInMicroseconds();
 	else
 		return 1;
 }
@@ -545,9 +529,146 @@ XsSyncSettingArray supportedSyncSettingsForMtiXDevice()
 	return settings;
 }
 
+/*! \brief get list of supported synchronizations settings for an Awinda base station */
+XsSyncSettingArray supportedSyncSettingsForAwindaBaseStation()
+{
+	XsSyncSetting s;
+	XsSyncSettingArray settings;
+
+	// ----- Input triggers -----
+	std::set<XsSyncFunction> inputSyncFunctions;
+	inputSyncFunctions.insert(XSF_StartRecordingIn);
+	inputSyncFunctions.insert(XSF_StopRecordingIn);
+	inputSyncFunctions.insert(XSF_ResetTimer);
+	inputSyncFunctions.insert(XSF_TriggerIndication);
+
+	for (XsSyncFunction const& syncFunction : inputSyncFunctions)
+	{
+		s.m_line = XSL_In1;
+		s.m_polarity = XSP_RisingEdge;
+		s.m_function = syncFunction;
+		s.m_pulseWidth = 0;
+		s.m_offset = 0;
+		s.m_skipFirst = 1;
+		s.m_skipFactor = 1;
+		s.m_clockPeriod = 0;
+		s.m_triggerOnce = 1;
+
+		settings.push_back(s);
+
+		s.m_line = XSL_In2;
+		s.m_polarity = XSP_RisingEdge;
+		s.m_function = syncFunction;
+		s.m_pulseWidth = 0;
+		s.m_offset = 0;
+		s.m_skipFirst = 1;
+		s.m_skipFactor = 1;
+		s.m_clockPeriod = 0;
+		s.m_triggerOnce = 1;
+
+		settings.push_back(s);
+	}
+
+	// ----- Output triggers -----
+	std::set<XsSyncFunction> outputSyncFunctions;
+	outputSyncFunctions.insert(XSF_StartRecordingOut);
+	outputSyncFunctions.insert(XSF_StopRecordingOut);
+	outputSyncFunctions.insert(XSF_GotoOperational);
+	outputSyncFunctions.insert(XSF_IntervalTransitionMeasurement);
+	outputSyncFunctions.insert(XSF_IntervalTransitionRecording);
+	for (XsSyncFunction const& syncFunction : outputSyncFunctions)
+	{
+		s.m_line = XSL_Out1;
+		s.m_polarity = XSP_RisingEdge;
+		s.m_function = syncFunction;
+		s.m_pulseWidth = 1;
+		s.m_offset = 0;
+		s.m_skipFirst = 1;
+		s.m_skipFactor = 1;
+		s.m_clockPeriod = 0;
+		s.m_triggerOnce = 1;
+
+		settings.push_back(s);
+
+		s.m_line = XSL_Out2;
+		s.m_polarity = XSP_RisingEdge;
+		s.m_function = syncFunction;
+		s.m_pulseWidth = 1;
+		s.m_offset = 0;
+		s.m_skipFirst = 1;
+		s.m_skipFactor = 1;
+		s.m_clockPeriod = 0;
+		s.m_triggerOnce = 1;
+
+		settings.push_back(s);
+	}
+
+	return settings;
+}
+
+/*! \returns true if the awinda settings \a setting1 and \a setting2 are compatible
+	\note This *very* specific for awinda
+	Basically this checks that if a specific function is configured for In1 and In2 (or Out1 and Out2), then the other settings of both should match.
+	This is because this get combined into one function with the line: both setting
+*/
+bool isAwindaSettingCompatible(XsSyncSetting const& setting1, XsSyncSetting const& setting2)
+{
+	bool isCompatible = true;
+	if (setting1.m_function == setting2.m_function)
+	{
+		bool areInputs = (setting1.m_line == XSL_In1 || setting1.m_line == XSL_In2) && (setting2.m_line == XSL_In1 || setting2.m_line == XSL_In2);
+		bool areOutputs = (setting1.m_line == XSL_Out1 || setting1.m_line == XSL_Out2) && (setting2.m_line == XSL_Out1 || setting2.m_line == XSL_Out2);
+		if (areInputs || areOutputs)
+		{
+			if (setting1.m_line != setting2.m_line)
+			{
+				if (setting1.m_polarity != setting2.m_polarity ||
+					setting1.m_pulseWidth != setting2.m_pulseWidth ||
+					setting1.m_offset != setting2.m_offset ||
+					setting1.m_skipFirst != setting2.m_skipFirst ||
+					setting1.m_skipFactor != setting2.m_skipFactor ||
+					setting1.m_clockPeriod != setting2.m_clockPeriod ||
+					setting1.m_triggerOnce != setting2.m_triggerOnce)
+					isCompatible = false;
+			}
+		}
+	}
+	return isCompatible;
+}
+
+/*! \returns true if the sync station settings \a setting1 and \a setting2 are compatible
+	\note This *very* specific for a sync station
+	\sa isAwindaSettingCompatible
+*/
+bool isSyncStationSettingCompatible(XsSyncSetting const& setting1, XsSyncSetting const& setting2)
+{
+	return isAwindaSettingCompatible(setting1, setting2);
+}
+
+/*! \returns the time resolution in microseconds for an awinda device
+*/
+unsigned int awindaTimeResolutionInMicroseconds()
+{
+	return 1000;
+}
+
+/*! \returns the time resolution in microseconds for an sync station device
+*/
+unsigned int syncStationTimeResolutionInMicroseconds()
+{
+	return awindaTimeResolutionInMicroseconds();;
+}
+
 /*! \returns the time resolution in microseconds for an Mtmk4 device
 */
 unsigned int mtiTimeResolutionInMicroseconds()
+{
+	return 100;
+}
+
+/*! \returns the time resolution in microseconds for an Mtx2 device
+*/
+unsigned int mtx2TimeResolutionInMicroseconds()
 {
 	return 100;
 }

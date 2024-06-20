@@ -1,42 +1,251 @@
-## Device settings, provide one of the following:
-##  - device_id (most secure if you use multiple devices)
-##  - port + baudrate information
-##  - nothing: the driver scans for devices and selects the first found.
-# device_id: '077007EF' # uppercase hex string
-# port: '/dev/ttyUSB0'
-# baudrate: 921600 # non necessary for some devices
+# Device Scanning Configuration
+# -----------------------------
+# This section allows you to configure how the ROS driver searches for devices.
+# You have two options:
+# 1. Automatic scanning for devices.
+# 2. Manual specification of port and baudrate.
 
-## Log file (optional), placed in ~/.ros/ otherwise use absolute path
-# log_file: log.mtb
+# Option 1: Automatic Device Scanning
+# If set to 'true', the driver will ignore 'port' and 'baudrate' settings.
+# It will automatically scan all ports and select the first device found.
+scan_for_devices: true
 
+# Option 2: Manual Device Configuration
+# If you prefer to manually specify the device port and baudrate,
+# first set 'scan_for_devices' to 'false', then uncomment and update
+# the 'port' and 'baudrate' settings below according to your device's specifications.
+#
+# To find your device's port, you can use the command: ls -l /dev/ttyUSB*
+#
+# Default baudrate is 115200. You can also use external tools like MT Manager
+# or Cutecom for baudrate configuration. For example, 
+# to set baudrate to 115200, send the command: FA FF 30 00 D1, 
+# or to set it to 921600, send: FA FF 18 01 80 68.
+
+#port: '/dev/ttyUSB0' # Uncomment and set your device's port.
+#baudrate: 115200     # Uncomment and set your device's baudrate.
+
+# Scan and serial communication timeout
+# -------------------------------------
+# the Xsens xspublic library default value is 100ms,  it indicates how long it waits for the reply, 
+# for Jetson Nano, the /dev/ttyTSH1 port needs to set a higher value like 150ms
+# serial_timeout: 150
+
+# Device Scanning Selection
+# ----------------
+# Specify the device ID when operating multiple devices to select a specific one.
+# Format: Uppercase hexadecimal string.
+# Example: device_id: '00800210C2'
+#device_id: '00800210C2' 
+
+# Publisher Configuration
 publisher_queue_size: 5
 
-# TF transform frame_id (default: imu_link), you may want to change it if you use multiple devices
-#frame_id: "imu_link"
+# Time Options
+# ------------
+# Choose how timestamps are generated for the ROS Node:
+# 1) 0: Use UTCTime from MTI, recommended for accurate time synchronization.
+# 2) 1: Use UTCTime based on the SampleTimeFine from MTI.
+# 3) 2: Use UTCTime from the host device.
+# Note: Ensure "UTC Time" or "Sample Time Fine" is selected in MT Manager under Device Settings > Output Configurations, 
+# or you could also set 'enable_outputConfig: true' for once to configure output.
+time_option: 0
 
-# Message publishers
+# Logging Configuration
+# ---------------------
+# Enable or disable logging of sensor data into .mtb file. If enabled, logs are stored in /home/[user_name]/Documents/xsens_log.
+enable_logging: false
+
+# Transform Frame ID
+# ------------------
+# Default frame_id is "imu_link". Change this if using multiple devices to avoid conflicts.
+# frame_id: "imu_link"
+
+
+# Sensor Configuration
+# ---------------------------
+# If you want to configure your sensor, firstly set this flag to true, then change desired values for the parameters below.
+# Note: This configuration is required only once, once it is successful, the configurations are stored in the sensor, then you could set this to false.
+enable_deviceConfig: false
+
+# Sensor Extended Kalman Filter Option Configurations:
+# --------------------------
+# ref: https://base.movella.com/s/article/article/MTi-Filter-Profiles-1605869708823
+# If you want to configure the filter option, firstly set the 'enable_filter_config', then:
+# For MTi-3/7/8/30/300/G-710/670(G)/680(G): change the 'mti_filter_option' to desired index below for your model.
+# For MTi-620(R)/MTi-630(R): change the 'mti620630filterlabel_rollpitch' and 'mti620630filterlabel_yaw' to the exact labels.
+enable_filter_config: false
+# ---------------------------
+# For MTi-670(G): 3 options: 0 = "General", 1 = "GeneralNoBaro", 2 = "GeneralMag"
+# For MTi-680(G), 3 options: 0 = "General_RTK", 1 = "GeneralNoBaro_RTK", 2 = "GeneralMag_RTK"
+# For MTi-3: 4 options: 0 = "general", 1 = "high_mag_dep", 2 = "dynamic", 3 = "north_reference", 4 = "vru_general"
+# For MTi-7:  3 options: 0 = "General", 1 = "GeneralMag",  2 = "GeneralNoBaro"
+# For MTi-8: 3 options: 0 = "General_RTK", 1 = "GeneralNoBaro_RTK", 2 = "GeneralMag_RTK"
+# For MTi-300: 0 = "general", 1 = "high_mag_dep", 2 = "dynamic", 3 = "lwo_mag_dep", 4 = "vru_general"
+# For MTI-G-710: 3 options: 0 = "General", 1 = "GeneralNoBaro",  2 = "GeneralMag", 3 = "Automotive", 4 = "HighPerformanceEDR"
+mti_filter_option: 0
+
+# For MTi-620(R) and MTi-630(R) roll pitch options: "Responsive", "General", "Robust"
+mti620630filterlabel_rollpitch: "Robust"
+# MTI-620(R) yaw has 2 options: "VRU", "VRUAHS" 
+# MTI-630(R) yaw has 3 options: "FixedMagRef", "NorthReference", "VRU", "VRUAHS" 
+mti620630filterlabel_yaw: "NorthReference"
+
+
+# MTi-2/320/200: filter only has VRU, you could enable the AHS options:
+# valid for MTI-2/3/320, MTi-20/30, MTI-200/300 when using the VRU filter options.
+enable_active_heading_stabilization: false
+
+
+# GNSS Lever Arm Configuration 
+# -----------------------------------------------
+# Note: Adjust the GNSS lever arm settings only if the antenna's position relative to the sensor has changed.
+
+# GNSS Lever Arm (meters): [X, Y, Z]
+# Applicable to: MTi-8/680(G)
+# Default: [0.0, 0.0, 0.0] for unchanged antenna position.
+GNSS_LeverArm: [0.0, 0.0, 0.0] 
+
+# u-blox GNSS Platform Settings
+# -----------------------------
+# Options:
+# 0 = Portable
+# 2 = Stationary
+# 3 = Pedestrian
+# 4 = Automotive
+# 5 = AtSea
+# 6 = Airborne < 1g
+# 7 = Airborne < 2g
+# 8 = Airborne < 4g
+# 9 = Wrist
+# Applicable to: MTi-7/8/670(G)/680(G)/G-710 (GNSS/INS versions).
+ublox_platform: 4 
+
+# u-blox GNSS Receiver Settings
+# -----------------------------
+# If set true: Enables Beidou, disables GLONASS
+# If set false: Disables Beidou, enables GLONASS
+# valid for MTi-7/8/670/680/710
+enable_beidou: false
+
+
+# Message Publishers, Also the output configurations if enable_outputConfig is set to true
+# ------------------
+# Enable or disable publication of various sensor data:
+pub_utctime: true
+pub_sampletime: true
 pub_imu: true
 pub_quaternion: true
-pub_mag: true
+pub_euler: true
+pub_free_acceleration: true
 pub_angular_velocity: true
 pub_acceleration: true
-pub_free_acceleration: true
-pub_dq: true
-pub_dv: true
-pub_sampletime: true
+pub_dq: false
+pub_dv: false
+pub_mag: true
 pub_temperature: true
-pub_pressure: true
-pub_gnss: true
-pub_twist: true
+pub_pressure: false
+pub_accelerationhr: false #High Rate Data Acceleration, when this is true, set enable_high_rate to true as well
+pub_angular_velocity_hr: false #High Rate Data Angular Velocity,  when this is true, set enable_high_rate to true as well
 pub_transform: true
-pub_positionLLA: true
-pub_velocity: true
+pub_status: true
+pub_twist: true         # For GNSS/INS Version of MTI only
+pub_gnss: true          # For GNSS/INS Version of MTI only
+pub_positionLLA: true   # For GNSS/INS Version of MTI only
+pub_velocity: true      # For GNSS/INS Version of MTI only
+pub_nmea: true          # For GNSS/INS Version of MTI only
+pub_gnsspose: true      # For GNSS/INS Version of MTI only
 
 
-## Sensor standard deviation [x,y,z] (optional)
-## This value is used to override the covariance matrix in sensor_msgs/Imu and
-## sensor_msgs/MagneticField messages.
-# linear_acceleration_stddev: [0, 0, 0] # [m/s^2]
-# angular_velocity_stddev: [0, 0, 0] # [rad/s]
-# orientation_stddev: [0, 0, 0] # [rad]
-# magnetic_field_stddev: [0, 0, 0] # [Tesla]
+
+# Output Data Rate
+# ----------------
+# Set the desired output data rate in Hz. The driver will automatically configure the device to match this rate. 
+# options for MTi-610/620/630/670/680/710 quaternion/euler/temperature/dq/dv/rateofturn/acc/free_acc: 1, 2, 4, 5, 8, 10, 16, 20, 25, 40, 50, 80, 100, 200, 400
+# options for MTi-670/680/710 position/velocity: 1, 2, 4, 5, 8, 10, 16, 20, 25, 40, 50, 80, 100, 200, 400
+# Change 'output_data_rate' if you are using mti-600 or 100 series
+output_data_rate: 100
+# options for MTi-1/2/3/7/8: 1, 2, 4, 5, 10, 20, 25, 50, 100
+# options for MTi-600 and 710 series: mag, baro pressure, max 100Hz:1, 2, 4, 5, 10, 20, 25, 50, 100
+# options for MTi-7/8 series: baro pressure, max 50Hz:1, 2, 5, 10, 25, 50
+# Change 'output_data_rate_lower' if you are using mti-1 series or if you want to change output rate for mag, baro for other product series
+output_data_rate_lower: 100
+# Change 'output_data_rate_baro_mtione' if you use mti-7/8 only.
+output_data_rate_baro_mtione: 50
+
+# High Rate Data for AccelerationHR and RateOfTurn:
+# ------------------------------------------------
+# if you want to enable high rate data, firstly change the 'enable_high_rate' to true, then change the data rate according to your sensor model.
+enable_high_rate: false
+#options for MTi-1 v2: 800, 400, 200, 160
+#options for MTi-1 v3: 1000, 500, 250, 200, 125
+#options for MTi-600: 2000, 1000, 500
+#option for MTi-100/200/300: 1000
+output_data_rate_acchr: 1000
+#options for MTi-1 v2: 800, 400, 200, 160
+#options for MTi-1 v3: 1000, 500, 250, 200, 125
+#options for MTI-600: 1600, 800
+#option for MTi-100/200/300: 1000
+output_date_rate_gyrohr: 800
+
+
+# Filtering Option Flags 
+# -------------------------------------
+enable_orientation_smoother: true #valid for MTi-G-710, MTi-670(G), MTi-680(G)
+enable_position_velocity_smoother: true #valid for MTi-680(G) only
+enable_continuous_zero_rotation_update: true #valid for MTi-680(G) only
+
+# Other option flags:
+# valid for MTi-2/3/7/8/20/30/620/630/670/680/200/300/710
+enable_inrun_compass_calibration: false
+
+
+# Set baudrate
+# ---------------
+#This is necessary if you have hig output rate, and if you see error message of 'data overflow' 
+enable_setting_baudrate: false
+#options: 115200, 230400, 460800, 921600, 2000000
+set_baudrate_value: 921600
+
+
+# Manual Gyro Bias Estimation (MGBE) Configuration
+# ------------------------------------------------
+
+# Enable or disable manual gyro bias estimation.
+# If enabled, specify the 'event_interval' and 'duration' in 'manual_gyro_bias_param'.
+enable_manual_gyro_bias: false
+
+# Parameters for manual gyro bias estimation:
+# - 'event_interval': Time in seconds between two consecutive invocations.
+# - 'duration': Time in seconds for which the MGBE process executes each time.
+#   The minimum value for 'event_interval' is 10 seconds, for 'duration' is 2 seconds.
+manual_gyro_bias_param: [10, 3] # [event_interval, duration]
+
+# Monitoring MGBE Success:
+# To verify if MGBE was successful, use 'rostopic echo /status'.
+# If the 'no_rotation_update_status' changes from 3 to 0, MGBE was successful.
+
+
+
+# Sensor Standard Deviation (Optional)
+# ------------------------------------
+# Override the covariance matrix in sensor_msgs/Imu and sensor_msgs/MagneticField messages:
+linear_acceleration_stddev: [0.0, 0.0, 0.0] # [m/s^2] Standard deviation for linear acceleration
+angular_velocity_stddev: [0.0, 0.0, 0.0]   # [rad/s] Standard deviation for angular velocity
+orientation_stddev: [0.0, 0.0, 0.0]        # [rad]   Standard deviation for orientation
+magnetic_field_stddev: [0.0, 0.0, 0.0]     # [Tesla] Standard deviation for magnetic field
+
+
+
+
+##Popular Xbus command
+# 1) GoToConfig: FA FF 30 00 D1, GoToMeasurement: FA FF 10 00 F1
+# 2) SetBaudrate: FA FF 18 01 80 68 (921k6) or FA FF 18 01 02 E6 (115k2) 
+# 3) Set Filter Profile for MTi-680(G) with GeneralMag_RTK: FA FF 64 0E 47 65 6E 65 72 61 6C 4D 61 67 5F 52 54 4B 6C
+# 4) RestoreFactoryDef: FA FF 0E 00 F3
+# 5) SetOutputConfiguration 
+## 5.1) MTi-670(G)/680(G)/MTi-G-710, 400Hz: FA FF C0 34 10 20 FF FF 10 60 FF FF 10 10 FF FF 20 10 01 90 40 20 01 90 80 20 01 90 C0 20 00 64 08 10 01 90 E0 20 FF FF 50 42 01 90 50 22 01 90 D0 12 01 90 70 10 FF FF 6E
+## 5.2) MTi-7/8/670(G)/680(G)/MTi-G-710, 100Hz:  FA FF C0 34 10 20 FF FF 10 60 FF FF 10 10 FF FF 20 10 00 64 40 20 00 64 80 20 00 64 C0 20 00 64 08 10 00 64 E0 20 FF FF 50 42 00 64 50 22 00 64 D0 12 00 64 70 10 FF FF A9
+## 5.3) MTi-630(R)/MTi-300, 400Hz: FA FF C0 24 10 20 FF FF 10 60 FF FF 10 10 FF FF 20 10 01 90 40 20 01 90 80 20 01 90 C0 20 00 64 08 10 01 90 E0 20 FF FF 95
+## 5.4) MTi-3/630(R)/MTi-300, 100Hz: FA FF C0 24 10 20 FF FF 10 60 FF FF 10 10 FF FF 20 10 00 64 40 20 00 64 80 20 00 64 C0 20 00 64 08 10 00 64 E0 20 FF FF 49
+
