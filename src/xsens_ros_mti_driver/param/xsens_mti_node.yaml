@@ -1,0 +1,42 @@
+## Device settings, provide one of the following:
+##  - device_id (most secure if you use multiple devices)
+##  - port + baudrate information
+##  - nothing: the driver scans for devices and selects the first found.
+# device_id: '077007EF' # uppercase hex string
+# port: '/dev/ttyUSB0'
+# baudrate: 921600 # non necessary for some devices
+
+## Log file (optional), placed in ~/.ros/ otherwise use absolute path
+# log_file: log.mtb
+
+publisher_queue_size: 5
+
+# TF transform frame_id (default: imu_link), you may want to change it if you use multiple devices
+#frame_id: "imu_link"
+
+# Message publishers
+pub_imu: true
+pub_quaternion: true
+pub_mag: true
+pub_angular_velocity: true
+pub_acceleration: true
+pub_free_acceleration: true
+pub_dq: true
+pub_dv: true
+pub_sampletime: true
+pub_temperature: true
+pub_pressure: true
+pub_gnss: true
+pub_twist: true
+pub_transform: true
+pub_positionLLA: true
+pub_velocity: true
+
+
+## Sensor standard deviation [x,y,z] (optional)
+## This value is used to override the covariance matrix in sensor_msgs/Imu and
+## sensor_msgs/MagneticField messages.
+# linear_acceleration_stddev: [0, 0, 0] # [m/s^2]
+# angular_velocity_stddev: [0, 0, 0] # [rad/s]
+# orientation_stddev: [0, 0, 0] # [rad]
+# magnetic_field_stddev: [0, 0, 0] # [Tesla]
