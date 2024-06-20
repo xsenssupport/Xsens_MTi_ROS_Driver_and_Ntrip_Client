@@ -45,7 +45,7 @@
 #include "ntrip_util.h"
 #include "cmake_definition.h"
 
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
 
 namespace libntrip
 {
@@ -83,20 +83,20 @@ namespace libntrip
         server_addr.sin_port = htons(server_port_);
         if (!resolve_hostname(server_ip_, server_addr)) 
         {
-            ROS_ERROR("Failed to resolve server IP/hostname");
+            RCLCPP_ERROR(rclcpp::get_logger("NtripClient"), "Failed to resolve server IP/hostname");
             return false;
         }
         int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
         if (socket_fd == -1)
         {
-            ROS_ERROR("Create socket failed, errno = -%d", errno);
+            RCLCPP_ERROR(rclcpp::get_logger("NtripClient"), "Create socket failed, errno = -%d", errno);
             return false;
         }
         if (connect(socket_fd, reinterpret_cast<struct sockaddr *>(&server_addr),
                     sizeof(server_addr)) < 0)
         {
-            ROS_ERROR("Connect to NtripCaster[%s:%d] failed, errno = -%d", 
-          server_ip_.c_str(), server_port_, errno);
+            RCLCPP_ERROR(rclcpp::get_logger("NtripClient"), "Connect to NtripCaster[%s:%d] failed, errno = -%d",
+           server_ip_.c_str(), server_port_, errno);
             close(socket_fd);
             return false;
         }
@@ -119,10 +119,10 @@ namespace libntrip
                        "\r\n",
                        mountpoint_.c_str(), kClientAgent, user_passwd_base64.c_str());
 
-        ROS_INFO("send %s", buffer.get());
+        RCLCPP_INFO(rclcpp::get_logger("NtripClient"), "send %s", buffer.get());
         if (send(socket_fd, buffer.get(), ret, 0) < 0)
         {
-            ROS_ERROR("Send request failed!!!");
+            RCLCPP_ERROR(rclcpp::get_logger("NtripClient"), "Send request failed!!!");
             close(socket_fd);
             return false;
         }
@@ -137,17 +137,17 @@ namespace libntrip
                 if ((result.find("HTTP/1.1 200 OK") != std::string::npos) ||
                     (result.find("ICY 200 OK") != std::string::npos))
                 { 
-                    // ROS_INFO("Send gpgga data ok");
+                    //RCLCPP_INFO(rclcpp::get_logger("NtripClient"), "Send gpgga data ok");
                     break;
                 }
                 else
                 {
-                    ROS_INFO("Request result: %s", result.c_str());
+                    RCLCPP_INFO(rclcpp::get_logger("NtripClient"), "Request result: %s", result.c_str());
                 }
             }
             else if (ret == 0)
             {
-                ROS_ERROR("Remote socket close!!!");
+                RCLCPP_ERROR(rclcpp::get_logger("NtripClient"), "Remote socket close!!!");
                 close(socket_fd);
                 return false;
             }
@@ -155,9 +155,8 @@ namespace libntrip
         }
         if (timeout <= 0)
         {
-            ROS_ERROR("NtripCaster[%s:%d %s %s %s] access failed!!!", 
-                    server_ip_.c_str(), server_port_, 
-                    user_.c_str(), passwd_.c_str(), mountpoint_.c_str());
+            RCLCPP_ERROR(rclcpp::get_logger("NtripClient"), "NtripCaster[%s:%d %s %s %s] access failed!!!",
+       server_ip_.c_str(), server_port_, user_.c_str(), passwd_.c_str(), mountpoint_.c_str());
             close(socket_fd);
             return false;
         }
@@ -202,20 +201,20 @@ namespace libntrip
         auto tp_beg = std::chrono::steady_clock::now();
         auto tp_end = tp_beg;
         int intv_ms = report_interval_ * 1000;
-        ROS_INFO("NtripClient service running...");
+        RCLCPP_INFO(rclcpp::get_logger("NtripClient"), "NtripClient service running...");
         while (service_is_running_.load())
         {
             ret = recv(socket_fd_, buffer.get(), kBufferSize, 0);
             if (ret == 0)
             {
-                ROS_ERROR("Remote socket close!!!");
+                RCLCPP_ERROR(rclcpp::get_logger("NtripClient"), "Remote socket close!!!");
                 break;
             }
             else if (ret < 0)
             {
                 if ((errno != EAGAIN) && (errno != EWOULDBLOCK) && (errno != EINTR))
                 {
-                    ROS_ERROR("Remote socket error!!!");
+                    RCLCPP_ERROR(rclcpp::get_logger("NtripClient"), "Remote socket error!!!");
                     break;
                 }
             }
@@ -234,14 +233,15 @@ namespace libntrip
 
                 if (gnss_data_received_) // Modify the condition here
                 {
-                    ROS_INFO("ntrip_client.cpp, line 237: send GPGGA to Ntrip Caster: %s", gga_buffer_.c_str());
+                    RCLCPP_INFO(rclcpp::get_logger("NtripClient"), "ntrip_client.cpp, line 236: send GPGGA to Ntrip Caster: %s", gga_buffer_.c_str());
                     send(socket_fd_, gga_buffer_.c_str(), gga_buffer_.size(), 0);
                 }
                 send(socket_fd_, gga_buffer_.c_str(), gga_buffer_.size(), 0);
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        ROS_INFO("NtripClient service done.");
+        RCLCPP_INFO(rclcpp::get_logger("NtripClient"), "NtripClient service done.");
+        
         service_is_running_.store(false);
     }
 
@@ -256,7 +256,8 @@ namespace libntrip
 
         err = getaddrinfo(hostname.c_str(), NULL, &hints, &res);
         if (err != 0) {
-            ROS_ERROR("Failed to resolve hostname, error: %s", gai_strerror(err));
+            RCLCPP_ERROR(rclcpp::get_logger("NtripClient"), "Failed to resolve hostname, error: %s", gai_strerror(err));
+
             return false;
         }
 

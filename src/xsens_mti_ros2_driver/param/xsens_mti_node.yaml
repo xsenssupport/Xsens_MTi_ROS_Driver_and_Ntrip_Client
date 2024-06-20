@@ -1,0 +1,54 @@
+/**:
+    ros__parameters:
+        ## Device settings, provide one of the following:
+        ##  - scan_for devices = 
+        ##          true:   the driver ignores port and baudrate settings, scans for devices on all ports and selects the first found
+        ##          false: = Requires correct port and baudrate both to be specified
+        scan_for_devices: true
+        port: "" # port name, e.g. '/dev/ttyUSB0'
+        baudrate: 115200 # non necessary for some devices
+
+        ## Log file (optional), placed in /home/[user_name]/Documents/xsens_log
+        #should_log: true
+
+        publisher_queue_size: 5
+
+
+        ##timestamp option: 1)mti_utc: UTCTime from MTI; 2) mti_sampletime: UTCTime based on the SampleTimeFine from MTI; 3) other: UTCTime from host device
+        ## make sure you have selected "UTC Time" or "Sample Time Fine" at MT Manager - Device Settings - Output Configurations.
+        time_option: "mti_utc"
+
+        # TF transform frame_id (default: imu_link), you may want to change it if you use multiple devices
+        #frame_id: "imu_link"
+
+        # Message publishers
+        pub_imu: true
+        pub_quaternion: true
+        pub_mag: true
+        pub_angular_velocity: true
+        pub_acceleration: true
+        pub_free_acceleration: true
+        ub_dq: true
+        pub_dv: true
+        pub_sampletime: true
+        pub_temperature: true
+        pub_pressure: true
+        pub_gnss: true
+        pub_twist: true
+        pub_transform: true
+        pub_positionLLA: true
+        pub_velocity: true
+        pub_status: true
+        pub_nmea: true
+        pub_gnsspose: true
+        pub_utctime: true
+
+
+
+        ## Sensor standard deviation [x,y,z] (optional)
+        ## This value is used to override the covariance matrix in sensor_msgs/Imu and
+        ## sensor_msgs/MagneticField messages.
+        linear_acceleration_stddev: [0.0, 0.0, 0.0] # [m/s^2]
+        angular_velocity_stddev: [0.0, 0.0, 0.0] # [rad/s]
+        orientation_stddev: [0.0, 0.0, 0.0] # [rad]
+        magnetic_field_stddev: [0.0, 0.0, 0.0] # [Tesla]
