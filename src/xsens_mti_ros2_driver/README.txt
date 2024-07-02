@@ -82,6 +82,28 @@ Running:
 	   $sudo modprobe usbserial
 	   $sudo insmod ./xsens_mt.ko
 
+    - The MTi-10/20/30 or MTi-100/200/300 or MTi-G-710 is not recognized.
+        $ git clone https://github.com/xsens/xsens_mt.git
+        $ cd xsens_mt
+        
+        You may need to install the kernel headers for 
+        your running kernel version to ensure that you have all the necessary files to 
+        compile the module:
+	   $sudo apt-get install linux-headers-$(uname -r)
+   
+        For Linux Kernal version >5.3(15 September 2019), check your version `uname -r`, change this line in the `Makefile` of xsens_mt:
+	   ```make
+	   $(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules
+	   ```
+	   To:
+	   ```make
+	   $(MAKE) -C $(KDIR) M=$(PWD) modules
+	   ```
+	 Then:
+	   $sudo make HAVE_LIBUSB=1
+	   $sudo modprobe usbserial
+	   $sudo insmod ./xsens_mt.ko
+
     - The device is recognized, but I cannot ever access the device -
 
         Make sure you are in the correct group (often dialout or uucp) in order to
