@@ -1,4 +1,4 @@
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -42,14 +42,14 @@ struct StatusPublisher : public PacketCallback
     rclcpp::Publisher<xsens_mti_ros2_driver::msg::XsStatusWord>::SharedPtr pub;
     //std::string frame_id = DEFAULT_FRAME_ID;
 
-    StatusPublisher(rclcpp::Node &node)
+    StatusPublisher(rclcpp::Node::SharedPtr node)
     {
         int pub_queue_size = 5;
 
-        node.get_parameter("publisher_queue_size", pub_queue_size);
-        //node.get_parameter("frame_id", frame_id);
+        node->get_parameter("publisher_queue_size", pub_queue_size);
+        //node->get_parameter("frame_id", frame_id);
 
-        pub = node.create_publisher<xsens_mti_ros2_driver::msg::XsStatusWord>("/status", pub_queue_size);
+        pub = node->create_publisher<xsens_mti_ros2_driver::msg::XsStatusWord>("/status", pub_queue_size);
     }
 
     void parseToMessage(xsens_mti_ros2_driver::msg::XsStatusWord &msg, uint32_t status)

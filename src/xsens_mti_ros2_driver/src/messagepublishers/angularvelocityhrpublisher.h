@@ -27,21 +27,45 @@
 //  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
 //  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
 
 
-#ifndef PACKETCALLBACK_H
-#define PACKETCALLBACK_H
+#ifndef ANGULARVELOCITYHRPUBLISHER_H
+#define ANGULARVELOCITYHRPUBLISHER_H
 
-#include <rclcpp/rclcpp.hpp>
-#include <xstypes/xsdatapacket.h>
+#include "packetcallback.h"
+#include <geometry_msgs/msg/vector3_stamped.hpp>
 
-const char* DEFAULT_FRAME_ID = "imu_link";
-
-class PacketCallback
+struct AngularVelocityHRPublisher : public PacketCallback
 {
-    public:
-        virtual void operator()(const XsDataPacket &, rclcpp::Time) = 0;
+    rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub;
+    std::string frame_id = DEFAULT_FRAME_ID;
+
+    AngularVelocityHRPublisher(rclcpp::Node::SharedPtr node)
+    {
+        int pub_queue_size = 5;
+        node->get_parameter("publisher_queue_size", pub_queue_size);
+        pub = node->create_publisher<geometry_msgs::msg::Vector3Stamped>("/imu/angular_velocity_hr", pub_queue_size);
+        node->get_parameter("frame_id", frame_id);
+    }
+
+    void operator()(const XsDataPacket &packet, rclcpp::Time timestamp)
+    {
+        if (packet.containsRateOfTurnHR())
+        {
+            geometry_msgs::msg::Vector3Stamped msg;
+
+            msg.header.stamp = timestamp;
+            msg.header.frame_id = frame_id;
+
+            XsVector gyro_hr = packet.rateOfTurnHR();
+
+            msg.vector.x = gyro_hr[0];
+            msg.vector.y = gyro_hr[1];
+            msg.vector.z = gyro_hr[2];
+
+            pub->publish(msg);
+        }
+    }
 };
 
 #endif

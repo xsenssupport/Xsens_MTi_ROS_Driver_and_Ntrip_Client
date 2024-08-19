@@ -41,13 +41,13 @@ class XsensTimeHandler
 public:
     XsensTimeHandler();
     rclcpp::Time convertUtcTimeToRosTime(const XsDataPacket &packet);
-    void setTimeOption(const std::string &option);
+    void setTimeOption(const int&option);
     void setRollover(const uint32_t &rollOver);
 
 private:
-    std::string time_option;
-    rclcpp::Time firstUTCTimestamp;
-    uint32_t prevSampleTimeFine;
+    int m_time_option;
+    rclcpp::Time m_firstUTCTimestamp;
+    uint32_t m_prevSampleTimeFine;
     bool isFirstFrame;
     uint32_t m_RollOver = 0xFFFFFFFF;  // 2^32-1
     mutable std::mutex m_mutex; // Mutex to protect the shared state

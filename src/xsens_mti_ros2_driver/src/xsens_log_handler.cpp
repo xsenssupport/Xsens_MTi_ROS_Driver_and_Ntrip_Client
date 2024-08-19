@@ -1,4 +1,3 @@
-
 //  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  

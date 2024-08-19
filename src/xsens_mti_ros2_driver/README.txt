@@ -9,7 +9,7 @@ Prerequisites:
     - C++11
 
 Building:
-    - Copy xsens_ros2_mti_driver folder into your colcon workspace 'src' folder, if you have the RTK GNSS/INS sensor model like MTi-8 or MTi-680/680G, please also copy the ntrip folder.
+    - Copy xsens_ros2_mti_driver folder and ntrip folder(for MTi-680(G)/MTi-8 only) into your colcon workspace 'src' folder, if you have the RTK GNSS/INS sensor model like MTi-8 or MTi-680/680G, please also copy the ntrip folder.
         Make sure the permissions are set to o+rw on your files and directories.
         $ sudo chmod -R o+rw xsens_ros2_mti_driver/
 
@@ -26,7 +26,7 @@ Running:
     - Configure your MTi device to output desired data (e.g. for display example - orientation output)
 
     - Launch the Xsens MTi driver from your colcon workspace:
-            $ ros2 launch xsens_mti_ros2_driver display.launch.py
+            $ ros2 launch xsens_mti_ros2_driver xsens_mti_node.launch.py
 
         After the device has been detected, you can communicate with it from another process / terminal window.
         For example:
@@ -69,36 +69,6 @@ Running:
         compile the module:
 	   $sudo apt-get install linux-headers-$(uname -r)
    
-        For Linux Kernal version >5.3(15 September 2019), check your version `uname -r`, change this line in the `Makefile` of xsens_mt:
-	   ```make
-	   $(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules
-	   ```
-	   To:
-	   ```make
-	   $(MAKE) -C $(KDIR) M=$(PWD) modules
-	   ```
-	 Then:
-	   $sudo make HAVE_LIBUSB=1
-	   $sudo modprobe usbserial
-	   $sudo insmod ./xsens_mt.ko
-
-    - The MTi-10/20/30 or MTi-100/200/300 or MTi-G-710 is not recognized.
-        $ git clone https://github.com/xsens/xsens_mt.git
-        $ cd xsens_mt
-        
-        You may need to install the kernel headers for 
-        your running kernel version to ensure that you have all the necessary files to 
-        compile the module:
-	   $sudo apt-get install linux-headers-$(uname -r)
-   
-        For Linux Kernal version >5.3(15 September 2019), check your version `uname -r`, change this line in the `Makefile` of xsens_mt:
-	   ```make
-	   $(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules
-	   ```
-	   To:
-	   ```make
-	   $(MAKE) -C $(KDIR) M=$(PWD) modules
-	   ```
 	 Then:
 	   $sudo make HAVE_LIBUSB=1
 	   $sudo modprobe usbserial

@@ -27,21 +27,45 @@
 //  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
 //  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
 
 
-#ifndef PACKETCALLBACK_H
-#define PACKETCALLBACK_H
+#ifndef ACCELERATIONHRPUBLISHER_H
+#define ACCELERATIONHRPUBLISHER_H
 
-#include <rclcpp/rclcpp.hpp>
-#include <xstypes/xsdatapacket.h>
+#include "packetcallback.h"
+#include <geometry_msgs/msg/vector3_stamped.hpp>
 
-const char* DEFAULT_FRAME_ID = "imu_link";
-
-class PacketCallback
+struct AccelerationHRPublisher : public PacketCallback
 {
-    public:
-        virtual void operator()(const XsDataPacket &, rclcpp::Time) = 0;
+    rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub;
+    std::string frame_id = DEFAULT_FRAME_ID;
+
+    AccelerationHRPublisher(rclcpp::Node::SharedPtr node)
+    {
+        int pub_queue_size = 5;
+        node->get_parameter("publisher_queue_size", pub_queue_size);
+        pub = node->create_publisher<geometry_msgs::msg::Vector3Stamped>("/imu/acceleration_hr", pub_queue_size);
+        node->get_parameter("frame_id", frame_id);
+    }
+
+    void operator()(const XsDataPacket &packet, rclcpp::Time timestamp)
+    {
+        if (packet.containsAccelerationHR())
+        {
+            geometry_msgs::msg::Vector3Stamped msg;
+
+            msg.header.stamp = timestamp;
+            msg.header.frame_id = frame_id;
+
+            XsVector accelHR = packet.accelerationHR();
+
+            msg.vector.x = accelHR[0];
+            msg.vector.y = accelHR[1];
+            msg.vector.z = accelHR[2];
+
+            pub->publish(msg);
+        }
+    }
 };
 
 #endif

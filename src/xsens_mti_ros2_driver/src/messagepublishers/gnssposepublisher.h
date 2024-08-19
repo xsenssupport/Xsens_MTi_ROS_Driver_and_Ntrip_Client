@@ -1,4 +1,4 @@
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -27,7 +27,7 @@
 //  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
 //  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
+
 
 #ifndef GNSSPOSEPUBLISHER_H
 #define GNSSPOSEPUBLISHER_H
@@ -40,14 +40,14 @@ struct GNSSPOSEPublisher : public PacketCallback
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub;
     std::string frame_id = DEFAULT_FRAME_ID;
 
-    GNSSPOSEPublisher(rclcpp::Node &node)
+    GNSSPOSEPublisher(rclcpp::Node::SharedPtr node)
     {
         int pub_queue_size = 5;
 
-        node.get_parameter("publisher_queue_size", pub_queue_size);
-        node.get_parameter("frame_id", frame_id);
+        node->get_parameter("publisher_queue_size", pub_queue_size);
+        node->get_parameter("frame_id", frame_id);
 
-        pub = node.create_publisher<geometry_msgs::msg::PoseStamped>("/gnss_pose", pub_queue_size);
+        pub = node->create_publisher<geometry_msgs::msg::PoseStamped>("/gnss_pose", pub_queue_size);
 
         
     }

@@ -1,4 +1,3 @@
-
 //  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
@@ -29,35 +28,6 @@
 //  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
 //  
-// BSD 3-Clause License
-//
-// Copyright (c) 2021, BlueSpace.ai, Inc.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice, this
-//    list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright notice,
-//    this list of conditions and the following disclaimer in the documentation
-//    and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the copyright holder nor the names of its
-//    contributors may be used to endorse or promote products derived from
-//    this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 #include "xdacallback.h"
@@ -65,14 +35,27 @@
 #include <xscontroller/xsdevice_def.h>
 #include <xstypes/xsdatapacket.h>
 
-XdaCallback::XdaCallback(rclcpp::Node& node, size_t maxBufferSize)
+XdaCallback::XdaCallback(rclcpp::Node::SharedPtr node, size_t maxBufferSize)
 	: m_maxBufferSize(maxBufferSize)
 	, parent_node(node)
 {
-	std::string time_option;
-	node.declare_parameter<std::string>("time_option", "mti_utc");
-	node.get_parameter("time_option", time_option);
+	int time_option = 0; //default is "mti_utc"
+	parent_node->declare_parameter<int>("time_option", 0);
+	parent_node->get_parameter("time_option", time_option);
 	m_timeHandler.setTimeOption(time_option);
+	//if else to check time_option rosinfo to print time_option
+	if (time_option == 0)
+	{
+		RCLCPP_INFO(parent_node->get_logger(), "Rosnode time_option parameter is utc time from MTi");
+	}
+	else if (time_option == 1)
+	{
+		RCLCPP_INFO(parent_node->get_logger(), "Rosnode time_option parameter is sample time fine from MTi");
+	}
+	else
+	{
+		RCLCPP_WARN(parent_node->get_logger(), "Rosnode time_option parameter is using host controller's ros time, not recommended, use MT Manager - Device Settings - Output Configurations to select utc time or sample time fine, and set time_option to 0 or 1 in the xsens_mti_node.yaml file. ");
+	}
 
 }
 
@@ -118,4 +101,15 @@ void XdaCallback::onLiveDataAvailable(XsDevice *, const XsDataPacket *packet)
 	// the waiting thread only to block again
 	lock.unlock();
 	m_condition.notify_one();
+}
+
+
+void XdaCallback::onError(XsDevice *dev, XsResultValue error)
+{
+	RCLCPP_ERROR(parent_node->get_logger(), "MTi Error: %s", XsResultValue_toString(error));
+	if(error == XRV_DATAOVERFLOW)
+	{
+		RCLCPP_ERROR(parent_node->get_logger(), "Data overflow occurred. Use MT Manager - Device Settings, to change the baudrate to higher value like 921600 or 2000000!! Optionally, change the enable_outputConfig to true to change the output in the xsens_mti_node.yaml. If both doesn't work, reduce your output data rate.");
+	}
+
 }

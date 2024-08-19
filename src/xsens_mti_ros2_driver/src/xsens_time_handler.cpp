@@ -1,4 +1,3 @@
-
 //  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
@@ -32,14 +31,20 @@
 
 #include "xsens_time_handler.h"
 
-XsensTimeHandler::XsensTimeHandler() : time_option(""), prevSampleTimeFine(0), isFirstFrame(true) {}
+XsensTimeHandler::XsensTimeHandler() : m_time_option(0), m_prevSampleTimeFine(0), isFirstFrame(true) {}
 
 rclcpp::Time XsensTimeHandler::convertUtcTimeToRosTime(const XsDataPacket &packet)
 {
     std::lock_guard<std::mutex> lock(m_mutex);  // Lock the mutex at the beginning of the method
-    if (time_option == "mti_utc" && packet.containsUtcTime())
+    /*
+    if m_time_option=0 and containsUtc, set time to utc
+    else if {m_time_option=0 or 1, {doesn't have utc, but has containsSampleTimeFine}}, set time to sampletimefine
+    else set time to now
+    */
+    // RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "time_option = %u", m_time_option);
+    if (m_time_option == 0 && packet.containsUtcTime())
     {
-        //RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "time_option is mti_utc");
+        // RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "time_option is mti_utc");
         XsTimeInfo utcTime = packet.utcTime();
         struct tm timeinfo = {0};
 
@@ -54,21 +59,22 @@ rclcpp::Time XsensTimeHandler::convertUtcTimeToRosTime(const XsDataPacket &packe
 
         return rclcpp::Time(epochSeconds, utcTime.m_nano);
     }
-    else if (time_option == "mti_sampletime" && packet.containsSampleTimeFine())
+    else if ((m_time_option == 0 && !packet.containsUtcTime() &&  packet.containsSampleTimeFine() ) || (m_time_option == 1 && packet.containsSampleTimeFine()))
     {
+        // RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "time_option is SampleTimeFine from MTi");
         uint32_t currentSampleTimeFine = packet.sampleTimeFine();
 
         if (isFirstFrame)
         {
-            //RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "time_option is mti_sampletime, first frame, timestamp: %u", currentSampleTimeFine);
+            // RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "time_option is mti_sampletime, first frame, timestamp: %u", currentSampleTimeFine);
             isFirstFrame = false;
-            firstUTCTimestamp = rclcpp::Clock().now();
-            prevSampleTimeFine = currentSampleTimeFine;
-            return firstUTCTimestamp;
+            m_firstUTCTimestamp = rclcpp::Clock().now();
+            m_prevSampleTimeFine = currentSampleTimeFine;
+            return m_firstUTCTimestamp;
         }
         else
         {
-            int64_t timeDiff = static_cast<int64_t>(currentSampleTimeFine) - static_cast<int64_t>(prevSampleTimeFine);
+            int64_t timeDiff = static_cast<int64_t>(currentSampleTimeFine) - static_cast<int64_t>(m_prevSampleTimeFine);
 
             // Checking for wraparound
             if (timeDiff < 0)
@@ -77,7 +83,7 @@ rclcpp::Time XsensTimeHandler::convertUtcTimeToRosTime(const XsDataPacket &packe
                 if (timeDiff < -static_cast<int64_t>(m_RollOver / 2))
                 {
                     // If wrap around occurred, adjust timeDiff
-                    //RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "time_option is mti_sampletime, Wraparound Detected. Current: %u, Previous: %u", currentSampleTimeFine, prevSampleTimeFine);
+                    // RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "time_option is mti_sampletime, Wraparound Detected. Current: %u, Previous: %u", currentSampleTimeFine, m_prevSampleTimeFine);
                     timeDiff += m_RollOver;
                 }
                 // else
@@ -87,26 +93,26 @@ rclcpp::Time XsensTimeHandler::convertUtcTimeToRosTime(const XsDataPacket &packe
                 // }
             }
 
-            // rclcpp::Duration constructor expects an argument in nanoseconds., Convert to seconds using the multiplier 1e-4
+            // rclcpp::Duration constructor expects an argument in nanoseconds., Convert to nanoseconds using the multiplier 1e5
             rclcpp::Duration deltaTime(std::chrono::nanoseconds(static_cast<int64_t>(timeDiff * 1e5)));
             
-            firstUTCTimestamp += deltaTime;
+            m_firstUTCTimestamp += deltaTime;
 
-            prevSampleTimeFine = currentSampleTimeFine;
-            return firstUTCTimestamp;
+            m_prevSampleTimeFine = currentSampleTimeFine;
+            return m_firstUTCTimestamp;
         }
     }
     else
     {
-        //RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "time_option is host controller time");
+        // RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "time_option is host controller time");
         return rclcpp::Clock().now(); // returns rclcpp time
     }
 }
 
-void XsensTimeHandler::setTimeOption(const std::string &option)
+void XsensTimeHandler::setTimeOption(const int&option)
 {
     std::lock_guard<std::mutex> lock(m_mutex); // Lock the mutex
-    time_option = option;
+    m_time_option = option;
 }
 
 void XsensTimeHandler::setRollover(const uint32_t &rollOver)

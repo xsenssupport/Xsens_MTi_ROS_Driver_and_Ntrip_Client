@@ -1,4 +1,4 @@
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -40,11 +40,11 @@ struct UTCTimePublisher : public PacketCallback
 {
     rclcpp::Publisher<sensor_msgs::msg::TimeReference>::SharedPtr pub;
 
-    UTCTimePublisher(rclcpp::Node &node)
+    UTCTimePublisher(rclcpp::Node::SharedPtr node)
     {
         int pub_queue_size = 5;
-        node.get_parameter("publisher_queue_size", pub_queue_size);
-        pub = node.create_publisher<sensor_msgs::msg::TimeReference>("/utctime", pub_queue_size);
+        node->get_parameter("publisher_queue_size", pub_queue_size);
+        pub = node->create_publisher<sensor_msgs::msg::TimeReference>("imu/utctime", pub_queue_size);
     }
 
     void operator()(const XsDataPacket &packet, rclcpp::Time timestamp)
