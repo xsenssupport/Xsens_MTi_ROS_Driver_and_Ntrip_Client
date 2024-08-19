@@ -59,7 +59,7 @@ ros::Time XsensTimeHandler::convertUtcTimeToRosTime(const XsDataPacket &packet)
 
         return ros::Time(epochSeconds, utcTime.m_nano);
     }
-    else if ((m_time_option == 0 || m_time_option == 1) && packet.containsSampleTimeFine() && !packet.containsUtcTime())
+    else if ((m_time_option == 0 && !packet.containsUtcTime() &&  packet.containsSampleTimeFine() ) || (m_time_option == 1 && packet.containsSampleTimeFine()))
     {
         //ROS_INFO("Rosnode time_option is SampleTimeFine from MTi");
         uint32_t currentSampleTimeFine = packet.sampleTimeFine();
