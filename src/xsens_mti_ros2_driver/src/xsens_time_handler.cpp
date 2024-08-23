@@ -46,6 +46,9 @@ rclcpp::Time XsensTimeHandler::convertUtcTimeToRosTime(const XsDataPacket &packe
     {
         // RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "time_option is mti_utc");
         XsTimeInfo utcTime = packet.utcTime();
+        // RCLCPP_INFO(rclcpp::get_logger("xsens_time_handler"), "UTC Time: %u-%u-%u %u:%u:%u.%u",
+        //             utcTime.m_year, utcTime.m_month, utcTime.m_day,
+        //             utcTime.m_hour, utcTime.m_minute, utcTime.m_second, utcTime.m_nano);
         struct tm timeinfo = {0};
 
         timeinfo.tm_year = utcTime.m_year - 1900;
@@ -56,6 +59,11 @@ rclcpp::Time XsensTimeHandler::convertUtcTimeToRosTime(const XsDataPacket &packe
         timeinfo.tm_sec = utcTime.m_second;
 
         time_t epochSeconds = timegm(&timeinfo);
+
+        if (epochSeconds < 0)
+        {
+            epochSeconds = 0;
+        }
 
         return rclcpp::Time(epochSeconds, utcTime.m_nano);
     }
