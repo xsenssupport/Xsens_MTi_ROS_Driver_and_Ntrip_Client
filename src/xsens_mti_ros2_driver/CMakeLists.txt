@@ -43,6 +43,20 @@ ament_export_dependencies(rosidl_default_runtime)
 ###########
 
 
+# Include ExternalProject module
+include(ExternalProject)
+
+# Define the external project which is make the xspublic
+ExternalProject_Add(
+  xspublic
+  PREFIX ${CMAKE_BINARY_DIR}/xspublic
+  SOURCE_DIR ${CMAKE_SOURCE_DIR}/lib/xspublic
+  CONFIGURE_COMMAND ""  # No configure step
+  BUILD_COMMAND make
+  BUILD_IN_SOURCE 1  # Build in the source directory
+  INSTALL_COMMAND ""  # No install step
+)
+
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
@@ -50,7 +64,6 @@ include_directories(
   ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/lib/xspublic
 )
-
 
 
 add_executable(
@@ -63,7 +76,8 @@ add_executable(
 	src/xsens_time_handler.cpp
 )
 
-add_dependencies(xsens_mti_node ${PROJECT_NAME})
+# Make sure xsens_mti_node depends on the xspublic build
+add_dependencies(xsens_mti_node xspublic ${PROJECT_NAME})
 
 
 # target_include_directories(xsens_mti_node PUBLIC
