@@ -5,7 +5,7 @@ all : $(OBJLIBS)
 libxscontroller : libxstypes
 	$(MAKE) -C xscontroller $(MFLAGS)
 
-libxscommon : libxscommon
+libxscommon :
 	$(MAKE) -C xscommon $(MFLAGS)
 
 libxstypes :
