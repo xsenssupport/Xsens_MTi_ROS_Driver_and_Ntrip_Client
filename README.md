@@ -62,7 +62,6 @@ change the NTRIP credentials/servers/mountpoint in ``src/ntrip/launch/ntrip_laun
 copy the `src` folder to your ``ros2_ws`` folder, and run the code below:
 ```
 cd ~/ros2_ws
-pushd src/xsens_mti_ros2_driver/lib/xspublic && make && popd
 colcon build
 ```
 
