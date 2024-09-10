@@ -216,7 +216,7 @@
         # - 'event_interval': Time in seconds between two consecutive invocations.
         # - 'duration': Time in seconds for which the MGBE process executes each time.
         #   The minimum value for 'event_interval' is 10 seconds, for 'duration' is 2 seconds.
-        manual_gyro_bias_param: [10, 3] # [event_interval, duration]
+        manual_gyro_bias_param: [15, 5] # [event_interval, duration]
 
         # Monitoring MGBE Success:
         # To verify if MGBE was successful, use 'rostopic echo /status'.
