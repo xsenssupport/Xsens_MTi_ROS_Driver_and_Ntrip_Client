@@ -508,6 +508,11 @@ void XdaInterface::setupManualGyroBiasEstimation()
                 ROS_INFO("Event interval is less than 10 seconds, setting it to 10 seconds.");
                 event_interval = 10;
             }
+	    if (duration < 2)
+	    {
+	        ROS_INFO("Duration is less than 2 seconds, setting it to 2 seconds.");
+	        duration = 2;
+	    }
 
             // Start the timer for MGBE with the retrieved parameters
             m_manualGyroBiasTimer = m_node.createTimer(ros::Duration(event_interval), [this, duration](const ros::TimerEvent&){
@@ -515,6 +520,7 @@ void XdaInterface::setupManualGyroBiasEstimation()
             });
 
             ROS_INFO("Manual Gyro Bias Estimation enabled. Interval: %d seconds, Duration: %d seconds.", event_interval, duration);
+	    event_interval += duration;
         }
         else
         {
