@@ -54,7 +54,7 @@ XdaCallback::XdaCallback(rclcpp::Node::SharedPtr node, size_t maxBufferSize)
 	}
 	else
 	{
-		RCLCPP_WARN(parent_node->get_logger(), "Rosnode time_option parameter is using host controller's ros time, not recommended, use MT Manager - Device Settings - Output Configurations to select utc time or sample time fine, and set time_option to 0 or 1 in the xsens_mti_node.yaml file. ");
+		RCLCPP_WARN(parent_node->get_logger(), "Rosnode time_option parameter is using host controller's ros time. ");
 	}
 
 }
