@@ -51,7 +51,7 @@ XdaCallback::XdaCallback(size_t maxBufferSize)
 	}
 	else
 	{
-		ROS_WARN("Rosnode time_option is using host controller's ros time, no recommended, use MT Manager - Device Settings - Output Configurations to select utc time or sample time fine, and set time_option to 0 or 1 in the xsens_mti_node.yaml file. ");
+		ROS_WARN("Rosnode time_option is using host controller's ros time.");
 	}
 }
 
