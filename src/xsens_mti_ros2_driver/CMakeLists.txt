@@ -16,6 +16,7 @@ find_package(tf2_ros REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(nmea_msgs REQUIRED)
 find_package(mavros_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
@@ -92,6 +93,7 @@ ament_target_dependencies(xsens_mti_node
 	std_msgs
 	geometry_msgs
 	sensor_msgs
+	nav_msgs
 	nmea_msgs
 	mavros_msgs
 	rosidl_default_runtime
@@ -151,6 +153,7 @@ ament_export_dependencies(
 	std_msgs
 	geometry_msgs
 	sensor_msgs
+	nav_msgs
 	nmea_msgs
 	mavros_msgs
 	rosidl_default_runtime #the default runtime for ROS 2 interface (message, service, action) generation.

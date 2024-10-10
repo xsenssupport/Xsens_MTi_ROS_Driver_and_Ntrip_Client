@@ -152,6 +152,7 @@
         pub_velocity: true      # For GNSS/INS Version of MTI only
         pub_nmea: true          # For GNSS/INS Version of MTI only
         pub_gnsspose: true      # For GNSS/INS Version of MTI only
+        pub_odometry: true      # For GNSS/INS Version of MTI only
 
 
 
