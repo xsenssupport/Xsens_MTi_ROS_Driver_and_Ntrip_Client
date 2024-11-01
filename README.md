@@ -136,3 +136,4 @@ Please refer to [MTi Family Reference Manual](https://mtidocs.movella.com/mti-sy
 - Refer to the [README.txt](./src/xsens_ros_mti_driver/README.txt)
 - nVidia Jetson devices, ref to [Interfacing MTi devices with the NVIDIA Jetson](https://base.movella.com/s/article/article/Interfacing-MTi-devices-with-the-NVIDIA-Jetson-1605870420176) 
 - Docs, ref code: [All MTi Related Documentation Links](https://base.movella.com/s/article/All-MTi-Related-Documentation-Links)
+- For technical support, and if it is no relevant to the code here, please send your questions to support@movella.com
