@@ -53,7 +53,7 @@ time_option: 0
 
 # Logging Configuration
 # ---------------------
-# Enable or disable logging of sensor data into .mtb file. If enabled, logs are stored in /home/[user_name]/Documents/xsens_log.
+# Enable or disable logging of sensor data into .mtb file. If enabled, logs are stored in /home/[user_name]/xsens_log/.
 enable_logging: false
 
 # Transform Frame ID
