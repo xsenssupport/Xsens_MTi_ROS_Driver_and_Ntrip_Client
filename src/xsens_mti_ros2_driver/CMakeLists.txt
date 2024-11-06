@@ -67,13 +67,13 @@ include_directories(
 
 
 add_executable(
-	xsens_mti_node
-	src/main.cpp
-	src/xdainterface.cpp
-	src/xdacallback.cpp
-	src/xsens_log_handler.cpp
-	src/ntrip_util.cpp
-	src/xsens_time_handler.cpp
+  xsens_mti_node
+  src/main.cpp
+  src/xdainterface.cpp
+  src/xdacallback.cpp
+  src/xsens_log_handler.cpp
+  src/ntrip_util.cpp
+  src/xsens_time_handler.cpp
 )
 
 # Make sure xsens_mti_node depends on the xspublic build
@@ -86,28 +86,45 @@ add_dependencies(xsens_mti_node xspublic ${PROJECT_NAME})
 #   $<INSTALL_INTERFACE:include>)
 
 ament_target_dependencies(xsens_mti_node 
-	rclcpp
-	tf2
-	tf2_ros
-	std_msgs
-	geometry_msgs
-	sensor_msgs
-	nmea_msgs
+  rclcpp
+  tf2
+  tf2_ros
+  std_msgs
+  geometry_msgs
+  sensor_msgs
+  nmea_msgs
 	mavros_msgs
-	rosidl_default_runtime
+  rosidl_default_runtime
 )
+
+# Function to get typesupport target
+function(rosidl_get_typesupport_target var generate_interfaces_target typesupport_name)
+  if(NOT TARGET ${generate_interfaces_target})
+    message(FATAL_ERROR
+      "${generate_interfaces_target} is not a CMake target. Maybe rosidl_generate_interfaces was given a different target name?")
+  endif()
+
+  set(output_target "${generate_interfaces_target}__${typesupport_name}")
+
+  if(NOT TARGET ${output_target})
+    # CMake if() evaluates strings ending in `-NOTFOUND` as false
+    set(output_target "${output_target}-NOTFOUND")
+  endif()
+
+  set("${var}" "${output_target}" PARENT_SCOPE)
+endfunction()
 
 rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
 target_link_libraries(xsens_mti_node "${cpp_typesupport_target}")
 
 
 target_link_libraries(
-	xsens_mti_node
-	xscontroller
-	xscommon
-	xstypes
-	pthread
-	dl
+  xsens_mti_node
+  xscontroller
+  xscommon
+  xstypes
+  pthread
+  dl
 )
 
 
@@ -145,19 +162,19 @@ install(DIRECTORY headers/
 #This means if another package declares a build or run dependency on this package, 
 #the dependencies listed inside ament_export_dependencies will be made available to that dependent package.
 ament_export_dependencies(
-	rclcpp
-	tf2
-	tf2_ros
-	std_msgs
-	geometry_msgs
-	sensor_msgs
-	nmea_msgs
+  rclcpp
+  tf2
+  tf2_ros
+  std_msgs
+  geometry_msgs
+  sensor_msgs
+  nmea_msgs
 	mavros_msgs
 	rosidl_default_runtime #the default runtime for ROS 2 interface (message, service, action) generation.
 )
 
 ament_export_include_directories(
-	include
+  include
 )
 
 

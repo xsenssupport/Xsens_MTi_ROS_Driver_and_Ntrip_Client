@@ -1,16 +1,20 @@
 
 # Xsens MTi ROS2 Driver and Ntrip Client
 
-This code was based on the official Xsens 2023 [Open source Xsens Device API](https://base.movella.com/s/article/Introduction-to-the-MT-SDK-programming-examples-for-MTi-devices) tested on MTi-680G/MTi-8 with ROS2 Humble at Ubuntu 22.04.3 LTS .
+This code was based on the official Xsens 2023 [Open source Xsens Device API](https://base.movella.com/s/article/Introduction-to-the-MT-SDK-programming-examples-for-MTi-devices) tested on MTi-680G with `ROS2 Foxy` at Ubuntu 20.04 LTS.
 
 ## ROS vs ROS2 Versions
 
-Note that this branch contains the ROS2 implementation for the packages. If you are looking for the ROS1 version, you should go to the [`main`](https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client/tree/main) branch
+Note that this branch contains the `ROS2 Foxy` implementation for the packages. 
 
-## How to clone this ROS2 branch
+If you are looking for the `ROS1` version, you should go to the [`main`](https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client/tree/main) branch.
+
+If you are looking for the `ROS2 humble` or `ROS2 Jazzy` version, you should go to the [`ros2`](https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client/tree/ros2) branch.
+
+## How to clone this ROS2 Foxy branch
 
 ```
-git clone --recursive --branch ros2 https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client.git
+git clone --recursive --branch ros2-foxy https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client.git
 ```
 
 ## Device Settings - Output Configurations
@@ -48,14 +52,10 @@ User needs to change the ``ntrip_launch.py`` for their own credentials/servers/m
 ## How to Install:
 install dependency:
 ```
-sudo apt install ros-[ROSDISTRIBUTION]-nmea-msgs
-sudo apt install ros-[ROSDISTRIBUTION]-mavros-msgs
+sudo apt install ros-foxy-nmea-msgs
+sudo apt install ros-foxy-mavros-msgs
 ```
-for example for ROS2 Humble:
-```
-sudo apt install ros-humble-nmea-msgs
-sudo apt install ros-humble-mavros-msgs
-```
+
 
 change the NTRIP credentials/servers/mountpoint in ``src/ntrip/launch/ntrip_launch.py`` to your own one.
 
