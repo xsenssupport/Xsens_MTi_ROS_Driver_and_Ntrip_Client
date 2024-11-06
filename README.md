@@ -59,6 +59,7 @@ sudo apt install ros-humble-mavros-msgs
 
 change the NTRIP credentials/servers/mountpoint in ``src/ntrip/launch/ntrip_launch.py`` to your own one.
 
+
 copy the `src` folder to your ``ros2_ws`` folder, and run the code below:
 ```
 cd ~/ros2_ws
@@ -80,6 +81,8 @@ At the end of the file, add the following line:
 source /home/[USER_NAME]/ros2_ws/install/setup.bash
 ```
 save the file, exit.
+
+Note: If you don't add this source line to your `~/.bashrc`, then every time you open a new terminal, you will have to firstly do `source install/setup.bash`, otherwise you couldn't read the `/status` topic data.
 
 ## How to Use:
 open first terminal:
@@ -139,4 +142,5 @@ Please refer to [MTi Family Reference Manual](https://mtidocs.movella.com/mti-sy
 - Refer to the [README.txt](./src/xsens_mti_ros2_driver/README.txt)
 - nVidia Jetson devices, ref to [Interfacing MTi devices with the NVIDIA Jetson](https://base.movella.com/s/article/article/Interfacing-MTi-devices-with-the-NVIDIA-Jetson-1605870420176) 
 - Docs, ref code: [All MTi Related Documentation Links](https://base.movella.com/s/article/All-MTi-Related-Documentation-Links)
+- Regarding Parameters: If you have previously run `colcon build` and then changed the credentials in ntrip or YAML parameters, you will need to run `colcon build` again after making those changes. Otherwise, it won't work for ROS 2.
 - For technical support, and if it is no relevant to the code here, please send your questions to support@movella.com
