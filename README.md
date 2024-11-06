@@ -76,6 +76,8 @@ source /[PATH_TO_Your_catkin_ws]/devel/setup.bash
 ```
 save the file, exit.
 
+Note: If you don't add this source line to your ``~/.bashrc``, then every time you open a new terminal, you will have to firstly do `source ./devel/setup.bash`, otherwise you couldn't read the `/status` topic data.
+
 ## How to Use:
 change the credentials/servers/mountpoint in ``src/ntrip/launch/ntrip.launch`` to your own one.
 
