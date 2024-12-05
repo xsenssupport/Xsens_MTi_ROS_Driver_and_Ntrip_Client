@@ -1,5 +1,6 @@
 
 # Xsens MTi ROS Driver and Ntrip Client
+[中文 (Chinese)](README.zh.md)
 
 This code was based on the official ``xsens_ros_mti_driver`` and tested on MTi-3/7/8/MTi-630R/MTi-670G/MTi-680G with ubuntu 20.04 LTS, ROS noetic.
 
