@@ -132,6 +132,7 @@
         pub_utctime: true
         pub_sampletime: true
         pub_imu: true
+        pub_imu_hr: true
         pub_quaternion: true
         pub_euler: true
         pub_free_acceleration: true
