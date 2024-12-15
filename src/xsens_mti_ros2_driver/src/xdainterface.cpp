@@ -148,7 +148,7 @@ void XdaInterface::registerPublishers()
 		//RCLCPP_INFO(m_node->get_logger(), "registerCallback UTCTimePublisher....");
 		registerCallback(new UTCTimePublisher(m_node));
 	}
-	if (m_node->get_parameter("pub_accelerationhr", should_publish) && should_publish)
+	if (m_node->get_parameter("pub_acceleration_hr", should_publish) && should_publish)
 	{
 		registerCallback(new AccelerationHRPublisher(m_node));
 	}
@@ -1358,7 +1358,7 @@ void XdaInterface::declareCommonParameters()
 
 	m_node->declare_parameter("pub_temperature", should_publish);
 	m_node->declare_parameter("pub_pressure", should_publish);
-	m_node->declare_parameter("pub_accelerationhr", should_publish);
+	m_node->declare_parameter("pub_acceleration_hr", should_publish);
 	m_node->declare_parameter("pub_angular_velocity_hr", should_publish);
 	m_node->declare_parameter("pub_transform", should_publish);
 	m_node->declare_parameter("pub_status", should_publish);
