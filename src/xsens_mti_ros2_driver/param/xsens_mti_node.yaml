@@ -132,6 +132,7 @@
         pub_utctime: true
         pub_sampletime: true
         pub_imu: true
+        pub_imu_hr: true
         pub_quaternion: true
         pub_euler: true
         pub_free_acceleration: true
@@ -142,7 +143,7 @@
         pub_mag: true
         pub_temperature: true
         pub_pressure: true
-        pub_accelerationhr: false #High Rate Data Acceleration, when this is true, set enable_high_rate to true as well
+        pub_acceleration_hr: false #High Rate Data Acceleration, when this is true, set enable_high_rate to true as well
         pub_angular_velocity_hr: false #High Rate Data Angular Velocity,  when this is true, set enable_high_rate to true as well
         pub_transform: true
         pub_status: true

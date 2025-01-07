@@ -45,6 +45,7 @@
 #include "messagepublishers/freeaccelerationpublisher.h"
 #include "messagepublishers/gnsspublisher.h"
 #include "messagepublishers/imupublisher.h"
+#include "messagepublishers/imuhrpublisher.h"
 #include "messagepublishers/magneticfieldpublisher.h"
 #include "messagepublishers/orientationincrementspublisher.h"
 #include "messagepublishers/orientationpublisher.h"
@@ -147,7 +148,7 @@ void XdaInterface::registerPublishers()
 		//RCLCPP_INFO(m_node->get_logger(), "registerCallback UTCTimePublisher....");
 		registerCallback(new UTCTimePublisher(m_node));
 	}
-	if (m_node->get_parameter("pub_accelerationhr", should_publish) && should_publish)
+	if (m_node->get_parameter("pub_acceleration_hr", should_publish) && should_publish)
 	{
 		registerCallback(new AccelerationHRPublisher(m_node));
 	}
@@ -155,13 +156,24 @@ void XdaInterface::registerPublishers()
 	{
 		registerCallback(new AngularVelocityHRPublisher(m_node));
 	}
+	
 
-	if(isDeviceVruAhrs || isDeviceGnss)
+	if(m_node->get_parameter("pub_imu", should_publish) && should_publish)
 	{
-		if (m_node->get_parameter("pub_imu", should_publish) && should_publish)
+		if(m_node->get_parameter("pub_imu_hr", should_publish) && should_publish)
+		{
+			registerCallback(new ImuHRPublisher(m_node));
+		}
+		else
 		{
 			registerCallback(new ImuPublisher(m_node));
 		}
+
+	}
+	
+
+	if(isDeviceVruAhrs || isDeviceGnss)
+	{
 		if (m_node->get_parameter("pub_quaternion", should_publish) && should_publish)
 		{
 			registerCallback(new OrientationPublisher(m_node));
@@ -1334,6 +1346,7 @@ void XdaInterface::declareCommonParameters()
 	m_node->declare_parameter("pub_utctime", should_publish);
 	m_node->declare_parameter("pub_sampletime", should_publish);
 	m_node->declare_parameter("pub_imu", should_publish);
+	m_node->declare_parameter("pub_imu_hr", should_publish);
 	m_node->declare_parameter("pub_quaternion", should_publish);
 	m_node->declare_parameter("pub_euler", should_publish);
 	m_node->declare_parameter("pub_free_acceleration", should_publish);
@@ -1345,7 +1358,7 @@ void XdaInterface::declareCommonParameters()
 
 	m_node->declare_parameter("pub_temperature", should_publish);
 	m_node->declare_parameter("pub_pressure", should_publish);
-	m_node->declare_parameter("pub_accelerationhr", should_publish);
+	m_node->declare_parameter("pub_acceleration_hr", should_publish);
 	m_node->declare_parameter("pub_angular_velocity_hr", should_publish);
 	m_node->declare_parameter("pub_transform", should_publish);
 	m_node->declare_parameter("pub_status", should_publish);
