@@ -1,0 +1,9 @@
+/build/
+/devel/
+/.vscode/
+CMakeLists.txt
+*.catkin_workspace
+*.o
+*.dpp
+*.d
+*.a

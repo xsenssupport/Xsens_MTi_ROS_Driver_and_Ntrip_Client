@@ -873,7 +873,7 @@ bool XdaInterface::configureSensorSettings()
 		isMTi630 = m_productCode.toStdString().substr(4, 3) == "630";
 		isMTi670 = m_productCode.toStdString().substr(4, 3) == "670";
 		isMTi680 = m_productCode.toStdString().substr(4, 3) == "680";
-		isMTiG710 = m_device->deviceId().isMtMk4_710() || m_device->deviceId().isMtMk5_710();
+		isMTiG710 = m_device->deviceId().isMtig();
 
 		ROS_INFO("Configuring Option Flags.....");
 		//TODO: check if MTi-100 has this feature or not...

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -140,6 +140,9 @@ Variant* createVariant(XsDataIdentifier id)
 		case XDI_RawAccGyrMagTemp		:// 0xA010,
 			return new XsScrDataVariant(id);
 
+		case XDI_RawFloatAccGyrMagTemp	:// 0xA090
+			return new XsScrDataFloatVariant(id);
+
 		case XDI_RawGyroTemp			:// 0xA020,
 		case XDI_RawAcc					:// 0xA030,
 		case XDI_RawGyr					:// 0xA040,
@@ -211,6 +214,15 @@ XsUShortVector* rawVector(const XsDataPacket* thisPtr, XsUShortVector* returnVal
 		if (it != MAP.end())
 			*returnVal = it->second->toDerived<XsUShortVectorVariant>().m_data;
 	}
+	return returnVal;
+}
+
+XsFloatVector3* rawFloatVector(const XsDataPacket* thisPtr, XsFloatVector3* returnVal, XsFloatVector3 XsScrDataFloat::* field)
+{
+	assert(returnVal);
+	auto it = MAP.find(XDI_RawFloatAccGyrMagTemp);
+	if (it != MAP.end())
+		*returnVal = it->second->toDerived<XsScrDataFloatVariant>().m_data.*field;
 	return returnVal;
 }
 
@@ -723,6 +735,132 @@ extern "C" {
 			auto v = new XsScrDataVariant(XDI_RawAccGyrMagTemp);
 			v->m_data = *data;
 			MAP.insert(XDI_RawAccGyrMagTemp, v);
+		}
+	}
+
+	/*!	\brief The raw accelerometer component of a data item.
+
+		\param returnVal : An XsUShortVector to put the requested data in
+
+		\returns A XsFloatVector3 containing the x, y and z axis values in that order
+	*/
+	XsFloatVector3* XsDataPacket_rawAccelerationFloat(const XsDataPacket* thisPtr, XsFloatVector3* returnVal)
+	{
+		return rawFloatVector(thisPtr, returnVal, &XsScrDataFloat::m_acc);
+	}
+
+	/*! \brief Check if data item contains Raw Accelerometer data
+		\returns true if this packet contains raw acceleration data
+	*/
+	int XsDataPacket_containsRawAccelerationFloat(const XsDataPacket* thisPtr)
+	{
+		return	MAP.find(XDI_RawFloatAccGyrMagTemp) != MAP.end();
+	}
+
+	/*! \brief The raw gyroscope component of a data item.
+
+		\param returnVal : An XsUShortVector to put the requested data in
+
+		\returns A XsFloatVector3 containing the x, y and z axis values in that order
+	*/
+	XsFloatVector3* XsDataPacket_rawGyroscopeDataFloat(const XsDataPacket* thisPtr, XsFloatVector3* returnVal)
+	{
+		return rawFloatVector(thisPtr, returnVal, &XsScrDataFloat::m_gyr);
+	}
+
+	/*! \brief Check if data item contains raw gyroscope data
+		\returns true if this packet contains raw gyroscope data
+	*/
+	int XsDataPacket_containsRawGyroscopeDataFloat(const XsDataPacket* thisPtr)
+	{
+		return genericContains(thisPtr, XDI_RawFloatAccGyrMagTemp) || genericContains(thisPtr, XDI_RawGyr);
+	}
+
+	/*! \brief The raw magnetometer component of a data item.
+
+		\param returnVal : An XsUShortVector to put the requested data in
+
+		\returns A XsUShortVector containing the x, y and z axis values in that order
+	*/
+	XsFloatVector3* XsDataPacket_rawMagneticFieldFloat(const XsDataPacket* thisPtr, XsFloatVector3* returnVal)
+	{
+		return rawFloatVector(thisPtr, returnVal, &XsScrDataFloat::m_mag);
+	}
+
+	/*! \brief Check if data item contains raw magnetometer data
+		\returns true if this packet contains raw magnetometer data
+	*/
+	int XsDataPacket_containsRawMagneticFieldFloat(const XsDataPacket* thisPtr)
+	{
+		return	MAP.find(XDI_RawFloatAccGyrMagTemp) != MAP.end();
+	}
+
+	/*! \brief The raw temperature component of a data item.
+
+		\returns An uint16_t containing the raw temperature value
+	*/
+	float XsDataPacket_rawTemperatureFloat(const XsDataPacket* thisPtr)
+	{
+		auto it = MAP.find(XDI_RawFloatAccGyrMagTemp);
+		if (it != MAP.end())
+			return it->second->toDerived<XsScrDataFloatVariant>().m_data.m_temp;
+		else
+			return 0;
+	}
+
+	/*! \brief Check if data item contains raw temperature data
+		\returns true if this packet contains raw temperature data
+	*/
+	int XsDataPacket_containsRawTemperatureFloat(const XsDataPacket* thisPtr)
+	{
+		return	MAP.find(XDI_RawFloatAccGyrMagTemp) != MAP.end();
+	}
+
+	/*! \brief Return the raw data component of a data item.
+		\param returnVal The object to store the requested data in
+		\return The raw data float component of a data item.
+	*/
+	XsScrDataFloat* XsDataPacket_rawDataFloat(const XsDataPacket* thisPtr, XsScrDataFloat* returnVal)
+	{
+		assert(returnVal);
+		auto it = MAP.find(XDI_RawFloatAccGyrMagTemp);
+		if (it != MAP.end())
+			*returnVal = it->second->toDerived<XsScrDataFloatVariant>().m_data;
+		else
+		{
+			for (XsSize i = 0; i < 3; ++i)
+			{
+				returnVal->m_acc[i] = 0;
+				returnVal->m_gyr[i] = 0;
+				returnVal->m_mag[i] = 0;
+			}
+			returnVal->m_temp = 0;
+		}
+		return returnVal;	// not found
+	}
+
+	/*! \brief Check if data item contains raw data float
+		\returns true if this packet contains raw data float
+	*/
+	int XsDataPacket_containsRawDataFloat(const XsDataPacket* thisPtr)
+	{
+		return genericContains(thisPtr, XDI_RawFloatAccGyrMagTemp);
+	}
+
+	/*! \brief Add/update raw data float for the item
+		\param data The new data to set
+	*/
+	void XsDataPacket_setRawDataFloat(XsDataPacket* thisPtr, const XsScrDataFloat* data)
+	{
+		detach(thisPtr);
+		auto it = MAP.find(XDI_RawFloatAccGyrMagTemp);
+		if (it != MAP.end())
+			it->second->toDerived<XsScrDataFloatVariant>().m_data = *data;
+		else
+		{
+			auto v = new XsScrDataFloatVariant(XDI_RawFloatAccGyrMagTemp);
+			v->m_data = *data;
+			MAP.insert(XDI_RawFloatAccGyrMagTemp, v);
 		}
 	}
 

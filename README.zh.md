@@ -144,3 +144,47 @@ roslaunch ntrip ntrip.launch
 - 如果使用英伟达Jetson设备，请参考 [与 NVIDIA Jetson 的接口](https://base.movella.com/s/article/article/Interfacing-MTi-devices-with-the-NVIDIA-Jetson-1605870420176)。
 - 文档与代码链接：[所有 MTi 相关文档链接](https://base.movella.com/s/article/All-MTi-Related-Documentation-Links)。
 - 如果问题与代码无关，请发送技术支持请求至 support@movella.com。
+
+如果程序显示消息 `No MTi device found`：
+
+- 对于使用了 FTDI 芯片的 MTi-1/600/Sirius 产品系列，请尝试以下步骤：
+  ```bash
+  sudo /sbin/modprobe ftdi_sio
+  echo 2639 0300 | sudo tee /sys/bus/usb-serial/drivers/ftdi_sio/new_id
+  ```
+  然后，确保您属于 `dialout` 组：
+  ```bash
+  ls -l /dev/ttyUSB0
+  groups
+  ```
+  如果不属于，请将自己添加到 `dialout` 组：
+  ```bash
+  sudo usermod -G dialout -a $USER
+  ```
+  最后，重启计算机：
+  ```bash
+  sudo reboot
+  ```
+
+- 对于 MTi-100/300/G-710 设备：
+  ```bash
+  git clone https://github.com/xsens/xsens_mt.git
+  cd xsens_mt
+  sudo make HAVE_LIBUSB=1
+  sudo modprobe usbserial
+  sudo insmod ./xsens_mt.ko
+  ```
+
+- 您可以在 [`xsens_mti_node.yaml`](./src/xsens_ros_mti_driver/param/xsens_mti_node.yaml) 文件中指定自己的端口和波特率：
+  ```cpp
+  // 将 scan_for_devices 设置为 `false`，并取消注释/更改端口名称和波特率为您的自定义值（默认值为 115200，除非您使用 MT Manager 更改过该值）。
+  scan_for_devices: false
+  port: '/dev/ttyUSB0'
+  baudrate: 115200
+  ```
+
+- 如果上述方法都无效，请尝试使用 `cutecom` 查看是否可以接收到 `FA FF 36` 的十六进制消息。如果没有，则可以联系 [support@movella.com](mailto:support@movella.com)：
+  ```bash
+  sudo apt install cutecom
+  cutecom
+  ```

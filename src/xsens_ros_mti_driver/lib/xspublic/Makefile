@@ -2,10 +2,10 @@ OBJLIBS	= libxscontroller libxscommon libxstypes
 
 all : $(OBJLIBS)
 
-libxscontroller : libxstypes
+libxscontroller : libxscommon
 	$(MAKE) -C xscontroller $(MFLAGS)
 
-libxscommon : libxscommon
+libxscommon : libxstypes
 	$(MAKE) -C xscommon $(MFLAGS)
 
 libxstypes :
