@@ -148,3 +148,50 @@ Please refer to [MTi Family Reference Manual](https://mtidocs.movella.com/mti-sy
 - Docs, ref code: [All MTi Related Documentation Links](https://base.movella.com/s/article/All-MTi-Related-Documentation-Links)
 - Regarding Parameters: If you have previously run `colcon build` and then changed the credentials in ntrip or YAML parameters, you will need to run `colcon build` again after making those changes. Otherwise, it won't work for ROS 2.
 - For technical support, and if it is no relevant to the code here, please send your questions to support@movella.com
+
+
+If the program displays the message `No MTi device found`:
+
+- For the MTi-1/600/Sirius product series, where the FTDI chip was used, try the following steps:
+  ```bash
+  sudo /sbin/modprobe ftdi_sio
+  echo 2639 0300 | sudo tee /sys/bus/usb-serial/drivers/ftdi_sio/new_id
+  ```
+  Then, ensure you are in the `dialout` group:
+  ```bash
+  ls -l /dev/ttyUSB0
+  groups
+  ```
+  If not, add yourself to the `dialout` group:
+  ```bash
+  sudo usermod -G dialout -a $USER
+  ```
+  Finally, reboot your computer:
+  ```bash
+  sudo reboot
+  ```
+
+- For MTi-100/300/G-710 devices:
+  ```bash
+  git clone https://github.com/xsens/xsens_mt.git
+  cd xsens_mt
+  sudo make HAVE_LIBUSB=1
+  sudo modprobe usbserial
+  sudo insmod ./xsens_mt.ko
+  ```
+
+- You can specify your own port and baud rate in the [`xsens_mti_node.yaml`](./src/xsens_mti_ros2_driver/param/xsens_mti_node.yaml) file:
+  ```cpp
+  // change the scan_for_devices to `false` and uncomment/change the port name and baud rate to your own values (by default it is 115200, unless you have changed the value with MT Manager).
+  scan_for_devices: false
+  port: '/dev/ttyUSB0'
+  baudrate: 115200
+  ```
+
+- If either of the above methods works, try using `cutecom` to see if you can receive `FA FF 36` hex messages, if not, then you could contact [support@movella.com](mailto:support@movella.com):
+  ```bash
+  sudo apt install cutecom
+  cutecom
+  ```
+
+
