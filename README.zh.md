@@ -63,7 +63,6 @@ sudo apt install ros-noetic-mavros-msgs
 克隆源文件到您的 ``catkin_ws``，并运行以下代码：
 ```
 cd ~/catkin_ws
-pushd src/xsens_ros_mti_driver/lib/xspublic && make && popd
 catkin_make
 ```
 

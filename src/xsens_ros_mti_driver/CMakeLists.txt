@@ -55,13 +55,27 @@ catkin_package(
   sensor_msgs
   std_msgs
   geometry_msgs
-  
+
 #  DEPENDS system_lib
 )
 
 ###########
 ## Build ##
 ###########
+
+# Include ExternalProject module
+include(ExternalProject)
+
+# Define the external project which builds the xspublic
+ExternalProject_Add(
+  xspublic
+  PREFIX ${CMAKE_BINARY_DIR}/xspublic
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/xspublic
+  CONFIGURE_COMMAND ""  # No configure step
+  BUILD_COMMAND make
+  BUILD_IN_SOURCE 1  # Build in the source directory
+  INSTALL_COMMAND ""  # No install step
+)
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
@@ -72,27 +86,32 @@ include_directories(
 )
 
 link_directories(lib/xspublic/xscontroller lib/xspublic/xscommon lib/xspublic/xstypes)
+
 add_executable(
-	xsens_mti_node
-	src/main.cpp
-	src/xdainterface.cpp
-	src/xdacallback.cpp
-	src/xsens_log_handler.cpp
+  xsens_mti_node
+  src/main.cpp
+  src/xdainterface.cpp
+  src/xdacallback.cpp
+  src/xsens_log_handler.cpp
   src/ntrip_util.cpp
   src/xsens_time_handler.cpp
 )
 
-# Specify that xsens_mti_node needs to wait for message headers to be generated
-add_dependencies(xsens_mti_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# Make xsens_mti_node depend on xspublic and message generation
+add_dependencies(xsens_mti_node 
+  xspublic
+  ${${PROJECT_NAME}_EXPORTED_TARGETS} 
+  ${catkin_EXPORTED_TARGETS}
+)
 
 target_link_libraries(
-	xsens_mti_node
-	xscontroller
-	xscommon
-	xstypes
-	pthread
-	dl
-	${catkin_LIBRARIES}
+  xsens_mti_node
+  xscontroller
+  xscommon
+  xstypes
+  pthread
+  dl
+  ${catkin_LIBRARIES}
 )
 
 #############
@@ -106,7 +125,7 @@ target_link_libraries(
 install(TARGETS xsens_mti_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 ## Mark cpp header files for installation
