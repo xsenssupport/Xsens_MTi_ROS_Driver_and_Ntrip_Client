@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -100,6 +100,19 @@ void Scanner::setScanLogCallback(XsScanLogCallbackFunc cb)
 	gScanLogCallback = cb;
 }
 
+bool supportsFlowControl(XsDeviceId const& masterDeviceId, XsVersion const& hwVersion, XsVersion const& fwVersion)
+{
+	if (fwVersion.major() == 255)
+		return false;
+
+	if ((masterDeviceId.isAwinda2Station() && fwVersion >= XsVersion(4, 2, 1)) ||
+		(masterDeviceId.isAwinda2Dongle() && fwVersion >= XsVersion(4, 3, 2) && hwVersion >= XsVersion(2, 3)) ||
+		(masterDeviceId.isAwinda2DongleAntenna() && fwVersion >= XsVersion(4, 6, 0)))
+		return true;
+
+	return false;
+}
+
 /*!	\brief Fetch basic device information
 
 	\param[in, out] portInfo  The name of the port to fetch from
@@ -157,12 +170,7 @@ XsResultValue Scanner::fetchBasicInfo(XsPortInfo& portInfo, uint32_t singleScanT
 	if (port->masterDeviceId().isAwinda2())
 	{
 		XsPortLinesOptions portLinesOptions = portInfo.linesOptions();
-		XsVersion fwVersion = port->firmwareRevision();
-		XsVersion hwVersion = port->hardwareRevision();
-
-		if (port->masterDeviceId().isAwinda2Station() && fwVersion.major() != 255 && fwVersion >= XsVersion(4, 2, 1))
-			portLinesOptions = (XsPortLinesOptions)(portLinesOptions | XPLO_RtsCtsFlowControl);
-		else if (port->masterDeviceId().isAwinda2Dongle() && fwVersion.major() != 255 && fwVersion >= XsVersion(4, 3, 2) && hwVersion >= XsVersion(2, 3))
+		if (supportsFlowControl(port->masterDeviceId(), port->hardwareRevision(), port->firmwareRevision()))
 			portLinesOptions = (XsPortLinesOptions)(portLinesOptions | XPLO_RtsCtsFlowControl);
 		else
 			portLinesOptions = (XsPortLinesOptions)(portLinesOptions & ~XPLO_RtsCtsFlowControl);

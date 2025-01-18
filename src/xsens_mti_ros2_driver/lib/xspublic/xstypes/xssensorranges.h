@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -35,6 +35,7 @@
 
 #include "xstypesconfig.h"
 #include "xsstring.h"
+#include "xsdeviceid.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,43 +48,43 @@ enum HardwareManufacturerType
 };
 typedef enum HardwareManufacturerType HardwareManufacturerType;
 
-XSTYPES_DLL_API void findHardwareTypeC(const XsString* productCode, XsString* resultValue);
-XSTYPES_DLL_API HardwareManufacturerType findHardwareManufacturerC(const XsString* productCode);
+XSTYPES_DLL_API void findHardwareTypeC(const XsDeviceId* deviceId, XsString* resultValue);
+XSTYPES_DLL_API HardwareManufacturerType findHardwareManufacturerC(const XsDeviceId* deviceId);
 
-XSTYPES_DLL_API double accelerometerRangeC(const XsString* productCode, int32_t hwVersionMajor);
-XSTYPES_DLL_API double gyroscopeRangeC(const XsString* productCode);
+XSTYPES_DLL_API double accelerometerRangeC(const XsDeviceId* deviceId);
+XSTYPES_DLL_API double gyroscopeRangeC(const XsDeviceId* deviceId);
 
-XSTYPES_DLL_API double actualAccelerometerRangeC(const XsString* productCode, int32_t hwVersionMajor);
-XSTYPES_DLL_API double actualGyroscopeRangeC(const XsString* productCode);
+XSTYPES_DLL_API double actualAccelerometerRangeC(const XsDeviceId* deviceId);
+XSTYPES_DLL_API double actualGyroscopeRangeC(const XsDeviceId* deviceId);
 
 #ifdef __cplusplus
 }
 
-inline static XsString findHardwareType(const XsString& productCode)
+inline static XsString findHardwareType(const XsDeviceId& deviceId)
 {
 	XsString rv;
-	findHardwareTypeC(&productCode, &rv);
+	findHardwareTypeC(&deviceId, &rv);
 	return rv;
 }
-inline static HardwareManufacturerType findHardwareManufacturer(const XsString& productCode)
+inline static HardwareManufacturerType findHardwareManufacturer(const XsDeviceId& deviceId)
 {
-	return findHardwareManufacturerC(&productCode);
+	return findHardwareManufacturerC(&deviceId);
 }
-inline static double accelerometerRange(const XsString& productCode, int32_t hwVersionMajor)
+inline static double accelerometerRange(const XsDeviceId& deviceId)
 {
-	return accelerometerRangeC(&productCode, hwVersionMajor);
+	return accelerometerRangeC(&deviceId);
 }
-inline static double gyroscopeRange(const XsString& productCode)
+inline static double gyroscopeRange(const XsDeviceId& deviceId)
 {
-	return gyroscopeRangeC(&productCode);
+	return gyroscopeRangeC(&deviceId);
 }
-inline static double actualAccelerometerRange(const XsString& productCode, int32_t hwVersionMajor)
+inline static double actualAccelerometerRange(const XsDeviceId& deviceId)
 {
-	return actualAccelerometerRangeC(&productCode, hwVersionMajor);
+	return actualAccelerometerRangeC(&deviceId);
 }
-inline static double actualGyroscopeRange(const XsString& productCode)
+inline static double actualGyroscopeRange(const XsDeviceId& deviceId)
 {
-	return actualGyroscopeRangeC(&productCode);
+	return actualGyroscopeRangeC(&deviceId);
 }
 #endif
 

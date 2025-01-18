@@ -34,4 +34,4 @@ $(TARGET): $(OBJECTS)
 
 clean:
 	-$(RM) $(TARGET)
-	-$(RM) *.o *.d
+	-$(RM) *.o *.d *.dpp

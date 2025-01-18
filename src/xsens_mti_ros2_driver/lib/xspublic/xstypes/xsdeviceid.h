@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -38,6 +38,11 @@
 #include "xsstring.h"
 #include "xshandid.h"
 #include "xstypesdef.h"
+
+#ifndef XSNOEXPORT
+#define XSNOEXPORT
+#endif
+
 #ifdef __cplusplus
 #include <cstring>
 extern "C" {
@@ -61,12 +66,15 @@ XSTYPES_DLL_API int XsDeviceId_isMtigX00(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isMtigX10(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isMti3X0(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isMti6X0(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMti8X0(struct XsDeviceId const* thisPtr);
+XSTYPES_DLL_API int XsDeviceId_isAvior(struct XsDeviceId const* thisPtr);
+XSTYPES_DLL_API int XsDeviceId_isSirius(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isMtw(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isMtw2(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isMtw2Obskur(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isMtx(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isMtx2(struct XsDeviceId const* thisPtr);
+XSTYPES_DLL_API int XsDeviceId_isMtx3(struct XsDeviceId const* thisPtr);
+XSTYPES_DLL_API int XsDeviceId_isBodyHub(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isBodyPack(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isBodyPackV1(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isBodyPackV2(struct XsDeviceId const* thisPtr);
@@ -78,6 +86,7 @@ XSTYPES_DLL_API int XsDeviceId_isAwindaXOem(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isAwinda2(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isAwinda2Station(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isAwinda2Dongle(struct XsDeviceId const* thisPtr);
+XSTYPES_DLL_API int XsDeviceId_isAwinda2DongleAntenna(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isAwinda2Oem(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isSyncStationX(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isSyncStation2(struct XsDeviceId const* thisPtr);
@@ -121,42 +130,6 @@ XSTYPES_DLL_API void XsDeviceId_type(struct XsDeviceId const* thisPtr, struct Xs
 XSTYPES_DLL_API void XsDeviceId_deviceType(struct XsDeviceId const* thisPtr, int detailed, struct XsDeviceId* type);
 XSTYPES_DLL_API void XsDeviceId_deviceTypeMask(struct XsDeviceId const* thisPtr, int detailed, struct XsDeviceId* type);
 XSTYPES_DLL_API uint16_t XsDeviceId_basePart(struct XsDeviceId const* thisPtr);
-
-//============================================================================================================
-//==== Deprecated methods follow                                                                         =====
-//============================================================================================================
-XSTYPES_DLL_API int XsDeviceId_isMtMk4(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_X(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_1(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_2(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_3(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_7(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_X0(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_10(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_20(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_30(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_X00(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_100(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_200(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_300(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_400(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_500(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_600(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_700(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_710(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_800(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk4_900(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk5(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk5_X0(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk5_10(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk5_20(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk5_30(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk5_X00(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk5_100(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk5_200(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk5_300(struct XsDeviceId const* thisPtr);
-XSTYPES_DLL_API int XsDeviceId_isMtMk5_710(struct XsDeviceId const* thisPtr);
-//============================================================================================================
 
 #ifdef __cplusplus
 } // extern "C"
@@ -231,6 +204,11 @@ struct XsDeviceId
 		XsString tmp(m_productCode);
 		return tmp;
 	}
+	/*! \brief Returns the raw product code data pointer */
+	XSNOEXPORT inline const char* productCodeData() const
+	{
+		return m_productCode;
+	}
 	/*! \brief Returns the product variant */
 	inline uint32_t productVariant() const
 	{
@@ -289,10 +267,15 @@ struct XsDeviceId
 	{
 		return 0 != XsDeviceId_isMti6X0(this);
 	}
-	/*! \brief \copybrief XsDeviceId_isMti8X0(const struct XsDeviceId*) */
-	inline bool isMti8X0() const
+	/*! \brief \copybrief XsDeviceId_isAvior(const struct XsDeviceId*) */
+	inline bool isAvior() const
 	{
-		return 0 != XsDeviceId_isMti8X0(this);
+		return 0 != XsDeviceId_isAvior(this);
+	}
+	/*! \brief \copybrief XsDeviceId_isSirius(const struct XsDeviceId*) */
+	inline bool isSirius() const
+	{
+		return 0 != XsDeviceId_isSirius(this);
 	}
 	/*! \brief \copybrief XsDeviceId_isGlove(const struct XsDeviceId*) */
 	inline bool isGlove() const
@@ -338,6 +321,16 @@ struct XsDeviceId
 	inline bool isMtx2() const
 	{
 		return 0 != XsDeviceId_isMtx2(this);
+	}
+	/*! \brief \copybrief XsDeviceId_isMtx3(const struct XsDeviceId*) */
+	inline bool isMtx3() const
+	{
+		return 0 != XsDeviceId_isMtx3(this);
+	}
+	/*! \brief \copybrief XsDeviceId_isBodyHub(const struct XsDeviceId*) */
+	inline bool isBodyHub() const
+	{
+		return 0 != XsDeviceId_isBodyHub(this);
 	}
 	/*! \brief \copybrief XsDeviceId_isBodyPack(const struct XsDeviceId*) */
 	inline bool isBodyPack() const
@@ -393,6 +386,11 @@ struct XsDeviceId
 	inline bool isAwinda2Dongle() const
 	{
 		return 0 != XsDeviceId_isAwinda2Dongle(this);
+	}
+	/*! \brief \copybrief XsDeviceId_isAwinda2DongleAntenna(const struct XsDeviceId*) */
+	inline bool isAwinda2DongleAntenna() const
+	{
+		return 0 != XsDeviceId_isAwinda2DongleAntenna(this);
 	}
 	/*! \brief \copybrief XsDeviceId_isAwinda2Oem(const struct XsDeviceId*) */
 	inline bool isAwinda2Oem() const
@@ -567,6 +565,15 @@ struct XsDeviceId
 	{
 		if (isLegacyDeviceId() || other.isLegacyDeviceId())
 			return toInt() == other.toInt();	// there are no legacy devices with a sub-device
+		else if ((isSirius() && other.isSirius()) || (isAvior() && other.isAvior()))
+		{
+			return (toInt() == other.toInt() &&
+					m_productVariant == other.m_productVariant &&
+					m_hardwareVersion == other.m_hardwareVersion &&
+					m_subDevice == other.m_subDevice &&
+					(strncmp(m_productCode, other.m_productCode, 3) == 0)	// Sirius and Avior only check S, version and product type (IMU/VRU etc)
+					);
+		}
 		else
 		{
 			return (toInt() == other.toInt() &&
@@ -718,172 +725,6 @@ struct XsDeviceId
 			}
 		}
 	}
-
-
-	//============================================================================================================
-	//============================================================================================================
-	//==== Deprecated methods follow                                                                         =====
-	//============================================================================================================
-	//============================================================================================================
-	XSDEPRECATED_START
-
-	/*! \brief \copybrief XsDeviceId_isMtMk4(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4() const
-	{
-		return 0 != XsDeviceId_isMtMk4(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_X(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_X() const
-	{
-		return 0 != XsDeviceId_isMtMk4_X(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_1(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_1() const
-	{
-		return 0 != XsDeviceId_isMtMk4_1(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_2(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_2() const
-	{
-		return 0 != XsDeviceId_isMtMk4_2(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_3(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_3() const
-	{
-		return 0 != XsDeviceId_isMtMk4_3(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_7(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_7() const
-	{
-		return 0 != XsDeviceId_isMtMk4_7(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_X0(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_X0() const
-	{
-		return 0 != XsDeviceId_isMtMk4_X0(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_10(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_10() const
-	{
-		return 0 != XsDeviceId_isMtMk4_10(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_20(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_20() const
-	{
-		return 0 != XsDeviceId_isMtMk4_20(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_30(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_30() const
-	{
-		return 0 != XsDeviceId_isMtMk4_30(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_X00(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_X00() const
-	{
-		return 0 != XsDeviceId_isMtMk4_X00(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_100(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_100() const
-	{
-		return 0 != XsDeviceId_isMtMk4_100(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_200(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_200() const
-	{
-		return 0 != XsDeviceId_isMtMk4_200(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_300(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_300() const
-	{
-		return 0 != XsDeviceId_isMtMk4_300(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_400(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_400() const
-	{
-		return 0 != XsDeviceId_isMtMk4_400(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_500(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_500() const
-	{
-		return 0 != XsDeviceId_isMtMk4_500(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_600(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_600() const
-	{
-		return 0 != XsDeviceId_isMtMk4_600(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_700(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_700() const
-	{
-		return 0 != XsDeviceId_isMtMk4_700(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_710(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_710() const
-	{
-		return 0 != XsDeviceId_isMtMk4_710(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_800(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_800() const
-	{
-		return 0 != XsDeviceId_isMtMk4_800(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk4_900(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk4_900() const
-	{
-		return 0 != XsDeviceId_isMtMk4_900(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk5(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk5() const
-	{
-		return 0 != XsDeviceId_isMtMk5(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk5_X0(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk5_X0() const
-	{
-		return 0 != XsDeviceId_isMtMk5_X0(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk5_10(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk5_10() const
-	{
-		return 0 != XsDeviceId_isMtMk5_10(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk5_20(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk5_20() const
-	{
-		return 0 != XsDeviceId_isMtMk5_20(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk5_30(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk5_30() const
-	{
-		return 0 != XsDeviceId_isMtMk5_30(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk5_X00(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk5_X00() const
-	{
-		return 0 != XsDeviceId_isMtMk5_X00(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk5_100(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk5_100() const
-	{
-		return 0 != XsDeviceId_isMtMk5_100(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk5_200(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk5_200() const
-	{
-		return 0 != XsDeviceId_isMtMk5_200(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk5_300(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk5_300() const
-	{
-		return 0 != XsDeviceId_isMtMk5_300(this);
-	}
-	/*! \brief \copybrief XsDeviceId_isMtMk5_710(const struct XsDeviceId*) */
-	XSDEPRECATED inline bool isMtMk5_710() const
-	{
-		return 0 != XsDeviceId_isMtMk5_710(this);
-	}
-
-	//============================================================================================================
 
 private:
 #endif

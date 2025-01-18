@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -53,6 +53,8 @@ XsSyncSettingArray supportedSyncSettings(XsDeviceId const& deviceId)
 		return supportedSyncSettingsForAwindaBaseStation();
 	else if (deviceId.isSyncStationX())
 		return supportedSyncSettingsForAwindaBaseStation();
+	else if (deviceId.isSirius() || deviceId.isAvior())
+		return supportedSyncSettingsForMt6x0Device();
 	else if (deviceId.isMtMark5() && deviceId.isMtigX10())
 		return supportedSyncSettingsForMark5MtigX10Device();
 	else if (deviceId.isMtig())

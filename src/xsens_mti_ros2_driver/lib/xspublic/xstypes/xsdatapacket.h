@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -40,6 +40,7 @@
 #include "xsdataidentifier.h"
 #include "xsushortvector.h"
 #include "xsscrdata.h"
+#include "xsscrdatafloat.h"
 #include "xscalibrateddata.h"
 #include "xspressure.h"
 #include "xssdidata.h"
@@ -108,6 +109,17 @@ XSTYPES_DLL_API void XsDataPacket_setRawTemperature(XsDataPacket* thisPtr, uint1
 XSTYPES_DLL_API XsScrData* XsDataPacket_rawData(const XsDataPacket* thisPtr, XsScrData* returnVal);
 XSTYPES_DLL_API int XsDataPacket_containsRawData(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API void XsDataPacket_setRawData(XsDataPacket* thisPtr, const XsScrData* data);
+XSTYPES_DLL_API XsFloatVector3* XsDataPacket_rawAccelerationFloat(const XsDataPacket* thisPtr, XsFloatVector3* returnVal);
+XSTYPES_DLL_API int XsDataPacket_containsRawAccelerationFloat(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API XsFloatVector3* XsDataPacket_rawGyroscopeDataFloat(const XsDataPacket* thisPtr, XsFloatVector3* returnVal);
+XSTYPES_DLL_API int XsDataPacket_containsRawGyroscopeDataFloat(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API XsFloatVector3* XsDataPacket_rawMagneticFieldFloat(const XsDataPacket* thisPtr, XsFloatVector3* returnVal);
+XSTYPES_DLL_API int XsDataPacket_containsRawMagneticFieldFloat(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API float XsDataPacket_rawTemperatureFloat(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API int XsDataPacket_containsRawTemperatureFloat(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API XsScrDataFloat* XsDataPacket_rawDataFloat(const XsDataPacket* thisPtr, XsScrDataFloat* returnVal);
+XSTYPES_DLL_API int XsDataPacket_containsRawDataFloat(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API void XsDataPacket_setRawDataFloat(XsDataPacket* thisPtr, const XsScrDataFloat* data);
 XSTYPES_DLL_API XsVector* XsDataPacket_velocityIncrement(const XsDataPacket* thisPtr, XsVector* returnVal);
 XSTYPES_DLL_API int XsDataPacket_containsVelocityIncrement(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API void XsDataPacket_setVelocityIncrement(XsDataPacket* thisPtr, const XsVector* vec);
@@ -499,6 +511,57 @@ struct XsDataPacket
 		XsDataPacket_setRawTemperature(this, temp);
 	}
 
+	/*! \brief \copybrief XsDataPacket_rawAccelerationFloat(const XsDataPacket*, XsFloatVector3*) */
+	inline XsFloatVector3 rawAccelerationFloat(void) const
+	{
+		XsFloatVector3 returnVal;
+		return *XsDataPacket_rawAccelerationFloat(this, &returnVal);
+	}
+
+	/*! \copydoc XsDataPacket_containsRawAccelerationFloat(const XsDataPacket*) */
+	inline bool containsRawAccelerationFloat(void) const
+	{
+		return 0 != XsDataPacket_containsRawAccelerationFloat(this);
+	}
+
+	/*! \brief \copybrief XsDataPacket_rawGyroscopeDataFloat(const XsDataPacket*, XsFloatVector3*) */
+	inline XsFloatVector3 rawGyroscopeDataFloat(void) const
+	{
+		XsFloatVector3 returnVal;
+		return *XsDataPacket_rawGyroscopeDataFloat(this, &returnVal);
+	}
+
+	/*! \copydoc XsDataPacket_containsRawGyroscopeDataFloat(const XsDataPacket*) */
+	inline bool containsRawGyroscopeDataFloat(void) const
+	{
+		return 0 != XsDataPacket_containsRawGyroscopeDataFloat(this);
+	}
+
+	/*! \brief \copybrief XsDataPacket_rawMagneticFieldFloat(const XsDataPacket*, XsFloatVector3*) */
+	inline XsFloatVector3 rawMagneticFieldFloat(void) const
+	{
+		XsFloatVector3 returnVal;
+		return *XsDataPacket_rawMagneticFieldFloat(this, &returnVal);
+	}
+
+	/*! \copydoc XsDataPacket_containsRawMagneticFieldFloat(const XsDataPacket*) */
+	inline bool containsRawMagneticFieldFloat(void) const
+	{
+		return 0 != XsDataPacket_containsRawMagneticFieldFloat(this);
+	}
+
+	/*! \brief \copybrief XsDataPacket_rawTemperatureFloat(const XsDataPacket*) */
+	inline float rawTemperatureFloat(void) const
+	{
+		return XsDataPacket_rawTemperatureFloat(this);
+	}
+
+	/*! \copydoc XsDataPacket_containsRawTemperatureFloat(const XsDataPacket*) */
+	inline bool containsRawTemperatureFloat(void) const
+	{
+		return 0 != XsDataPacket_containsRawTemperatureFloat(this);
+	}
+
 	/*! \brief \copybrief XsDataPacket_rawData(const XsDataPacket*, XsScrData*)
 		\return The raw data component of a data item.
 	*/
@@ -518,6 +581,27 @@ struct XsDataPacket
 	inline void setRawData(const XsScrData& data)
 	{
 		XsDataPacket_setRawData(this, &data);
+	}
+
+	/*! \brief \copybrief XsDataPacket_rawDataFloat(const XsDataPacket*, XsScrDataFloat*)
+		\return The raw data component of a data item.
+	*/
+	inline XsScrDataFloat rawDataFloat(void) const
+	{
+		XsScrDataFloat returnVal;
+		return *XsDataPacket_rawDataFloat(this, &returnVal);
+	}
+
+	/*! \copydoc XsDataPacket_containsRawData(const XsDataPacket*) */
+	inline bool containsRawDataFloat(void) const
+	{
+		return 0 != XsDataPacket_containsRawDataFloat(this);
+	}
+
+	/*! \copydoc XsDataPacket_setRawDataFloat(XsDataPacket*, const XsScrDataFloat*) */
+	inline void setRawDataFloat(const XsScrDataFloat& data)
+	{
+		XsDataPacket_setRawDataFloat(this, &data);
 	}
 
 	/*! \brief \copybrief XsDataPacket_velocityIncrement(const XsDataPacket*, XsVector*) */

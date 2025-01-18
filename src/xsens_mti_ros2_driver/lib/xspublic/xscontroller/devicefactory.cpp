@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -44,6 +44,7 @@
 #include "mti3x0device.h"
 #include "mti6x0device.h"
 #include "mti8x0device.h"
+#include "mti9x0device.h"
 #include "dotdevice.h"
 
 /*! \class DeviceFactory
@@ -172,8 +173,10 @@ DeviceFactory::DeviceTypeId DeviceFactory::deviceToTypeId(XsDeviceId const& devi
 			return DeviceType::MTI_3X0;
 		if (deviceId.isMti6X0())
 			return DeviceType::MTI_6X0;
-		if (deviceId.isMti8X0())
+		if (deviceId.isAvior())
 			return DeviceType::MTI_8X0;
+		if (deviceId.isSirius())
+			return DeviceType::MTI_9X0;
 		if (deviceId.isDot())
 			return DeviceType::DOT;
 	}
@@ -232,5 +235,6 @@ void DeviceFactory::registerDevices()
 	(void)registerStandaloneDeviceType(DeviceType::MTI_3X0,			&Mti3X0Device::constructStandalone);
 	(void)registerStandaloneDeviceType(DeviceType::MTI_6X0,			&Mti6X0Device::constructStandalone);
 	(void)registerStandaloneDeviceType(DeviceType::MTI_8X0,			&Mti8X0Device::constructStandalone);
+	(void)registerStandaloneDeviceType(DeviceType::MTI_9X0,			&Mti9X0Device::constructStandalone);
 	(void)registerStandaloneDeviceType(DeviceType::DOT, 			&DotDevice::constructStandalone);
 }

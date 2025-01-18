@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -92,7 +92,7 @@ struct Mti6X0DeviceEx : public Mti6X0Device
 	explicit Mti6X0DeviceEx(XsDevice* master) : Mti6X0Device(master) {};
 };
 #else
-#include "mtix00deviceex.h"
+#include "mti6x0deviceex.h"
 #endif
 
 #endif

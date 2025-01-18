@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -135,8 +135,7 @@ MtiBaseDevice::BaseFrequencyResult Mti8X0Device::getBaseFrequencyInternal(XsData
 */
 XsString Mti8X0Device::shortProductCode() const
 {
-	XsString code = productCode();
-	return stripProductCode(code);
+	return stripProductCode(deviceId());
 }
 
 /*! \returns The sync line for a mtitx0 device This overrides the base class method.
