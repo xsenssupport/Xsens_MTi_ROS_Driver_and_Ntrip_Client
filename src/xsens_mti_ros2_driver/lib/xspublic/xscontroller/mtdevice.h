@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -74,52 +74,54 @@ public:
 
 	XsOutputConfigurationArray outputConfiguration() const override;
 
-	double headingOffset() const;
+	double headingOffset() const override;
 
 	virtual bool canDoOrientationResetInFirmware(XsResetMethod method);
-	virtual bool scheduleOrientationReset(XsResetMethod method);
+	virtual bool scheduleOrientationReset(XsResetMethod method) override;
 	virtual bool storeAlignmentMatrix();
 
-	virtual bool setLocationId(int id);
-	int locationId() const;
+	virtual bool setLocationId(int id) override;
+	int locationId() const override;
 
-	XsString productCode() const;
+	XsString productCode() const override;
 
 	XsBaudRate serialBaudRate() const override;
 
-	bool reinitialize();
+	bool reinitialize() override;
 
 	XsFilterProfile onboardFilterProfile() const override;
 	bool setOnboardFilterProfile(int profileType) override;
 	bool setOnboardFilterProfile(XsString const& profileType) override;
 
-	XsVersion hardwareVersion() const;
+	XsVersion hardwareVersion() const override;
 
 	XsFilterProfileArray availableOnboardFilterProfiles() const override;
 
 	bool resetLogFileReadPosition() override;
 
-	bool restoreFactoryDefaults();
+	bool restoreFactoryDefaults() override;
 
-	double accelerometerRange() const;
-	double gyroscopeRange() const;
+	double accelerometerRange() const override;
+	double actualAccelerometerRange() const override;
+	double gyroscopeRange() const override;
+	double actualGyroscopeRange() const override;
 
 	void writeDeviceSettingsToFile() override;
 
-	bool setNoRotation(uint16_t duration);
+	bool setNoRotation(uint16_t duration) override;
 
 	XsVector initialPositionLLA() const override;
 	bool setInitialPositionLLA(const XsVector& lla) override;
 
-	XsErrorMode errorMode() const;
-	bool setErrorMode(XsErrorMode errorMode);
+	XsErrorMode errorMode() const override;
+	bool setErrorMode(XsErrorMode errorMode) override;
 
-	uint16_t rs485TransmissionDelay() const;
-	bool setRs485TransmissionDelay(uint16_t delay);
+	uint16_t rs485TransmissionDelay() const override;
+	bool setRs485TransmissionDelay(uint16_t delay) override;
 
-	XsSelfTestResult runSelfTest();
+	XsSelfTestResult runSelfTest() override;
 
-	bool requestData();
+	bool requestData() override;
 	bool storeFilterState() override;
 
 	static int calcFrequency(int baseFrequency, uint16_t skipFactor);
@@ -137,7 +139,7 @@ protected:
 	XsFilterProfileArray readFilterProfilesFromDevice() const;
 	virtual void fetchAvailableHardwareScenarios();
 
-	static XsString stripProductCode(const XsString& code);
+	static XsString stripProductCode(const XsDeviceId &did);
 
 	uint32_t syncTicksToUs(uint32_t ticks) const;
 	uint32_t usToSyncTicks(uint32_t us) const;

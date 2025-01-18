@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -133,6 +133,7 @@ enum XsDataIdentifier
 	XDI_RawDeltaQ				= 0xA060,	//!< Raw deltaQ SDI data
 	XDI_RawDeltaV				= 0xA070,	//!< Raw deltaV SDI data
 	XDI_RawBlob					= 0xA080,	//!< Raw blob data
+	XDI_RawFloatAccGyrMagTemp	= 0xA090,	//!< Raw acceleration, gyroscope, magnetometer and temperature data in floating point format
 
 	XDI_AnalogInGroup			= 0xB000,	//!< Group for analog in related outputs
 	XDI_AnalogIn1				= 0xB010,	//!< Data containing adc data from analog in 1 line (if present)
