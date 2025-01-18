@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -2684,6 +2684,17 @@ double XsDevice::accelerometerRange() const
 	return 0;
 }
 
+/*! \brief Returns the maximum value of the accelerometers in the device
+	\details The actual range is -actualAccelerometerRange() .. actualAccelerometerRange().
+	Ranges between accelerometerRange and actualAccelerometerRange are possible for extreme movements,
+	but then the data quality can not be guaranteed.
+	\returns The maximum value of the accelerometers in m/s^2
+*/
+double XsDevice::actualAccelerometerRange() const
+{
+	return 0;
+}
+
 /*! \brief Returns the maximum official value of the gyroscopes in the device
 	\details The actual official range is -gyroscopeRange() .. gyroscopeRange(). The device may
 	send out higher values than this for extreme movements, but then the data quality can not be
@@ -2691,6 +2702,17 @@ double XsDevice::accelerometerRange() const
 	\returns The maximum value of the gyroscopes in degrees/s
 */
 double XsDevice::gyroscopeRange() const
+{
+	return 0;
+}
+
+/*! \brief Returns the maximum value of the gyroscopes in the device
+	\details The actual range is -actualGyroscopeRange() .. actualGyroscopeRange().
+	Ranges between gyroscopeRange and actualGyroscopeRange are possible for extreme movements,
+	but then the data quality can not be guaranteed.
+	\returns The maximum value of the gyroscopes in degrees/s
+*/
+double XsDevice::actualGyroscopeRange() const
 {
 	return 0;
 }
@@ -2987,7 +3009,7 @@ bool XsDevice::isInStringOutputMode() const
 */
 bool XsDevice::usesLegacyDeviceMode() const
 {
-	return isInStringOutputMode();
+	return outputConfiguration().empty();
 }
 
 /*! \cond XS_INTERNAL */
@@ -3433,6 +3455,14 @@ XsString XsDevice::shortProductCode() const
 XsVersion XsDevice::hardwareVersion() const
 {
 	return XsVersion();
+}
+
+/*!	\brief Return the hardware id of the device
+	\returns The hardware id of the device
+*/
+XsString XsDevice::hardwareId() const
+{
+	return XsString();
 }
 
 /*! \brief Set the radio channel to use for wireless communication

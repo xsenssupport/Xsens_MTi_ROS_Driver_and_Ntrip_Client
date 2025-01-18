@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -239,6 +239,7 @@ public:
 	virtual XsBaudRate baudRate() const;
 	virtual XsBaudRate serialBaudRate() const;
 	virtual XsVersion hardwareVersion() const;
+	virtual XsString hardwareId() const;
 #ifndef XSENS_NO_PORT_NUMBERS
 	virtual int XSNOLINUXEXPORT portNumber() const;
 #endif
@@ -430,7 +431,9 @@ public:
 	virtual XsFilterProfileArray availableOnboardFilterProfiles() const;
 	virtual XsFilterProfileArray availableXdaFilterProfiles() const;
 	virtual double accelerometerRange() const;
+	virtual double actualAccelerometerRange() const;
 	virtual double gyroscopeRange() const;
+	virtual double actualGyroscopeRange() const;
 	virtual bool setNoRotation(uint16_t duration);
 	virtual bool startRepresentativeMotion();
 	virtual bool representativeMotionState();

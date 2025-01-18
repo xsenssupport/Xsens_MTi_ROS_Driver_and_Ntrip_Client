@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -42,6 +42,7 @@
 #include "xsushortvector.h"
 #include "xsvector3.h"
 #include "xsscrdata.h"
+#include "xsscrdatafloat.h"
 #include "xstriggerindicationdata.h"
 #include "xseuler.h"
 #include "xsmatrix3x3.h"
@@ -274,6 +275,22 @@ struct XsVector3Variant : public ComplexVariant<XsVector3, XsReal, 3>
 	}
 };
 
+/*! \brief Variant containing an XsVector3 value */
+struct XsFloatVector3Variant : public ComplexVariant<XsFloatVector3, float, 3>
+{
+	/*! \brief Constructor, sets the dataId to \a id */
+	XsFloatVector3Variant(XsDataIdentifier id) : ComplexVariant<XsFloatVector3, float, 3>(id) {}
+	/*! \brief Constructor, sets the dataId to \a id and data value to \a val */
+	XsFloatVector3Variant(XsDataIdentifier id, XsFloatVector3 const& val) : ComplexVariant<XsFloatVector3, float, 3>(id, val)
+	{
+		assert(val.size() == 3);
+	}
+	Variant* clone() const override
+	{
+		return new XsFloatVector3Variant(dataId(), m_data);
+	}
+};
+
 /*! \brief Variant containing an XsVector value */
 struct XsVector2Variant : public ComplexVariant<XsVector, XsReal, 2>
 {
@@ -328,6 +345,47 @@ struct XsScrDataVariant : public Variant
 	XsSize sizeInMsg() const override
 	{
 		return 10 * sizeof(uint16_t);
+	}
+};
+
+/*! \brief Variant containing an XsScrData float value */
+struct XsScrDataFloatVariant : public Variant
+{
+	/*! \brief Constructor, sets the dataId to \a id */
+	XsScrDataFloatVariant(XsDataIdentifier id) : Variant(id) {}
+	/*! \brief Constructor, sets the dataId to \a id and data value to \a val */
+	XsScrDataFloatVariant(XsDataIdentifier id, XsScrDataFloat const& val) : Variant(id), m_data(val) {}
+	Variant* clone() const override
+	{
+		return new XsScrDataFloatVariant(dataId(), m_data);
+	}
+
+	XsScrDataFloat m_data;		//!< The contained data
+	XsSize readFromMessage(XsMessage const& msg, XsSize offset, XsSize sz) override
+	{
+		for (XsSize i = 0; i < 3; ++i, offset += 4)
+			m_data.m_acc[i] = msg.getDataFloat(offset);
+		for (XsSize i = 0; i < 3; ++i, offset += 4)
+			m_data.m_gyr[i] = msg.getDataFloat(offset);
+		for (XsSize i = 0; i < 3; ++i, offset += 4)
+			m_data.m_mag[i] = msg.getDataFloat(offset);
+		m_data.m_temp = msg.getDataFloat(offset);
+		return sz;
+	}
+	void writeToMessage(XsMessage& msg, XsSize offset) const override
+	{
+		for (XsSize i = 0; i < 3; ++i, offset += 4)
+			msg.setDataFloat(m_data.m_acc[i], offset);
+		for (XsSize i = 0; i < 3; ++i, offset += 4)
+			msg.setDataFloat(m_data.m_gyr[i], offset);
+		for (XsSize i = 0; i < 3; ++i, offset += 4)
+			msg.setDataFloat(m_data.m_mag[i], offset);
+		msg.setDataFloat(m_data.m_temp, offset);
+	}
+
+	XsSize sizeInMsg() const override
+	{
+		return 10 * sizeof(float);
 	}
 };
 

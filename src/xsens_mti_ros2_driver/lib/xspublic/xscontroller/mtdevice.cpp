@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -630,20 +630,32 @@ bool MtDevice::setOnboardFilterProfile(XsString const& profile)
 	return true;
 }
 
-/*! \returns The accelerometer range for this device
-	\details The range is an absolute maximum number. This means that if 100 is returned, the sensor range is (100, -100)
+/*! \copydoc XsDevice::accelerometerRange
 */
 double MtDevice::accelerometerRange() const
 {
-	return ::accelerometerRange(productCode(), hardwareVersion().major());
+	return ::accelerometerRange(deviceId());
 }
 
-/*! \returns The accelerometer range for this device
-	\details The range is an absolute maximum number. This means that if 300 is returned, the sensor range is (300, -300)
+/*! \copydoc XsDevice::actualAccelerometerRange
+*/
+double MtDevice::actualAccelerometerRange() const
+{
+	return ::actualAccelerometerRange(deviceId());
+}
+
+/*! \copydoc XsDevice::gyroscopeRange
 */
 double MtDevice::gyroscopeRange() const
 {
-	return ::gyroscopeRange(productCode());
+	return ::gyroscopeRange(deviceId());
+}
+
+/*! \copydoc XsDevice::actualGyroscopeRange
+*/
+double MtDevice::actualGyroscopeRange() const
+{
+	return ::actualGyroscopeRange(deviceId());
 }
 
 /*! \brief Write the emts of the device to the open logfile
@@ -857,14 +869,15 @@ uint32_t MtDevice::supportedStatusFlags() const
 }
 
 /*!	\brief Helper function to strip the hardware type from the product code
-	\param code A productcode to be stripped
-	\returns Code without the hardware type postfix
+	\param did A deviceId with the productcode to be stripped
+	\returns Product code without the hardware type postfix
 */
-XsString MtDevice::stripProductCode(const XsString& code)
+XsString MtDevice::stripProductCode(const XsDeviceId& did)
 {
-	XsString hwtype = findHardwareType(code);
+	XsString hwtype = findHardwareType(did);
 	if (hwtype.empty())
-		return code;
+		return did.productCode();
+	XsString code = did.productCode();
 
 	ptrdiff_t offset = code.findSubStr(hwtype);
 	while (offset >= 0 && code[(unsigned int)offset] != '-')
