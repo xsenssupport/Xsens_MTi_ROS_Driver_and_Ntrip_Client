@@ -1,6 +1,8 @@
 
 # Xsens MTi ROS2 Driver and Ntrip Client
 
+[中文 (Chinese)](README.zh.md)
+
 This code was based on the official Xsens 2025.0 [Open source Xsens Device API](https://base.movella.com/s/article/Introduction-to-the-MT-SDK-programming-examples-for-MTi-devices) tested on MTi-680G/MTi-8/MTi-630/MTi-300 with ROS2 Humble at Ubuntu 22.04.3 LTS .
 
 ## ROS vs ROS2 Versions
