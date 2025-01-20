@@ -42,7 +42,7 @@ struct AngularVelocityHRPublisher : public PacketCallback
 
     AngularVelocityHRPublisher(rclcpp::Node::SharedPtr node)
     {
-        int pub_queue_size = 5;
+        int pub_queue_size = 100;
         node->get_parameter("publisher_queue_size", pub_queue_size);
         rclcpp::QoS qos = rclcpp::SensorDataQoS();
         qos.keep_last(pub_queue_size); 
