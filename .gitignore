@@ -7,3 +7,5 @@
 *.dpp
 *.d
 *.a
+/src/rtk_parser/
+/src/rtk_interfaces/

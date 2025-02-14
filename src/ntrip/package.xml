@@ -3,21 +3,22 @@
 <package format="3">
   <name>ntrip</name>
   <version>0.0.0</version>
-  <description>Ntrip Client</description>
-  <maintainer email="support@movella.com">Bryan He</maintainer>
-  <license>BSD</license>
-  
+  <description>ntrip client work the xsens mti ros driver</description>
+  <maintainer email="support@movella.com">xsens</maintainer>
+  <license>MIT</license>
+
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
-  <depend>geometry_msgs</depend>
+  <depend>boost</depend>
   <depend>mavros_msgs</depend>
   <depend>nmea_msgs</depend>
+  <depend>diagnostic_msgs</depend>
   <depend>std_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
-  
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>
