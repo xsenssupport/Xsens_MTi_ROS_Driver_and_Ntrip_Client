@@ -297,7 +297,7 @@ namespace ntrip_client
 
     RCLCPP_INFO(this->get_logger(), "Received response: %s", response_line.c_str());
 
-    if (response_line.find("ICY 200 OK") != std::string::npos)
+    if (response_line.find("200") != std::string::npos)
     {
       RCLCPP_INFO(this->get_logger(), "NTRIP connection established successfully");
       is_connected_ = true;
