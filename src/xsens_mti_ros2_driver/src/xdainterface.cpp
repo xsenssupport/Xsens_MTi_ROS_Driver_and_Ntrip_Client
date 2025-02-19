@@ -63,6 +63,7 @@
 #include "messagepublishers/utctimepublisher.h"
 #include "messagepublishers/accelerationhrpublisher.h"
 #include "messagepublishers/angularvelocityhrpublisher.h"
+#include "messagepublishers/odometrypublisher.h"
 #include "xsens_log_handler.h"
 
 #include <chrono>
@@ -209,6 +210,11 @@ void XdaInterface::registerPublishers()
 		{
 			//RCLCPP_INFO(m_node->get_logger(), "registerCallback GNSSPOSEPublisher....");
 			registerCallback(new GNSSPOSEPublisher(m_node));
+		}
+		if (m_node->get_parameter("pub_odometry", should_publish) && should_publish)
+		{
+			//RCLCPP_INFO(m_node->get_logger(), "registerCallback ODOMETRYPublisher....");
+			registerCallback(new ODOMETRYPublisher(m_node));
 		}
 	}
 
@@ -1356,6 +1362,7 @@ void XdaInterface::declareCommonParameters()
 	m_node->declare_parameter("pub_velocity", should_publish);
 	m_node->declare_parameter("pub_nmea", should_publish);
 	m_node->declare_parameter("pub_gnsspose", should_publish);
+	m_node->declare_parameter("pub_odometry", should_publish);
 
 
 }
