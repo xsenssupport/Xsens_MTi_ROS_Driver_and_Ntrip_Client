@@ -1,11 +1,27 @@
-<launch>   
-    <node name="ntrip_node" pkg="ntrip" type="ntrip_node" output="screen">
-        <param name="ip" type="string"  value="120.253.239.161" />  <!-- Change to the IP address of Your NTRIP service-->
-        <param name="port" type="int" value="8002" />  <!-- Change to your port number for WGS84 -->
-        <param name="user" type="string" value="Your_User_Name" /> <!-- Change to your username -->
-        <param name="passwd" type = "string" value="Your_Password" /> <!-- Change to your password -->
-        <param name="mountpoint" type = "string" value="RTCM33_GRCE" /> <!-- Change to your mountpoint -->
-        <param name="report_interval" type = "int" value="1" /> <!-- the report interval to the NTRIP Caster, default is 1 sec -->
-    </node>
+<launch>
+  <node name="ntrip_client" pkg="ntrip_client" type="ntrip_client_node" output="screen">
+    <!-- Server Configuration -->
+    <param name="host" value="120.253.239.161"/><!-- Change to your host ip -->
+    <param name="port" value="8002"/><!-- Change to your host port, here 8002 is for WGS84 -->
+    <param name="mountpoint" value="RTCM33_GRCEJ"/><!-- Change to your mountpoint -->
+    <param name="username" value="YOUR_USER_NAME"/><!-- Change to your username -->
+    <param name="password" value="YOUR_PASS_WORD"/><!-- Change to your password -->
+    
+    <!-- Connection Parameters -->
+    <param name="nmea_input_rate" value="4.0"/>  <!-- Input NMEA rate in Hz (xsens default: 4.0) -->
+    <param name="update_rate" value="1.0"/> <!-- Desired rate for sending GGA messages (Hz) -->
+    <param name="reconnect_delay" value="5.0"/>
+    <param name="max_reconnect_attempts" value="0"/>
+    
+    <!-- GGA configuration -->
+    <param name="send_default_gga" value="true"/> 
+    
+    <!-- Debug Options -->
+    <param name="debug" value="true"/>
+    <param name="output_rtcm_details" value="true"/> 
+    
+    <!-- Topic Remapping -->
+    <remap from="nmea" to="nmea"/>
+    <remap from="rtcm" to="rtcm"/>
+  </node>
 </launch>
-
