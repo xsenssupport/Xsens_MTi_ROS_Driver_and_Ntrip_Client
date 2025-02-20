@@ -35,18 +35,13 @@ mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/src
 ```
 
-2. Clone this repository:
-```bash
-git clone https://github.com/xsenssupport/ntrip_client.git
-```
-
-3. Build the package:
+2. Build the package:
 ```bash
 cd ~/ros2_ws
-colcon build --packages-select ntrip_client
+colcon build --packages-select ntrip
 ```
 
-4. Source the workspace:
+3. Source the workspace:
 ```bash
 source ~/ros2_ws/install/setup.bash
 ```
@@ -109,7 +104,7 @@ ros2 topic echo /rtcm
 
 Check node parameters:
 ```bash
-ros2 param list /ntrip_client
+ros2 param list /ntrip
 ```
 
 View diagnostic messages:
