@@ -332,11 +332,16 @@ namespace ntrip_client
                      bytes_transferred);
       }
 
+      // Update bytes received
+      bytes_received_ += bytes_transferred;
+
       rtcm_parser_->ProcessData(
           reinterpret_cast<const uint8_t *>(receive_buffer_.data()),
           bytes_transferred);
 
-      rtcm_parser_->PublishPendingMessages();
+      // Update RTCM message count
+      size_t published = rtcm_parser_->PublishPendingMessages();
+      rtcm_messages_count_ += published;
 
       // Continue to read data
       ReadData();

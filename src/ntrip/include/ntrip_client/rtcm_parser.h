@@ -22,7 +22,7 @@ class RtcmParser {
   void ProcessData(const uint8_t* data, size_t length);
 
   // Publish any pending messages
-  void PublishPendingMessages();
+  size_t PublishPendingMessages();
 
  private:
   static constexpr uint8_t kRtcm3Preamble = 0xD3;
