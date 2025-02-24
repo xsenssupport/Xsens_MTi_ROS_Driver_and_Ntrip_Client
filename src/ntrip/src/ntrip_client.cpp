@@ -140,9 +140,8 @@ namespace ntrip_client
                 return false;
             }
 
-            // Create RtcmParser AFTER parameters are loaded
-            rtcm_parser_ = std::make_unique<RtcmParser>(rtcm_pub_, debug_);
-            
+
+
             // Initialize message counter
             nmea_msg_counter_ = 0;
 
@@ -158,6 +157,9 @@ namespace ntrip_client
             rtcm_pub_ = nh_.advertise<mavros_msgs::RTCM>("rtcm", 10);
             diagnostic_pub_ = nh_.advertise<diagnostic_msgs::DiagnosticArray>("/ntrip/diagnostics", 10);
             nmea_sub_ = nh_.subscribe("nmea", 10, &NtripClient::HandleNmeaMessage, this);
+
+            // Create RtcmParser AFTER parameters are loaded
+            rtcm_parser_ = std::make_unique<RtcmParser>(rtcm_pub_, debug_);
 
             // set the timer.
             connection_timer_ = nh_.createTimer(
