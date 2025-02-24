@@ -82,7 +82,7 @@ roslaunch ntrip ntrip.launch
 
 #### Published Topics
 - `rtcm` ([mavros_msgs/RTCM](http://docs.ros.org/api/mavros_msgs/html/msg/RTCM.html)): RTCM correction data received from the NTRIP caster
-- `/diagnostics` ([diagnostic_msgs/DiagnosticArray](http://docs.ros.org/api/diagnostic_msgs/html/msg/DiagnosticArray.html)): Connection and message statistics
+- `/ntrip/diagnostics` ([diagnostic_msgs/DiagnosticArray](http://docs.ros.org/api/diagnostic_msgs/html/msg/DiagnosticArray.html)): Connection and message statistics
 
 ## Troubleshooting
 

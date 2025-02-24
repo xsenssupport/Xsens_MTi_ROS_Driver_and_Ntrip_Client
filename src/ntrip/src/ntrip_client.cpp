@@ -155,7 +155,7 @@ namespace ntrip_client
 
             // set the publisher and subscriber.
             rtcm_pub_ = nh_.advertise<mavros_msgs::RTCM>("rtcm", 10);
-            diagnostic_pub_ = nh_.advertise<diagnostic_msgs::DiagnosticArray>("/diagnostics", 10);
+            diagnostic_pub_ = nh_.advertise<diagnostic_msgs::DiagnosticArray>("/ntrip/diagnostics", 10);
             nmea_sub_ = nh_.subscribe("nmea", 10, &NtripClient::HandleNmeaMessage, this);
 
             // set the timer.
@@ -344,11 +344,16 @@ namespace ntrip_client
                 ROS_DEBUG("Received %zu bytes from NTRIP server", bytes_transferred);
             }
 
+            // Update bytes received
+            bytes_received_ += bytes_transferred;
+
             rtcm_parser_->ProcessData(
                 reinterpret_cast<const uint8_t *>(receive_buffer_.data()),
                 bytes_transferred);
 
-            rtcm_parser_->PublishPendingMessages();
+            // Update RTCM message count
+            size_t published = rtcm_parser_->PublishPendingMessages();
+            rtcm_messages_count_ += published;
 
             // continue to read data
             ReadData();

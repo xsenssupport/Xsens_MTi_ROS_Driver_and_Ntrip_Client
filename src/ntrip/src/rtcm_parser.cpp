@@ -25,18 +25,18 @@ namespace ntrip_client
         ProcessBuffer();
     }
 
-    void RtcmParser::PublishPendingMessages()
-    {
-        while (!valid_messages_.empty())
-        {
-            if (debug_)
-            {
+    size_t RtcmParser::PublishPendingMessages() {
+        size_t count = 0;
+        while (!valid_messages_.empty()) {
+            if (debug_) {
                 LogDebug("Publishing RTCM message with " +
                          std::to_string(valid_messages_.front().data.size()) + " bytes");
             }
             rtcm_pub_.publish(valid_messages_.front());
             valid_messages_.pop_front();
+            count++;
         }
+        return count;
     }
 
     void RtcmParser::ProcessBuffer()
