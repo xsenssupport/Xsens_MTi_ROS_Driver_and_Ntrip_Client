@@ -9,3 +9,6 @@
 *.a
 /src/rtk_parser/
 /src/rtk_interfaces/
+/src/rtcm_logger_pkg/
+/rtcm_log/
+*.txt
