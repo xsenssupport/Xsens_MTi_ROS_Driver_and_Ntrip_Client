@@ -423,9 +423,16 @@ namespace ntrip_client
         std::string auth_string = username_ + ":" + password_;
         using namespace boost::archive::iterators;
         using Base64 = base64_from_binary<transform_width<std::string::const_iterator, 6, 8>>;
+        
+        // Encode to Base64
         std::string encoded(Base64(auth_string.begin()), Base64(auth_string.end()));
+        
+        // Add padding '=' characters if needed
+        size_t padding = (3 - (auth_string.size() % 3)) % 3;
+        encoded.append(padding, '=');
+      
         return encoded;
-    }
+      }
 
     void NtripClient::HandleError(const std::string &error_msg, bool fatal)
     {
