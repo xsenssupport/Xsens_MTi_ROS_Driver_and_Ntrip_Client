@@ -33,8 +33,6 @@ namespace ntrip_client
     DeclareParameters();
     Initialize();
 
-    // Initialize the rtcm parser
-    rtcm_parser_ = std::make_unique<RtcmParser>(rtcm_pub_, debug_);
   }
 
   NtripClient::~NtripClient() { Stop(); }
@@ -122,6 +120,9 @@ namespace ntrip_client
       {
         return false;
       }
+
+      // Create RtcmParser AFTER parameters are loaded
+      rtcm_parser_ = std::make_unique<RtcmParser>(rtcm_pub_, debug_);
 
       // Initialize message counter
       nmea_msg_counter_ = 0;
