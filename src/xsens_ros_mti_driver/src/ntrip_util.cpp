@@ -143,10 +143,10 @@ namespace libntrip
       lat = gnssPvtData.m_lat;
       lon = gnssPvtData.m_lon;
       numSv = gnssPvtData.m_numSv;
-      if(numSv>12)
-      {
-        numSv = 12;
-      }
+      // if(numSv>12)
+      // {
+      //   numSv = 12;
+      // }
       hdop = static_cast<double>(gnssPvtData.m_hdop) / 100.0;
       alt = static_cast<double>(gnssPvtData.m_hMsl) / 1000.0; // cast to double and convert to meters
 
