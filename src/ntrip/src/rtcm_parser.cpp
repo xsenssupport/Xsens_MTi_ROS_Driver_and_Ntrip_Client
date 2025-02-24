@@ -25,8 +25,9 @@ namespace ntrip_client
         ProcessBuffer();
     }
 
-    void RtcmParser::PublishPendingMessages()
+    size_t RtcmParser::PublishPendingMessages()
     {
+        size_t count = 0;
         while (!valid_messages_.empty())
         {
             if (debug_)
@@ -36,7 +37,9 @@ namespace ntrip_client
             }
             rtcm_pub_->publish(valid_messages_.front());
             valid_messages_.pop_front();
+            count++;
         }
+        return count;
     }
 
     void RtcmParser::ProcessBuffer()
