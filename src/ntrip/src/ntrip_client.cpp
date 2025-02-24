@@ -9,17 +9,17 @@ namespace ntrip_client
 {
 
     NtripClient::NtripClient(ros::NodeHandle &nh, ros::NodeHandle &private_nh)
-        : nh_(nh),
-          private_nh_(private_nh),
-          socket_(io_service_),
-          connect_timeout_timer_(io_service_),
-          is_connected_(false),
-          should_exit_(false),
-          bytes_received_(0),
-          rtcm_messages_count_(0),
-          reconnect_attempts_(0),
-          debug_(false),
-          nmea_msg_counter_(0)
+    : nh_(nh),
+      private_nh_(private_nh),
+      socket_(io_service_),
+      connect_timeout_timer_(io_service_),
+      is_connected_(false),
+      should_exit_(false),
+      bytes_received_(0),
+      rtcm_messages_count_(0),
+      reconnect_attempts_(0),
+      debug_(false),
+      nmea_msg_counter_(0)
     {
         receive_buffer_.resize(4096);
 
@@ -29,8 +29,6 @@ namespace ntrip_client
             socket_.close();
         }
 
-        // initialize the rtcm parser
-        rtcm_parser_ = std::make_unique<RtcmParser>(rtcm_pub_, debug_);
     }
 
     NtripClient::~NtripClient()
@@ -142,6 +140,9 @@ namespace ntrip_client
                 return false;
             }
 
+            // Create RtcmParser AFTER parameters are loaded
+            rtcm_parser_ = std::make_unique<RtcmParser>(rtcm_pub_, debug_);
+            
             // Initialize message counter
             nmea_msg_counter_ = 0;
 
