@@ -54,6 +54,11 @@ Launch the NTRIP client using the provided launch file:
 ros2 launch ntrip ntrip_launch.py
 ```
 
+To run the ntrip node with debug mode:
+```bash
+ros2 launch ntrip ntrip_launch.py log_level:=debug
+```
+
 ### Launch File Parameters
 
 - **Server Configuration**
