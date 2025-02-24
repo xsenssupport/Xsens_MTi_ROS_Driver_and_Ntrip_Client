@@ -1,5 +1,5 @@
 <launch>
-  <node name="ntrip_client" pkg="ntrip_client" type="ntrip_client_node" output="screen">
+  <node name="ntrip_node" pkg="ntrip" type="ntrip_node" output="screen">
     <!-- Server Configuration -->
     <param name="host" value="120.253.239.161"/><!-- Change to your host ip -->
     <param name="port" value="8002"/><!-- Change to your host port, here 8002 is for WGS84 -->
