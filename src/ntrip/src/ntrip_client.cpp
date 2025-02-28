@@ -2,6 +2,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/archive/iterators/base64_from_binary.hpp>
 #include <boost/archive/iterators/transform_width.hpp>
+#include <boost/beast/core/detail/base64.hpp>
 #include <diagnostic_msgs/DiagnosticArray.h>
 #include <sstream>
 
@@ -428,19 +429,17 @@ namespace ntrip_client
 
     std::string NtripClient::CreateAuthHeader() const
     {
+    
         std::string auth_string = username_ + ":" + password_;
-        using namespace boost::archive::iterators;
-        using Base64 = base64_from_binary<transform_width<std::string::const_iterator, 6, 8>>;
+        std::string encoded;
         
-        // Encode to Base64
-        std::string encoded(Base64(auth_string.begin()), Base64(auth_string.end()));
+        encoded.resize(boost::beast::detail::base64::encoded_size(auth_string.size()));
+        int len = boost::beast::detail::base64::encode(&encoded[0], auth_string.data(), auth_string.size());
         
-        // Add padding '=' characters if needed
-        size_t padding = (3 - (auth_string.size() % 3)) % 3;
-        encoded.append(padding, '=');
-      
+        encoded.resize(len);
+        
         return encoded;
-      }
+    }
 
     void NtripClient::HandleError(const std::string &error_msg, bool fatal)
     {
