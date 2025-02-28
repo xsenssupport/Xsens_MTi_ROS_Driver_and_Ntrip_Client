@@ -333,11 +333,16 @@ namespace ntrip_client
                      bytes_transferred);
       }
 
+      // Update bytes received
+      bytes_received_ += bytes_transferred;
+
       rtcm_parser_->ProcessData(
           reinterpret_cast<const uint8_t *>(receive_buffer_.data()),
           bytes_transferred);
 
-      rtcm_parser_->PublishPendingMessages();
+      // Update RTCM message count
+      size_t published = rtcm_parser_->PublishPendingMessages();
+      rtcm_messages_count_ += published;
 
       // Continue to read data
       ReadData();
@@ -453,6 +458,7 @@ namespace ntrip_client
 
   std::string NtripClient::CreateAuthHeader() const
   {
+<<<<<<< HEAD
   
       std::string auth_string = username_ + ":" + password_;
       std::string encoded;
@@ -463,6 +469,20 @@ namespace ntrip_client
       encoded.resize(len);
       
       return encoded;
+=======
+    std::string auth_string = username_ + ":" + password_;
+    using namespace boost::archive::iterators;
+    using Base64 = base64_from_binary<transform_width<std::string::const_iterator, 6, 8>>;
+
+    // Encode to Base64
+    std::string encoded(Base64(auth_string.begin()), Base64(auth_string.end()));
+        
+    // Add padding '=' characters if needed
+    size_t padding = (3 - (auth_string.size() % 3)) % 3;
+    encoded.append(padding, '=');
+    
+    return encoded;
+>>>>>>> 66def50f5c7699f9fbc5dffd2688a5efcd332cb8
   }
 
   void NtripClient::HandleError(const std::string &error_msg, bool fatal)
