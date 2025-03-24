@@ -27,28 +27,6 @@
 //  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
 //  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
-// MIT License
-//
-// Copyright (c) 2021 Yuming Meng
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
 
 #include "ntrip_util.h"
 
@@ -75,24 +53,46 @@ namespace libntrip
       return (deg * 1.0 + minute * 60.0 / 100.0);
     }
 
-    uint8_t DetermineFixType(uint32_t status)
+    uint8_t DetermineFixType(uint32_t status, const XsRawGnssPvtData& gnssPvtData)
     {
-      bool gnssFix = false;
-      gnssFix = status & (1 << 2);
+      // Check RTK status first (from StatusWord bits 27-28)
       uint8_t rtk_status = (status >> 27) & 0x3; // status & 0x18000000;
-      if (rtk_status == 0)
+      if (rtk_status == 2)
       {
-        return gnssFix ? 0x02 : 0x00; // 2 = Differential GNSS fix, 0 = No fix
+        return 0x04; // 4 = RTK fixed
       }
       else if (rtk_status == 1)
       {
         return 0x05; // 5 = RTK float
       }
-      else if (rtk_status == 2)
+      
+      // If no RTK, check GNSS fix bit from StatusWord
+      bool gnssFix = status & (1 << 2);
+      
+      // If GNSS fix, determine the type based on GnssPvtData
+      if (gnssFix)
       {
-        return 0x04; // 4 = RTK fixed
+        // Check GnssPvtData fix type
+        uint8_t gnssPvtFixType = gnssPvtData.m_fixType;
+        
+        switch (gnssPvtFixType)
+        {
+          case 0x00: // No Fix
+            return 0x00;
+          case 0x01: // Dead Reckoning only
+            return 0x06; // 6 = Estimated/Dead reckoning fix
+          case 0x02: // 2D-Fix
+          case 0x03: // 3D-Fix
+          case 0x04: // GNSS + dead reckoning combined
+            return 0x01; // 1 = Autonomous GNSS fix
+          case 0x05: // Time only fix
+            return 0x00; // No position fix
+          default:
+            return 0x00;
+        }
       }
-      return 0x00; // Default to no fix if none of the above
+      
+      return 0x00; // Default to no fix
     }
 
   }// namespace
@@ -158,15 +158,17 @@ namespace libntrip
     double sec = 0.0, lat = 0.0, lon = 0.0, hdop = 0.0, alt = 0.0;
     int numSv = 0;
 
+    uint32_t status = 0;
+    XsRawGnssPvtData gnssPvtData;
+
     if (packet.containsStatus())
     {
-      uint32_t status = packet.status();
-      fixType = DetermineFixType(status);
+      status = packet.status();
     }
 
     if (packet.containsRawGnssPvtData())
     {
-      XsRawGnssPvtData gnssPvtData = packet.rawGnssPvtData();
+      gnssPvtData = packet.rawGnssPvtData();
       hour = gnssPvtData.m_hour;
       min = gnssPvtData.m_min;
       sec = gnssPvtData.m_sec + gnssPvtData.m_nano * 1e-9;
@@ -179,38 +181,38 @@ namespace libntrip
       // }
       hdop = static_cast<double>(gnssPvtData.m_hdop) / 100.0;
       alt = static_cast<double>(gnssPvtData.m_hMsl) / 1000.0; // cast to double and convert to meters
-
-      // FormatGGAString(ptr, src, hour, min, sec, lat, lon, fixType, numSv, hdop, alt);
-      // Ensure that the latitude and longitude are converted and formatted properly
-      char latDir = lat >= 0.0 ? 'N' : 'S';
-      double latDDMM = fabs(DegreeConvertToDDMM(lat* 1e-7))*100.0;
-
-      char lonDir = lon >= 0.0 ? 'E' : 'W';
-      double lonDDMM = fabs(DegreeConvertToDDMM(lon* 1e-7))*100.0;
-
-      // Debug only, Print out the variables using ROS_INFO
-      //ROS_INFO("hour: %02d, min: %02d, sec: %05.2f, latDDMM: %012.5f, latDir: %c, lonDDMM: %013.5f, lonDir: %c, fixType: %01d, numSv: %02d, hdop: %.1f, alt: %.2f",
-      //  hour, min, sec, latDDMM, latDir, lonDDMM, lonDir, fixType, numSv, hdop, alt);
-
-
-      //example: "$GPGGA,162220.00,3123.99529,N,12149.95179,E,2,12,0.6,38.87,M,0.000,M,,0000*5F\r\n"
-
-
-      // Use snprintf with the correct remaining buffer size and proper variable usage
-      // For higher precision of lat long, change to %012.7f,%013.7f for lat and lon
-      ptr += snprintf(ptr, sizeof(src)+src-ptr,
-                      "$GPGGA,%02d%02d%05.2f,%010.5f,%c,%011.5f,%c,%01d,"
-                      "%02d,%.1f,%.2f,M,0.000,M,,0000",
-                      hour, min, sec,
-                      latDDMM, latDir,
-                      lonDDMM, lonDir,
-                      fixType,
-                      numSv,
-                      hdop,
-                      alt);
-
     }
 
+    // Determine fix type using both status and GnssPvtData
+    fixType = DetermineFixType(status, gnssPvtData);
+
+    // Ensure that the latitude and longitude are converted and formatted properly
+    char latDir = lat >= 0.0 ? 'N' : 'S';
+    double latDDMM = fabs(DegreeConvertToDDMM(lat* 1e-7))*100.0;
+
+    char lonDir = lon >= 0.0 ? 'E' : 'W';
+    double lonDDMM = fabs(DegreeConvertToDDMM(lon* 1e-7))*100.0;
+
+    // Debug only, Print out the variables using ROS_INFO
+    //ROS_INFO("hour: %02d, min: %02d, sec: %05.2f, latDDMM: %012.5f, latDir: %c, lonDDMM: %013.5f, lonDir: %c, fixType: %01d, numSv: %02d, hdop: %.1f, alt: %.2f",
+    //  hour, min, sec, latDDMM, latDir, lonDDMM, lonDir, fixType, numSv, hdop, alt);
+
+
+    //example: "$GPGGA,162220.00,3123.99529,N,12149.95179,E,2,12,0.6,38.87,M,0.000,M,,0000*5F\r\n"
+
+
+    // Use snprintf with the correct remaining buffer size and proper variable usage
+    // For higher precision of lat long, change to %012.7f,%013.7f for lat and lon
+    ptr += snprintf(ptr, sizeof(src)+src-ptr,
+                    "$GPGGA,%02d%02d%05.2f,%010.5f,%c,%011.5f,%c,%01d,"
+                    "%02d,%.1f,%.2f,M,0.000,M,,0000",
+                    hour, min, sec,
+                    latDDMM, latDir,
+                    lonDDMM, lonDir,
+                    fixType,
+                    numSv,
+                    hdop,
+                    alt);
 
     uint8_t checksum = 0;
     for (char *q = src + 1; q <= ptr; q++) {
@@ -221,6 +223,5 @@ namespace libntrip
     
     return BccCheckSumCompareForGGA(gga_out->c_str());
   }
-
 
 } // namespace libntrip
