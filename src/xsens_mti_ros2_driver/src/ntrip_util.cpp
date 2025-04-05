@@ -155,7 +155,7 @@ namespace libntrip
     uint8_t fixType = 0x00;
     int hour = 0, min = 0;
     // The `99.99` for HDOP indicates that the horizontal dilution of precision is very high, or the accuracy of the horizontal position data is very poor or unreliable.
-    double sec = 0.0, lat = 0.0, lon = 0.0, hdop = 0.0, alt = 0.0;
+    double sec = 0.0, lat = 0.0, lon = 0.0, hdop = 0.0, alt = 0.0, geoidSep = 0.0;
     int numSv = 0;
 
     uint32_t status = 0;
@@ -175,12 +175,9 @@ namespace libntrip
       lat = gnssPvtData.m_lat;
       lon = gnssPvtData.m_lon;
       numSv = gnssPvtData.m_numSv;
-      // if(numSv>12)
-      // {
-      //   numSv = 12;
-      // }
       hdop = static_cast<double>(gnssPvtData.m_hdop) / 100.0;
       alt = static_cast<double>(gnssPvtData.m_hMsl) / 1000.0; // cast to double and convert to meters
+      geoidSep = static_cast<double>(gnssPvtData.m_height - gnssPvtData.m_hMsl) / 1000.0;
     }
 
     // Determine fix type using both status and GnssPvtData
@@ -205,14 +202,15 @@ namespace libntrip
     // For higher precision of lat long, change to %012.7f,%013.7f for lat and lon
     ptr += snprintf(ptr, sizeof(src)+src-ptr,
                     "$GPGGA,%02d%02d%05.2f,%010.5f,%c,%011.5f,%c,%01d,"
-                    "%02d,%.1f,%.2f,M,0.000,M,,0000",
+                    "%02d,%.1f,%.2f,M,%.2f,M,0,0",
                     hour, min, sec,
                     latDDMM, latDir,
                     lonDDMM, lonDir,
                     fixType,
                     numSv,
                     hdop,
-                    alt);
+                    alt,
+                    geoidSep); 
 
     uint8_t checksum = 0;
     for (char *q = src + 1; q <= ptr; q++) {
