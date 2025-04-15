@@ -48,9 +48,17 @@ namespace libntrip
   {
     double DegreeConvertToDDMM(double const &degree)
     {
-      int deg = static_cast<int>(floor(degree));
-      double minute = degree - deg * 1.0;
-      return (deg * 1.0 + minute * 60.0 / 100.0);
+      // Get the absolute value of the degree
+      double abs_degree = fabs(degree);
+      
+      // Extract the whole degree part
+      int deg = static_cast<int>(floor(abs_degree));
+      
+      // Calculate minutes from the fractional part of the degree
+      double minute = (abs_degree - deg) * 60.0;
+      
+      // Return in DDMM.MMMMM format (degree * 100 + minutes)
+      return (deg * 100.0 + minute);
     }
 
     uint8_t DetermineFixType(uint32_t status, const XsRawGnssPvtData& gnssPvtData)
@@ -185,11 +193,10 @@ namespace libntrip
 
     // Ensure that the latitude and longitude are converted and formatted properly
     char latDir = lat >= 0.0 ? 'N' : 'S';
-    double latDDMM = fabs(DegreeConvertToDDMM(lat* 1e-7))*100.0;
+    double latDDMM = fabs(DegreeConvertToDDMM(lat* 1e-7));
 
     char lonDir = lon >= 0.0 ? 'E' : 'W';
-    double lonDDMM = fabs(DegreeConvertToDDMM(lon* 1e-7))*100.0;
-
+    double lonDDMM = fabs(DegreeConvertToDDMM(lon* 1e-7));
     // Debug only, Print out the variables using ROS_INFO
     //ROS_INFO("hour: %02d, min: %02d, sec: %05.2f, latDDMM: %012.5f, latDir: %c, lonDDMM: %013.5f, lonDir: %c, fixType: %01d, numSv: %02d, hdop: %.1f, alt: %.2f",
     //  hour, min, sec, latDDMM, latDir, lonDDMM, lonDir, fixType, numSv, hdop, alt);
