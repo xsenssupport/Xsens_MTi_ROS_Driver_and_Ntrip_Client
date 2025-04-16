@@ -2,6 +2,8 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
+from ament_index_python.packages import get_package_share_directory
+from pathlib import Path
 
 def generate_launch_description():
     # Declare the log level argument
@@ -11,6 +13,8 @@ def generate_launch_description():
         description='Logging level (debug, info, warn, error, fatal)',
         choices=['debug', 'info', 'warn', 'error', 'fatal']
     )
+    
+    parameters_file_path = Path(get_package_share_directory('ntrip'), 'config', 'ntrip-param.yaml')
 
     # Create the node configuration
     ntrip_node = Node(
@@ -18,27 +22,7 @@ def generate_launch_description():
         executable='ntrip',
         name='ntrip_client',
         output='screen',
-        parameters=[{
-            # NTRIP Server Configuration
-            'host': '203.107.45.154',  # Change to the IP address of Your NTRIP caster
-            'port': 8002,          # Change to your port number, WGS84
-            'mountpoint': 'AUTO',  # Your NTRIP mountpoint
-            'username': 'Your_User_Name',     # Your NTRIP username
-            'password': 'Your_Password',     # Your NTRIP password
-
-            # NMEA and Update Rate Configuration
-            'nmea_input_rate': 4.0,    # Input NMEA rate in Hz (default: 4.0)
-            'update_rate': 1.0,        # Desired rate for sending GGA messages (Hz)
-
-            # Connection Configuration
-            'reconnect_delay': 5.0,    # Delay between reconnection attempts (seconds)
-            'max_reconnect_attempts': 0,  # 0 for infinite attempts
-
-            # Debug Configuration
-            'send_default_gga': True,    # Set to False if using real GNSS data
-            'debug': True,              # Set to True for detailed debug output
-            'output_rtcm_details': True  # Set to True for RTCM message details
-        }],
+        parameters=[parameters_file_path],
         # Topic Remapping
         remappings=[
             ('nmea', 'nmea'),  # Input NMEA topic
