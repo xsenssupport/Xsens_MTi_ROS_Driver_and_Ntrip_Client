@@ -7,16 +7,15 @@
 
 ## ROS与ROS2版本
 
-请注意，此分支包含与`Humble`和`Jazzy`兼容的`ROS2`实现。
+请注意，此分支包含与`Foxy`, `Humble`和`Jazzy`兼容的`ROS2`实现。
 
 如果您正在寻找`ROS1`版本，请访问[`main`](https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client/tree/main)分支。
 
-如果您正在寻找`ROS2 Foxy`版本，请访问[`ros2-foxy`](https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client/tree/ros2-foxy)分支。
 
 ## 如何克隆此ROS2分支
 
 ```
-git clone --recursive --branch ros2 https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client.git
+git clone --branch ros2 https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client.git
 ```
 
 ## 设备设置 - 输出配置
