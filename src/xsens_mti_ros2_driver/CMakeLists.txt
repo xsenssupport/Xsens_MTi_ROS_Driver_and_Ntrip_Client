@@ -23,6 +23,14 @@ find_package(rosidl_default_generators REQUIRED)
 
 link_directories(lib/xspublic/xscontroller lib/xspublic/xscommon lib/xspublic/xstypes)
 
+# Check ROS distro
+if(DEFINED ENV{ROS_DISTRO})
+  set(ROS_DISTRO $ENV{ROS_DISTRO})
+else()
+  set(ROS_DISTRO "unknown")
+endif()
+
+message(STATUS "Detected ROS_DISTRO: ${ROS_DISTRO}")
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -99,9 +107,27 @@ ament_target_dependencies(xsens_mti_node
 	rosidl_default_runtime
 )
 
-rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
-target_link_libraries(xsens_mti_node "${cpp_typesupport_target}")
-
+# Handle typesupport linking differently based on ROS distro
+if(${ROS_DISTRO} STREQUAL "foxy")
+  # For Foxy, directly link to the generated libraries
+  target_link_libraries(xsens_mti_node
+    ${CMAKE_BINARY_DIR}/libxsens_mti_ros2_driver__rosidl_typesupport_cpp.so
+  )
+  
+  # Make sure the executable depends on message generation
+  add_dependencies(xsens_mti_node 
+    ${PROJECT_NAME}__rosidl_typesupport_cpp
+  )
+  
+  # Add generated interfaces directory to include path
+  target_include_directories(xsens_mti_node PUBLIC
+    ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
+  )
+else()
+  # For Humble and later, use the built-in typesupport target function
+  rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
+  target_link_libraries(xsens_mti_node "${cpp_typesupport_target}")
+endif()
 
 target_link_libraries(
 	xsens_mti_node
