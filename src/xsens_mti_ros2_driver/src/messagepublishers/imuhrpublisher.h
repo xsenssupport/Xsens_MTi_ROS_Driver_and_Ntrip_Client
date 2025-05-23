@@ -50,6 +50,7 @@ struct ImuHRPublisher : public PacketCallback, PublisherHelperFunctions
     // Varaiables to store the last received unpublished value
     std::optional<geometry_msgs::msg::Vector3> last_accel;
     std::optional<geometry_msgs::msg::Vector3> last_gyro;
+    std::string frame_id = DEFAULT_FRAME_ID;
 
     ImuHRPublisher(rclcpp::Node::SharedPtr node)
         : node_handle(node)
@@ -69,6 +70,8 @@ struct ImuHRPublisher : public PacketCallback, PublisherHelperFunctions
         variance_from_stddev_param("orientation_stddev", orientation_variance, node);
         variance_from_stddev_param("angular_velocity_stddev", angular_velocity_variance, node);
         variance_from_stddev_param("linear_acceleration_stddev", linear_acceleration_variance, node);
+
+        node_handle->get_parameter("frame_id", frame_id);
     }
 
     void operator()(const XsDataPacket &packet, rclcpp::Time timestamp)
@@ -113,8 +116,6 @@ struct ImuHRPublisher : public PacketCallback, PublisherHelperFunctions
         {
             sensor_msgs::msg::Imu msg;
 
-            std::string frame_id = DEFAULT_FRAME_ID;
-            node_handle->get_parameter("frame_id", frame_id);
 
             msg.header.stamp = timestamp;
             msg.header.frame_id = frame_id;
