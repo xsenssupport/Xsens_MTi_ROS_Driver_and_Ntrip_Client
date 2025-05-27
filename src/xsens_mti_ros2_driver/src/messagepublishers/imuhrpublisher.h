@@ -146,8 +146,8 @@ struct ImuHRPublisher : public PacketCallback, PublisherHelperFunctions
                 debug_file << "!!! missing gyr measurements. delta-t: " 
                 << ns2string(curr_timestamp - last_gyr_timestamp) << "\n";
             }
-            last_gyr_timestamp = curr_timestamp;
             #endif
+            last_gyr_timestamp = curr_timestamp;
         }
 
         geometry_msgs::msg::Vector3 accel;
@@ -165,8 +165,8 @@ struct ImuHRPublisher : public PacketCallback, PublisherHelperFunctions
                 debug_file << "!!! missing acc measurements. delta-t: " 
                 << ns2string(curr_timestamp - last_acc_timestamp) << "\n";
             }
-            last_acc_timestamp = curr_timestamp;
             #endif
+            last_acc_timestamp = curr_timestamp;
         }
 
         // Imu message, publish if any of the fields is available
@@ -185,14 +185,18 @@ struct ImuHRPublisher : public PacketCallback, PublisherHelperFunctions
         
         if (acc_gyr_diff > acc_gyr_timestamp_diff_threshold) {
             #ifdef IMU_HR_DEBUG
-            debug_file << "skipping - not publishing points with incorrect timestamp diff: " << ns2string(acc_gyr_diff) << "s\n";
+            debug_file << "skipping - not publishing points with incorrect timestamp diff: "
+                       << ns2string(acc_gyr_diff) << "s\n";
             #endif
             return;
         }
 
+        
         sensor_msgs::msg::Imu msg;
-
-        msg.header.stamp = timestamp;
+        
+        // The acc and gyr messages come at slightly different times. Just choose the average time.
+        const uint64_t timestamp_mean = last_acc_timestamp/2 + last_gyr_timestamp/2;
+        msg.header.stamp = rclcpp::Time(timestamp_mean); // timestamp
         msg.header.frame_id = frame_id;
 
         msg.orientation = quaternion;
