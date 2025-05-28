@@ -362,7 +362,9 @@ XsResultValue SerialCommunicator::readDataToBuffer(XsByteArray& raw)
 		return XRV_NOPORTOPEN;
 
 	// always read data and append it to the cache before doing analysis
-	const int maxSz = 8192;
+	// original value: 8192
+	// see discussion: https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client/issues/3
+	const int maxSz = XS_DEFAULT_READ_BUFFER_SIZE; // 8192;
 	XsResultValue res = m_streamInterface->readData(maxSz, raw);
 	if (raw.size())
 		return XRV_OK;
