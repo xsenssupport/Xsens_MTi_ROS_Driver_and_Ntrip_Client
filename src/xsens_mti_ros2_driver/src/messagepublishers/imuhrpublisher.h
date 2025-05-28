@@ -61,7 +61,7 @@ struct ImuHRPublisher : public PacketCallback, PublisherHelperFunctions
     std::ofstream debug_file;
 
     std::string frame_id = DEFAULT_FRAME_ID;
-    uint64_t acc_gyr_timestamp_diff_threshold = s2ns(0.0005); // 0.5ms
+    uint64_t acc_gyr_timestamp_diff_threshold = s2ns(0.001); // 1ms (half the sample time)
 
     ImuHRPublisher(rclcpp::Node::SharedPtr node)
         : node_handle(node)
