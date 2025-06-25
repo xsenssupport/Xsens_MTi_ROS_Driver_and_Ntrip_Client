@@ -57,15 +57,15 @@ class ImuNodeWatchdog {
   rclcpp::TimerBase::SharedPtr watchdog_timer_;
 
   // Watchdog variables
-  rclcpp::Time last_info_message_time_;
-  rclcpp::Time last_message_time_;
+  double last_info_message_time_;
+  double last_message_time_;
   std::chrono::milliseconds timeout_duration_;
   int driver_fault_counter_ = 0;
   bool published_driver_error_ = false;
 
-  const rclcpp::Duration thres0_ = rclcpp::Duration(std::chrono::milliseconds(10'000));
-  const rclcpp::Duration thres1_ = rclcpp::Duration(std::chrono::milliseconds(500));
-  const rclcpp::Duration thres2_ = rclcpp::Duration(std::chrono::milliseconds(5000));
+  const double thres0_ = 10.0;
+  const double thres1_ = 0.5;
+  const double thres2_ = 5.0;
 
   std::mutex mutex_;
 
@@ -85,34 +85,35 @@ class ImuNodeWatchdog {
       RCLCPP_ERROR(node_->get_logger(), "Failed to prepare device");
       return false;
     }
-
-    // Reset the xdaInterface pointer to ensure it is destroyed before calling
-    // rclcpp::shutdown()
-    xdaInterface_.reset();
     return true;
   }
 
   void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg) {
     mutex_.lock();
-    last_message_time_ = rclcpp::Time(msg->header.stamp);
+    last_message_time_ = rclcpp::Time(msg->header.stamp).seconds();
     mutex_.unlock();
   }
 
   void check_watchdog() {
-    auto current_time = node_->now();
+    const double current_time = node_->now().seconds();
     mutex_.lock();
-    auto time_since_last_msg = current_time - last_message_time_;
+    const double time_since_last_msg = current_time - last_message_time_;
     mutex_.unlock();
 
-    auto time_since_last_info_msg = current_time - last_info_message_time_;
+    if (time_since_last_msg > 1e7) {
+      // fist message not received yet, don't do anything
+      return;
+    }
+
+    const double time_since_last_info_msg = current_time - last_info_message_time_;
     if (time_since_last_info_msg > thres0_) {
-      std::cerr << "IMU-WATCHDOG: IMU healthy (" << current_time.seconds() << ")\n";
+      std::cerr << "IMU-WATCHDOG: IMU healthy (" << current_time << ")\n";
       last_info_message_time_ = current_time;
     }
 
     if (time_since_last_msg > thres1_) {
       std::cerr << "IMU-WATCHDOG: IMU driver fault detected! No messages received for "
-                << time_since_last_msg.seconds() << " seconds. Restarting driver...\n";
+                << time_since_last_msg << " seconds. Restarting driver...\n";
       resetAndInitXdaInterface();
 
       if (resetAndInitXdaInterface()) {
@@ -126,7 +127,7 @@ class ImuNodeWatchdog {
 
     if (!published_driver_error_ && time_since_last_msg > thres2_) {
       std::cerr << "IMU-WATCHDOG: IMU driver fault detected! No messages received for "
-                << time_since_last_msg.seconds() << " seconds. Sending error message to GUI...\n";
+                << time_since_last_msg << " seconds. Sending error message to GUI...\n";
 
       diagnostic_msgs::msg::DiagnosticStatus status;
       status.name = "IMU Driver Fault";
@@ -134,7 +135,7 @@ class ImuNodeWatchdog {
       status.level = status.ERROR;
 
       diagnostic_msgs::msg::DiagnosticArray errors;
-      errors.header.stamp = current_time;
+      errors.header.stamp = node_->now();
       errors.status.push_back(status);
       error_pub_->publish(errors);
 
@@ -144,40 +145,53 @@ class ImuNodeWatchdog {
   }
 
  public:
-  ImuNodeWatchdog() {
-    // Create an executor that will be responsible for execution of callbacks
-    // for a set of nodes. With SingleThreadedExecutor, all callbacks will be
-    // called from within this thread (the main thread in this case).
-    rclcpp::executors::SingleThreadedExecutor exec;
-    node_ = std::make_shared<rclcpp::Node>("xsens_driver");
-    exec.add_node(node_);
-
+  ImuNodeWatchdog(std::shared_ptr<rclcpp::Node> node): node_(node) {
     if (!resetAndInitXdaInterface()) {
       RCLCPP_ERROR(node_->get_logger(), "Failed to initialize XdaInterface");
       return;
     }
 
+    // set output precision for doubles
+    std::cerr << std::fixed << std::setprecision(4);
+
     // Subscriber to monitor our own published messages
+    rclcpp::QoS qos = rclcpp::SensorDataQoS();
+    qos.keep_last(1);
     imu_subscriber_ = node_->create_subscription<sensor_msgs::msg::Imu>(
-        "/imu/data", 10, std::bind(&ImuNodeWatchdog::imu_callback, this, std::placeholders::_1));
+        "/imu/data", qos, std::bind(&ImuNodeWatchdog::imu_callback, this, std::placeholders::_1));
     watchdog_timer_ = node_->create_wall_timer(std::chrono::milliseconds(100),  // Check every 100ms
                                                std::bind(&ImuNodeWatchdog::check_watchdog, this));
     error_pub_ = node_->create_publisher<diagnostic_msgs::msg::DiagnosticArray>("/errors", 1);
-
-    while (rclcpp::ok()) {
-      xdaInterface_->spinFor(milliseconds(100));
-      exec.spin_some();
-    }
   }
 
   ~ImuNodeWatchdog() {
     std::cerr << "Shutting down ImuNodeWatchdog\n";
+    xdaInterface_.reset();
     rclcpp::shutdown();
+  }
+
+  void spinFor(std::chrono::milliseconds timeout) {
+    xdaInterface_->spinFor(milliseconds(100));
   }
 };
 
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
-  ImuNodeWatchdog watchdog;
+
+  // Create an executor that will be responsible for execution of callbacks
+  // for a set of nodes. With SingleThreadedExecutor, all callbacks will be
+  // called from within this thread (the main thread in this case).
+  rclcpp::executors::SingleThreadedExecutor exec;
+  auto node = std::make_shared<rclcpp::Node>("xsens_driver");
+  
+  ImuNodeWatchdog watchdog(node);
+
+  exec.add_node(node);
+
+  while (rclcpp::ok()) {
+    watchdog.spinFor(milliseconds(100));
+    exec.spin_some();
+  }
+
   return 0;
 }
