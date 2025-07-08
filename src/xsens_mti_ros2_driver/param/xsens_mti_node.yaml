@@ -223,6 +223,11 @@
         # To verify if MGBE was successful, use 'rostopic echo /status'.
         # If the 'no_rotation_update_status' changes from 3 to 0, MGBE was successful.
 
+        # RotSensor Frame changes
+        # roll, pitch, yaw values
+        # if your MTi-630 is installed upside-down(connector to the upside), then use 180deg for the roll.
+        enable_rotsensor_frame_config: false
+        rotsensor_rotation_euler: [180.0, 0.0, 0.0] 
 
 
         # Sensor Standard Deviation (Optional)

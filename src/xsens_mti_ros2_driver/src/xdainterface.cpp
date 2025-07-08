@@ -38,6 +38,8 @@
 #include <xstypes/xsmessage.h>
 #include <xstypes/xsfilterprofile.h>
 #include <xstypes/xsfilterprofilearray.h>
+#include <xstypes/xstypedefs.h>
+#include <xstypes/xsdatapacket.h>
 
 #include "messagepublishers/packetcallback.h"
 #include "messagepublishers/accelerationpublisher.h"
@@ -911,6 +913,37 @@ bool XdaInterface::configureSensorSettings()
 
 			}
 
+			bool enable_rotsensor_frame_config = false;
+			if(m_node->get_parameter("enable_rotsensor_frame_config", enable_rotsensor_frame_config))
+			{
+				std::vector<double> rotsensor_rotation_euler = {0.0, 0.0, 0.0};
+				m_node->declare_parameter("rotsensor_rotation_euler",rotsensor_rotation_euler);
+				if(m_node->get_parameter("rotsensor_rotation_euler", rotsensor_rotation_euler))
+				{
+					//change sensor's RotSensor frame by euler angles, roll, pitch, yaw
+					XsEuler rotsensor_euler(rotsensor_rotation_euler[0], 
+						rotsensor_rotation_euler[1], 
+						rotsensor_rotation_euler[2]);
+					RCLCPP_INFO(m_node->get_logger(), 
+                       "Setting rotsensor alignment rotation from Euler angles (roll: %.2fdeg, pitch: %.2fdeg, yaw: %.2fdeg)...", 
+                       rotsensor_euler.roll(), rotsensor_euler.pitch(), rotsensor_euler.yaw());
+
+					// Convert Euler angles to quaternion
+					XsQuaternion rotsensor_quat(rotsensor_euler);
+
+					// Normalize the quaternion
+					rotsensor_quat.normalize();
+					
+					// Apply the alignment rotation quaternion to the device
+					if (!m_device->setAlignmentRotationQuaternion(XAF_Sensor, rotsensor_quat)) {
+						RCLCPP_WARN(m_node->get_logger(), "Failed to set alignment rotation quaternion");
+						return false;
+					} else {
+						RCLCPP_INFO(m_node->get_logger(), "Successfully set alignment rotation from Euler angles");
+						return true;
+					}
+				}
+			}
 		}
 		//AHS is for MTI-2/3/320, MTI-200/300, but for MTI-620/630, it is on the filter profile VRUAHS.
 		//not imu, not gnss, not 600
@@ -1330,6 +1363,7 @@ void XdaInterface::declareCommonParameters()
 	m_node->declare_parameter("enable_position_velocity_smoother", false);
 	m_node->declare_parameter("enable_continuous_zero_rotation_update", false);
 	m_node->declare_parameter("enable_inrun_compass_calibration", false);
+	m_node->declare_parameter("enable_rotsensor_frame_config", false);
 	
 
 	m_node->declare_parameter("enable_setting_baudrate", false);
