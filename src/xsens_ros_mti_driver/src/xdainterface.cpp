@@ -39,6 +39,8 @@
 #include <xstypes/xsmessage.h>
 #include <xstypes/xsfilterprofile.h>
 #include <xstypes/xsfilterprofilearray.h>
+#include <xstypes/xstypedefs.h>
+#include <xstypes/xsdatapacket.h>
 #include <mavros_msgs/RTCM.h>
 
 #include "messagepublishers/packetcallback.h"
@@ -907,6 +909,39 @@ bool XdaInterface::configureSensorSettings()
 					}
 				}
 
+			}
+
+			bool enable_rotsensor_frame_config = false;
+			if(ros::param::get("~enable_rotsensor_frame_config", enable_rotsensor_frame_config))
+			{
+				std::vector<double> rotsensor_rotation_euler = {0.0, 0.0, 0.0};
+				if(ros::param::get("~rotsensor_rotation_euler", rotsensor_rotation_euler))
+				{
+					
+					//change sensor's RotSensor frame by euler angles, roll, pitch, yaw
+					XsEuler rotsensor_euler(rotsensor_rotation_euler[0], 
+						rotsensor_rotation_euler[1], 
+						rotsensor_rotation_euler[2]);
+					ROS_INFO("Setting rotsensor alignment rotation from Euler angles (roll: %.2fdeg, pitch: %.2fdeg, yaw: %.2fdeg)...", rotsensor_euler.roll(), rotsensor_euler.pitch(), rotsensor_euler.yaw());
+
+					// Convert Euler angles to quaternion
+					XsQuaternion rotsensor_quat(rotsensor_euler);
+
+					// Normalize the quaternion
+					rotsensor_quat.normalize();
+
+					// Apply the alignment rotation quaternion to the device
+					if (!m_device->setAlignmentRotationQuaternion(XAF_Sensor, rotsensor_quat)) {
+						ROS_WARN("Failed to set alignment rotation quaternion");
+						return false;
+					} else {
+						ROS_INFO("Successfully set alignment rotation from Euler angles");
+						return true;
+					}
+
+				}
+
+				
 			}
 
 		}
