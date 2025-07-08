@@ -912,7 +912,7 @@ bool XdaInterface::configureSensorSettings()
 			}
 
 			bool enable_rotsensor_frame_config = false;
-			if(ros::param::get("~enable_rotsensor_frame_config", enable_rotsensor_frame_config))
+			if(ros::param::get("~enable_rotsensor_frame_config", enable_rotsensor_frame_config) && enable_rotsensor_frame_config)
 			{
 				std::vector<double> rotsensor_rotation_euler = {0.0, 0.0, 0.0};
 				if(ros::param::get("~rotsensor_rotation_euler", rotsensor_rotation_euler))
