@@ -914,7 +914,7 @@ bool XdaInterface::configureSensorSettings()
 			}
 
 			bool enable_rotsensor_frame_config = false;
-			if(m_node->get_parameter("enable_rotsensor_frame_config", enable_rotsensor_frame_config))
+			if(m_node->get_parameter("enable_rotsensor_frame_config", enable_rotsensor_frame_config)&& enable_rotsensor_frame_config)
 			{
 				std::vector<double> rotsensor_rotation_euler = {0.0, 0.0, 0.0};
 				m_node->declare_parameter("rotsensor_rotation_euler",rotsensor_rotation_euler);
