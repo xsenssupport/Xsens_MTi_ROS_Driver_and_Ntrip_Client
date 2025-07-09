@@ -10,6 +10,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
   <depend>boost</depend>
   <depend>mavros_msgs</depend>
   <depend>nmea_msgs</depend>
