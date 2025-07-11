@@ -57,7 +57,7 @@ struct NMEAPublisher : public PacketCallback
         node->get_parameter("publisher_queue_size", pub_queue_size);
         node->get_parameter("frame_id", frame_id);
 
-        pub = node->create_publisher<nmea_msgs::msg::Sentence>("/nmea", pub_queue_size);
+        pub = node->create_publisher<nmea_msgs::msg::Sentence>("~/nmea", pub_queue_size);
 
     }
 
