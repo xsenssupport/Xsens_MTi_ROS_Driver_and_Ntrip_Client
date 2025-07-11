@@ -136,8 +136,8 @@ namespace ntrip_client
                   nmea_input_rate_, update_rate_, nmea_skip_count_);
 
       // Set up publishers and subscribers
-      rtcm_pub_ = this->create_publisher<mavros_msgs::msg::RTCM>("rtcm", 10);
-      diagnostic_pub_ = this->create_publisher<diagnostic_msgs::msg::DiagnosticArray>("/ntrip/diagnostics", 10);
+      rtcm_pub_ = this->create_publisher<mavros_msgs::msg::RTCM>("~/rtcm", 10);
+      diagnostic_pub_ = this->create_publisher<diagnostic_msgs::msg::DiagnosticArray>("~/ntrip/diagnostics", 10);
 
       // Create RtcmParser AFTER parameters are loaded
       rtcm_parser_ = std::make_unique<RtcmParser>(rtcm_pub_, debug_);

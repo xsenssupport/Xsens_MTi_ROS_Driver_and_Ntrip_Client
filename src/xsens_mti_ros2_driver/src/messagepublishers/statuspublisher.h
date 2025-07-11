@@ -49,7 +49,7 @@ struct StatusPublisher : public PacketCallback
         node->get_parameter("publisher_queue_size", pub_queue_size);
         //node->get_parameter("frame_id", frame_id);
 
-        pub = node->create_publisher<xsens_mti_ros2_driver::msg::XsStatusWord>("/status", pub_queue_size);
+        pub = node->create_publisher<xsens_mti_ros2_driver::msg::XsStatusWord>("~/status", pub_queue_size);
     }
 
     void parseToMessage(xsens_mti_ros2_driver::msg::XsStatusWord &msg, uint32_t status)
