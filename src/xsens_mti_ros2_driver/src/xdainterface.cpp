@@ -517,6 +517,13 @@ void XdaInterface::setupManualGyroBiasEstimation()
 					std::chrono::seconds(event_interval),
 					[this, duration]() { this->manualGyroBiasEstimation(duration); }
 				);
+
+				// Start the subscriber for MGBE with the retrieved parameters
+				m_manualGyroBiasSubscriber = m_node->create_subscription<std_msgs::msg::Empty>(
+				    "gyro_bias_trigger", 10,
+					[this, duration](const std_msgs::msg::Empty::SharedPtr msg) { this->manualGyroBiasEstimation(duration); }
+				);
+
 				RCLCPP_INFO(m_node->get_logger(), "Manual Gyro Bias Estimation enabled. Interval: %d seconds, Duration: %d seconds.", event_interval, duration);
 				event_interval += duration;
 			}
@@ -594,9 +601,9 @@ bool XdaInterface::configureSensorSettings()
 
 	if (!m_device->gotoConfig())
 		return handleError("Could not go to config");
-	
+
 	if (enable_deviceConfig)
-	{	
+	{
 
 		XsVersion firmwareVersion = m_device->firmwareVersion();
 		bool isDeviceGnssIns = m_device->deviceId().isGnss();
@@ -617,7 +624,7 @@ bool XdaInterface::configureSensorSettings()
 				{
 					RCLCPP_WARN(m_node->get_logger(), "output_data_rate is got but set over 400Hz, using default 100Hz");
 				}
-				
+
 			}
 			else
 			{
@@ -749,7 +756,7 @@ bool XdaInterface::configureSensorSettings()
 			}
 
 		}
-		
+
 
 		if(isDeviceVruAhrs || isDeviceGnssIns)
 		{
@@ -815,7 +822,7 @@ bool XdaInterface::configureSensorSettings()
 
 			//baro for mti-7/8 max 50Hz, for mti-670/680 max 100Hz.
 			if (m_node->get_parameter("pub_pressure", should_config) && should_config)
-			{	
+			{
 				//if it is mtix, max is 50(output_data_rate_baro_mtione), if not, max is 100(use ODRoptionLower).
 				if(isMTiX)
 				{
@@ -866,7 +873,7 @@ bool XdaInterface::configureSensorSettings()
 		RCLCPP_INFO(m_node->get_logger(), "Sensor output configured successfully.");
 
 
-		
+
 		//ROS_INFO print the 5th to 7th characters of the product code to check if it is mti-680(G) or other mti-600 models.
 		bool isMTi620 = false;
 		bool isMTi630 = false;
@@ -889,7 +896,7 @@ bool XdaInterface::configureSensorSettings()
 			{
 				if(enable_inrun_compass_calibration)
 				{
-					
+
 					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_EnableInrunCompassCalibration, XsDeviceOptionFlag::XDOF_None))
 					{
 						RCLCPP_INFO(m_node->get_logger(), "Enable In-run Compass Calibration Success!");
@@ -921,11 +928,11 @@ bool XdaInterface::configureSensorSettings()
 				if(m_node->get_parameter("rotsensor_rotation_euler", rotsensor_rotation_euler))
 				{
 					//change sensor's RotSensor frame by euler angles, roll, pitch, yaw
-					XsEuler rotsensor_euler(rotsensor_rotation_euler[0], 
-						rotsensor_rotation_euler[1], 
+					XsEuler rotsensor_euler(rotsensor_rotation_euler[0],
+						rotsensor_rotation_euler[1],
 						rotsensor_rotation_euler[2]);
-					RCLCPP_INFO(m_node->get_logger(), 
-                       "Setting rotsensor alignment rotation from Euler angles (roll: %.2fdeg, pitch: %.2fdeg, yaw: %.2fdeg)...", 
+					RCLCPP_INFO(m_node->get_logger(),
+                       "Setting rotsensor alignment rotation from Euler angles (roll: %.2fdeg, pitch: %.2fdeg, yaw: %.2fdeg)...",
                        rotsensor_euler.roll(), rotsensor_euler.pitch(), rotsensor_euler.yaw());
 
 					// Convert Euler angles to quaternion
@@ -933,7 +940,7 @@ bool XdaInterface::configureSensorSettings()
 
 					// Normalize the quaternion
 					rotsensor_quat.normalize();
-					
+
 					// Apply the alignment rotation quaternion to the device
 					if (!m_device->setAlignmentRotationQuaternion(XAF_Sensor, rotsensor_quat)) {
 						RCLCPP_WARN(m_node->get_logger(), "Failed to set alignment rotation quaternion");
@@ -955,7 +962,7 @@ bool XdaInterface::configureSensorSettings()
 			{
 				if(enable_active_heading_stabilization)
 				{
-					
+
 					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_EnableInrunCompassCalibration, XsDeviceOptionFlag::XDOF_None))
 					{
 						RCLCPP_INFO(m_node->get_logger(), "Enable Active Heading Stabilization Success!");
@@ -982,19 +989,19 @@ bool XdaInterface::configureSensorSettings()
 		}
 
 
-		
+
 
 
 		if (isMTi670 || isMTi680 || isMTiG710)
 		{
-			// use ros:param to get 
+			// use ros:param to get
 			//enable_orientation_smoother, enable_position_velocity_smoother, enable_continuous_zero_rotation_update
 			bool enable_orientation_smoother = false;
 			if(m_node->get_parameter("enable_orientation_smoother", enable_orientation_smoother))
 			{
 				if(enable_orientation_smoother)
 				{
-					
+
 					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_EnableOrientationSmoother, XsDeviceOptionFlag::XDOF_None))
 					{
 						RCLCPP_INFO(m_node->get_logger(), "Enable Orientation Smoother Success!");
@@ -1027,7 +1034,7 @@ bool XdaInterface::configureSensorSettings()
 				{
 					if(enable_position_velocity_smoother)
 					{
-						
+
 						if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_EnablePositionVelocitySmoother, XsDeviceOptionFlag::XDOF_None))
 						{
 							RCLCPP_INFO(m_node->get_logger(), "Enable Position Velocity Smoother Success!");
@@ -1059,7 +1066,7 @@ bool XdaInterface::configureSensorSettings()
 				{
 					if(enable_continuous_zero_rotation_update)
 					{
-						
+
 						if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_EnableContinuousZRU, XsDeviceOptionFlag::XDOF_None))
 						{
 							RCLCPP_INFO(m_node->get_logger(), "Enable Continous Zero Rotation Update Success!");
@@ -1083,7 +1090,7 @@ bool XdaInterface::configureSensorSettings()
 
 				}
 			}
-			
+
 
 		}
 
@@ -1137,7 +1144,7 @@ bool XdaInterface::configureSensorSettings()
 			{
 				if(enable_beidou)
 				{
-					
+
 					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_EnableBeidou, XsDeviceOptionFlag::XDOF_None))
 					{
 						RCLCPP_INFO(m_node->get_logger(), "Enable Beidou Success!");
@@ -1160,10 +1167,10 @@ bool XdaInterface::configureSensorSettings()
 				}
 
 			}
-			
+
 		}
 
-		
+
 		//set filter profiles
 		bool enable_filter_config = false;
 		if (m_node->get_parameter("enable_filter_config", enable_filter_config) && enable_filter_config)
@@ -1172,7 +1179,7 @@ bool XdaInterface::configureSensorSettings()
 			if(!onboardProfiles.empty())
 			{
 				int filterIndex = 0; // Initialize counter variable
-				std::map<int, std::string> profileDictionary; 
+				std::map<int, std::string> profileDictionary;
 				RCLCPP_INFO(m_node->get_logger(), "Got Onboard Filter Profiles: ");
 				for (XsFilterProfileArray::iterator it = onboardProfiles.begin(); it != onboardProfiles.end(); ++it, ++filterIndex)
 				{
@@ -1206,11 +1213,11 @@ bool XdaInterface::configureSensorSettings()
 						{
 							RCLCPP_WARN(m_node->get_logger(), "Your mti_filter_option %d is incorrect, it is bigger than index bound of 0 to %d, please check your model and correct the value at xsens_mti_node.yaml.", filterIndexToSet, (int)(onboardProfiles.size() - 1));
 						}
-						
+
 					}
 
 				}
-			
+
 
 				if(isGotFilterParam)
 				{
@@ -1233,7 +1240,7 @@ bool XdaInterface::configureSensorSettings()
 						{
 							//For MTI-620 or MTI-630, for example: "Responsive/VRU"
 							XsString filterToSet = XsString(rollpitchLabel) + XsString("/") + XsString(yawLabel);
-							
+
 								if(m_device->setOnboardFilterProfile(filterToSet))
 								{
 									RCLCPP_INFO(m_node->get_logger(), "Successfully Set Onboard Filter Option to Name: %s", filterToSet.c_str());
@@ -1260,10 +1267,10 @@ bool XdaInterface::configureSensorSettings()
 				}
 
 			}
-			
+
 
 		}
-		
+
 
 
 		//Lastly, set the baudrate.
@@ -1283,7 +1290,7 @@ bool XdaInterface::configureSensorSettings()
 					baudrate = XBR_2000k;
 					if (!m_device->setSerialBaudRate(baudrate))
 						return handleError("Could not set baudrate to " + std::to_string(XsBaud::rateToNumeric(baudrate)));
-					
+
 					RCLCPP_INFO(m_node->get_logger(), "Since the HighRate Data is enabled, Sensor baudrate forcely configured to %d.", XsBaud::rateToNumeric(baudrate));
 				}
 				else
@@ -1302,7 +1309,7 @@ bool XdaInterface::configureSensorSettings()
 							return handleError("Could not set baudrate to " + std::to_string(XsBaud::rateToNumeric(baudrate)));
 
 						RCLCPP_INFO(m_node->get_logger(), "Sensor baudrate configured to %d success.", XsBaud::rateToNumeric(baudrate));
-					}		
+					}
 				}
 			}
 			else
@@ -1364,7 +1371,7 @@ void XdaInterface::declareCommonParameters()
 	m_node->declare_parameter("enable_continuous_zero_rotation_update", false);
 	m_node->declare_parameter("enable_inrun_compass_calibration", false);
 	m_node->declare_parameter("enable_rotsensor_frame_config", false);
-	
+
 
 	m_node->declare_parameter("enable_setting_baudrate", false);
 	m_node->declare_parameter("set_baudrate_value", 115200);
