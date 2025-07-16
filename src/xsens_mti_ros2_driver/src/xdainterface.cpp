@@ -224,8 +224,7 @@ void XdaInterface::registerPublishers()
 	if(isDeviceGnssRtk)
 	{
 		m_rtcmSubscription = m_node->create_subscription<mavros_msgs::msg::RTCM>(
-			"/rtcm", 
-			100, 
+			"/rtcm", 100,
 			std::bind(&XdaInterface::rtcmCallback, this, std::placeholders::_1)
 		);
 		RCLCPP_INFO(m_node->get_logger(), "Subscribing to /rtcm rostopic");
@@ -436,7 +435,7 @@ bool XdaInterface::prepare()
 	rclcpp::sleep_for(std::chrono::milliseconds(50));
 	
 	//in any case, send MGBE in the beginning for 6 seconds.
-	manualGyroBiasEstimation(6);
+	manualGyroBiasEstimation(0, 6);
 
 	// Setup Periodic Manual Gyro Bias Estimation
     setupManualGyroBiasEstimation();
@@ -454,7 +453,7 @@ bool XdaInterface::prepare()
  * parameter to decide whether the MGBE should be enabled, and 'manual_gyro_bias_param' for the parameters required
  * for the estimation process, which includes the event interval and duration for the MGBE.
  */
-bool XdaInterface::manualGyroBiasEstimation(uint16_t duration)
+bool XdaInterface::manualGyroBiasEstimation(uint16_t sleep, uint16_t duration)
 {
 	// Check if duration is less than 2; if so, set it to 2
     if (duration < 2)
@@ -462,6 +461,9 @@ bool XdaInterface::manualGyroBiasEstimation(uint16_t duration)
         RCLCPP_INFO(m_node->get_logger(), "Duration is less than 2 seconds, setting it to 2 seconds.");
         duration = 2;
     }
+
+    if (sleep > 0)
+		rclcpp::sleep_for(std::chrono::milliseconds(sleep));
 
 	XsMessage snd(XMID_SetNoRotation, sizeof(uint16_t));
 	XsMessage rcv;
@@ -516,14 +518,14 @@ void XdaInterface::setupManualGyroBiasEstimation()
 				if (event_interval > 0) {
                     m_manualGyroBiasTimer = m_node->create_wall_timer(
                         std::chrono::seconds(event_interval),
-                        [this, duration]() { this->manualGyroBiasEstimation(duration); }
+                        [this, duration]() { this->manualGyroBiasEstimation(0, duration); }
                     );
                 }
 
 				// Start the subscriber for MGBE with the retrieved parameters
 				m_manualGyroBiasSubscriber = m_node->create_subscription<std_msgs::msg::Empty>(
 				    "gyro_bias_trigger", 10,
-					[this, duration](const std_msgs::msg::Empty::SharedPtr msg) { this->manualGyroBiasEstimation(duration); }
+					[this, duration](const std_msgs::msg::Empty::SharedPtr msg) { this->manualGyroBiasEstimation(500, duration); }
 				);
 
 				RCLCPP_INFO(m_node->get_logger(), "Manual Gyro Bias Estimation enabled. Interval: %d seconds, Duration: %d seconds.", event_interval, duration);
