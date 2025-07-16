@@ -501,7 +501,7 @@ void XdaInterface::setupManualGyroBiasEstimation()
 				int event_interval = manual_gyro_bias_param[0];
 				int duration = manual_gyro_bias_param[1];
 
-				if (event_interval < 10)
+				if (event_interval > 0 && event_interval < 10)
 				{
 					RCLCPP_INFO(m_node->get_logger(), "Event interval is less than 10 seconds, setting it to 10 seconds.");
 					event_interval = 10;
@@ -513,10 +513,12 @@ void XdaInterface::setupManualGyroBiasEstimation()
 				}
 
 				// Start the timer for MGBE with the retrieved parameters
-				m_manualGyroBiasTimer = m_node->create_wall_timer(
-					std::chrono::seconds(event_interval),
-					[this, duration]() { this->manualGyroBiasEstimation(duration); }
-				);
+				if (event_interval > 0) {
+                    m_manualGyroBiasTimer = m_node->create_wall_timer(
+                        std::chrono::seconds(event_interval),
+                        [this, duration]() { this->manualGyroBiasEstimation(duration); }
+                    );
+                }
 
 				// Start the subscriber for MGBE with the retrieved parameters
 				m_manualGyroBiasSubscriber = m_node->create_subscription<std_msgs::msg::Empty>(
