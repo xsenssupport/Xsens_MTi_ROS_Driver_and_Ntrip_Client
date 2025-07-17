@@ -33,13 +33,19 @@
 #ifndef STATUSPUBLISHER_H
 #define STATUSPUBLISHER_H
 
+#include <diagnostic_msgs/msg/diagnostic_array.hpp>
+#include <diagnostic_msgs/msg/diagnostic_status.hpp>
+#include <diagnostic_msgs/msg/key_value.hpp>
+
 #include "packetcallback.h"
 #include "xsens_mti_ros2_driver/msg/xs_status_word.hpp"
-
 
 struct StatusPublisher : public PacketCallback
 {
     rclcpp::Publisher<xsens_mti_ros2_driver::msg::XsStatusWord>::SharedPtr pub;
+    rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub;
+    uint32_t cycle_ = 0;
+    //    diagnostic_updater::Updater updater;
     //std::string frame_id = DEFAULT_FRAME_ID;
 
     StatusPublisher(rclcpp::Node::SharedPtr node)
@@ -50,6 +56,7 @@ struct StatusPublisher : public PacketCallback
         //node->get_parameter("frame_id", frame_id);
 
         pub = node->create_publisher<xsens_mti_ros2_driver::msg::XsStatusWord>("/status", pub_queue_size);
+        diag_pub = node->create_publisher<diagnostic_msgs::msg::DiagnosticArray>("/diagnostics", 10);
     }
 
     void parseToMessage(xsens_mti_ros2_driver::msg::XsStatusWord &msg, uint32_t status)
@@ -119,6 +126,8 @@ struct StatusPublisher : public PacketCallback
 
     void operator()(const XsDataPacket &packet, rclcpp::Time timestamp)
     {
+        ++cycle_;
+
         if (packet.containsStatus())
         {
             xsens_mti_ros2_driver::msg::XsStatusWord msg;
@@ -127,6 +136,24 @@ struct StatusPublisher : public PacketCallback
             parseToMessage(msg, status);
 
             pub->publish(msg);
+
+            if (cycle_ % 50 == 0)
+            {
+                diagnostic_msgs::msg::DiagnosticArray diag_msg;
+                diag_msg.header.stamp = timestamp;
+
+                diagnostic_msgs::msg::DiagnosticStatus robot_status;
+                robot_status.name = "IMU status";
+                robot_status.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+                robot_status.message = "";
+
+                std::vector<diagnostic_msgs::msg::KeyValue> key_values(1);
+                key_values[0].set__key("Manual Gyro Bias Estimation status").set__value(std::to_string(msg.no_rotation_update_status));
+
+                robot_status.values = key_values;
+                diag_msg.status.push_back(robot_status);
+                diag_pub->publish(diag_msg);
+            }
         }
     }
 };

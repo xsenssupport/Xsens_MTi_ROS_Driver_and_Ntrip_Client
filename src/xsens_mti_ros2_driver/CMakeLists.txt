@@ -21,6 +21,7 @@ find_package(nmea_msgs REQUIRED)
 find_package(mavros_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+find_package(diagnostic_msgs REQUIRED)
 
 link_directories(lib/xspublic/xscontroller lib/xspublic/xscommon lib/xspublic/xstypes)
 
@@ -103,6 +104,7 @@ add_dependencies(xsens_mti_node xspublic ${PROJECT_NAME})
 if(TARGET rclcpp::rclcpp)
   # Rolling and newer: use modern CMake targets
   target_link_libraries(xsens_mti_node
+    ${diagnostic_msgs_TARGETS}
     ${geometry_msgs_TARGETS}
     ${mavros_msgs_TARGETS}
     ${nav_msgs_TARGETS}
@@ -128,6 +130,7 @@ else()
     nmea_msgs
     mavros_msgs
     rosidl_default_runtime
+    diagnostic_msgs
   )
 endif()
 
@@ -246,7 +249,8 @@ ament_export_dependencies(
 	nmea_msgs
 	mavros_msgs
 	rosidl_default_runtime #the default runtime for ROS 2 interface (message, service, action) generation.
-  Eigen3
+	Eigen3
+	diagnostic_msgs
 )
 
 ament_export_include_directories(
