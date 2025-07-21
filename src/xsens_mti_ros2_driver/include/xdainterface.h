@@ -38,6 +38,7 @@
 #include "xdacallback.h"
 #include <xstypes/xsportinfo.h>
 #include <xstypes/xsstring.h>
+#include "std_msgs/msg/empty.hpp"
 
 #include <chrono>
 
@@ -69,7 +70,7 @@ private:
 	bool handleError(std::string error);
 	void declareCommonParameters();
 	bool configureSensorSettings();
-	bool manualGyroBiasEstimation(uint16_t duration);
+	bool manualGyroBiasEstimation(uint16_t sleep, uint16_t duration);
 
 	XsControl *m_control;
 	XsDevice *m_device;
@@ -80,6 +81,7 @@ private:
 	rclcpp::Node::SharedPtr m_node; 
 	// Timer for Manual Gyro Bias Estimation
 	rclcpp::TimerBase::SharedPtr m_manualGyroBiasTimer;
+	rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr m_manualGyroBiasSubscriber;
 	rclcpp::Subscription<mavros_msgs::msg::RTCM>::SharedPtr m_rtcmSubscription;
 };
 
