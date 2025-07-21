@@ -224,7 +224,8 @@ void XdaInterface::registerPublishers()
 	if(isDeviceGnssRtk)
 	{
 		m_rtcmSubscription = m_node->create_subscription<mavros_msgs::msg::RTCM>(
-			"/rtcm", 100,
+			"/rtcm",
+			100,
 			std::bind(&XdaInterface::rtcmCallback, this, std::placeholders::_1)
 		);
 		RCLCPP_INFO(m_node->get_logger(), "Subscribing to /rtcm rostopic");
@@ -470,6 +471,7 @@ bool XdaInterface::manualGyroBiasEstimation(uint16_t sleep, uint16_t duration)
 	snd.setDataShort(duration);
 	if (!m_device->sendCustomMessage(snd, true, rcv, 1000))
 		return false;
+
 	return true;
 }
 
