@@ -44,7 +44,7 @@ struct StatusPublisher : public PacketCallback
 {
     rclcpp::Publisher<xsens_mti_ros2_driver::msg::XsStatusWord>::SharedPtr pub;
     rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub;
-    uint32_t cycle_ = 0;
+    uint32_t last_mgbe_status_ = -1;
     //    diagnostic_updater::Updater updater;
     //std::string frame_id = DEFAULT_FRAME_ID;
 
@@ -126,8 +126,6 @@ struct StatusPublisher : public PacketCallback
 
     void operator()(const XsDataPacket &packet, rclcpp::Time timestamp)
     {
-        ++cycle_;
-
         if (packet.containsStatus())
         {
             xsens_mti_ros2_driver::msg::XsStatusWord msg;
@@ -137,7 +135,7 @@ struct StatusPublisher : public PacketCallback
 
             pub->publish(msg);
 
-            if (cycle_ % 50 == 0)
+            if (status != last_mgbe_status_)
             {
                 diagnostic_msgs::msg::DiagnosticArray diag_msg;
                 diag_msg.header.stamp = timestamp;
@@ -153,6 +151,8 @@ struct StatusPublisher : public PacketCallback
                 robot_status.values = key_values;
                 diag_msg.status.push_back(robot_status);
                 diag_pub->publish(diag_msg);
+
+                last_mgbe_status_ = status;
             }
         }
     }
