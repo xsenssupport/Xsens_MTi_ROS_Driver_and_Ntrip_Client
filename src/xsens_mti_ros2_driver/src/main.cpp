@@ -107,27 +107,27 @@ class ImuNodeWatchdog {
 
     const double time_since_last_info_msg = current_time - last_info_message_time_;
     if (time_since_last_info_msg > thres0_) {
-      std::cerr << "IMU-WATCHDOG: IMU healthy (" << current_time << ")\n";
+      RCLCPP_INFO(node_->get_logger(), ("IMU-WATCHDOG: IMU healthy (" + std::to_string(current_time) + ")").c_str());
       last_info_message_time_ = current_time;
     }
 
     if (time_since_last_msg > thres1_) {
-      std::cerr << "IMU-WATCHDOG: IMU driver fault detected! No messages received for "
-                << time_since_last_msg << " seconds. Restarting driver...\n";
+      RCLCPP_INFO(node_->get_logger(), ("IMU-WATCHDOG: IMU driver fault detected! No messages received for "
+            + std::to_string(time_since_last_msg) + " seconds. Restarting driver...").c_str());
       resetAndInitXdaInterface();
 
       if (resetAndInitXdaInterface()) {
-        std::cerr << "XdaInterface successfully reinitialized.\n";
+        RCLCPP_INFO(node_->get_logger(), "XdaInterface successfully reinitialized.");
       } else {
         driver_fault_counter_++;
-        std::cerr << "Failed to reinitialize XdaInterface. Driver fault counter: "
-                  << driver_fault_counter_ << "\n";
+        RCLCPP_ERROR(node_->get_logger(), ("Failed to reinitialize XdaInterface. Driver fault counter: " +
+                  std::to_string(driver_fault_counter_)).c_str());
       }
     }
 
     if (!published_driver_error_ && time_since_last_msg > thres2_) {
-      std::cerr << "IMU-WATCHDOG: IMU driver fault detected! No messages received for "
-                << time_since_last_msg << " seconds. Sending error message to GUI...\n";
+      RCLCPP_ERROR(node_->get_logger(), ("IMU-WATCHDOG: IMU driver fault detected! No messages received for "
+            + std::to_string(time_since_last_msg) + " seconds. Sending error message to GUI...").c_str());
 
       diagnostic_msgs::msg::DiagnosticStatus status;
       status.name = "IMU Driver Fault";
@@ -165,7 +165,7 @@ class ImuNodeWatchdog {
   }
 
   ~ImuNodeWatchdog() {
-    std::cerr << "Shutting down ImuNodeWatchdog\n";
+    RCLCPP_INFO(node_->get_logger(), "Shutting down ImuNodeWatchdog");
     xdaInterface_.reset();
     rclcpp::shutdown();
   }
@@ -183,7 +183,7 @@ int main(int argc, char *argv[]) {
   // called from within this thread (the main thread in this case).
   rclcpp::executors::SingleThreadedExecutor exec;
   auto node = std::make_shared<rclcpp::Node>("xsens_driver");
-  
+
   ImuNodeWatchdog watchdog(node);
 
   exec.add_node(node);
