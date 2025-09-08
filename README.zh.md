@@ -66,8 +66,9 @@ sudo apt install ros-humble-mavros-msgs
 
 在``src/ntrip/launch/ntrip_launch.py``中更改NTRIP凭证/服务器/挂载点为您自己的。
 
-将`src`文件夹复制到您的``ros2_ws``文件夹中，然后运行以下代码：
+运行以下代码：
 ```
+mv Xsens_MTi_ROS_Driver_and_Ntrip_Client ros2_ws
 cd ~/ros2_ws
 colcon build
 ```
