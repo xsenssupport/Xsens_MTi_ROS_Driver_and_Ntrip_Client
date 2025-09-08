@@ -60,8 +60,10 @@ sudo apt install ros-noetic-nmea-msgs
 sudo apt install ros-noetic-mavros-msgs
 ```
 
-克隆源文件到您的 ``catkin_ws``，并运行以下代码：
+运行以下代码：
 ```
+git clone https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client.git
+mv Xsens_MTi_ROS_Driver_and_Ntrip_Client catkin_ws
 cd ~/catkin_ws
 catkin_make
 ```
