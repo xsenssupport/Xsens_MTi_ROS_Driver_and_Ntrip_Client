@@ -64,8 +64,9 @@ sudo apt install ros-humble-mavros-msgs
 change the NTRIP credentials/servers/mountpoint in ``src/ntrip/launch/ntrip_launch.py`` to your own one.
 
 
-copy the `src` folder to your ``ros2_ws`` folder, and run the code below:
+run the code below:
 ```
+mv Xsens_MTi_ROS_Driver_and_Ntrip_Client ros2_ws
 cd ~/ros2_ws
 colcon build
 ```
@@ -193,5 +194,6 @@ If the program displays the message `No MTi device found`:
   sudo apt install cutecom
   cutecom
   ```
+
 
 
