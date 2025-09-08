@@ -55,8 +55,10 @@ sudo apt install ros-noetic-nmea-msgs
 sudo apt install ros-noetic-mavros-msgs
 ```
 
-clone the source file to your ``catkin_ws``, and run the code below:
+run the code below:
 ```
+git clone https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and_Ntrip_Client.git
+mv Xsens_MTi_ROS_Driver_and_Ntrip_Client catkin_ws
 cd ~/catkin_ws
 catkin_make
 ```
@@ -183,4 +185,5 @@ If the program displays the message `No MTi device found`:
   sudo apt install cutecom
   cutecom
   ```
+
 
