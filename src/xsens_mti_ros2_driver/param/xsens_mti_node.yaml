@@ -24,8 +24,8 @@
         # to set baudrate to 115200, send the command: FA FF 30 00 D1, 
         # or to set it to 921600, send: FA FF 18 01 80 68.
 
-        # port: '/dev/ttyUSB0' # Uncomment and set your device's port.
-        # baudrate: 921600     # Uncomment and set your device's baudrate.
+        port: '/dev/ttyUSB0' # Uncomment and set your device's port.
+        baudrate: 921600     # Uncomment and set your device's baudrate.
 
         # Device Scanning Selection
         # ----------------
@@ -55,7 +55,7 @@
         # Transform Frame ID
         # ------------------
         # Default frame_id is "imu_link". Change this if using multiple devices to avoid conflicts.
-        # frame_id: "imu_link"
+        frame_id: "imu_link"
 
 
         # Sensor Configuration
