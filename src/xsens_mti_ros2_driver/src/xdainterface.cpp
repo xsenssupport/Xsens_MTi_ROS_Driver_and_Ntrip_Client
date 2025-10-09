@@ -547,8 +547,10 @@ void XdaInterface::setupManualGyroBiasEstimation()
                 }
 
 				// Start the subscriber for MGBE with the retrieved parameters
+				auto gyro_bias_estimation_trigger_qos = rclcpp::QoS(rclcpp::KeepLast(1), rmw_qos_profile_default);
+				gyro_bias_estimation_trigger_qos.transient_local();
 				m_manualGyroBiasSubscriber = m_node->create_subscription<std_msgs::msg::Empty>(
-				    "gyro_bias_trigger", 10,
+				    "gyro_bias_trigger", gyro_bias_estimation_trigger_qos,
 					[this, duration](const std_msgs::msg::Empty::SharedPtr msg) { this->manualGyroBiasEstimation(500, duration); }
 				);
 
