@@ -38,6 +38,8 @@
 XdaCallback::XdaCallback(rclcpp::Node::SharedPtr node, size_t maxBufferSize)
 	: m_maxBufferSize(maxBufferSize)
 	, parent_node(node)
+	, m_interpolator(node)
+	, m_interpolationEnabled(false)
 {
 	int time_option = 0; //default is "mti_utc"
 	parent_node->declare_parameter<int>("time_option", 0);
@@ -57,6 +59,18 @@ XdaCallback::XdaCallback(rclcpp::Node::SharedPtr node, size_t maxBufferSize)
 		RCLCPP_WARN(parent_node->get_logger(), "Rosnode time_option parameter is using host controller's ros time. ");
 	}
 
+	// Declare and get interpolation parameter
+	parent_node->declare_parameter<bool>("interpolate_orientation_high_rate", false);
+	parent_node->get_parameter("interpolate_orientation_high_rate", m_interpolationEnabled);
+	
+	if (m_interpolationEnabled)
+	{
+		RCLCPP_INFO(parent_node->get_logger(), "Rosnode interpolate_orientation_high_rate parameter is enabled");
+	}
+	else
+	{
+		RCLCPP_INFO(parent_node->get_logger(), "Rosnode interpolate_orientation_high_rate parameter is disabled");
+	}
 }
 
 XdaCallback::~XdaCallback() throw()
@@ -87,22 +101,52 @@ void XdaCallback::onLiveDataAvailable(XsDevice *, const XsDataPacket *packet)
 
 	assert(packet != 0);
 
-	// Discard oldest packet if buffer full
-	if (m_buffer.size() == m_maxBufferSize)
+	// Check if interpolation is enabled
+	if (m_interpolationEnabled)
 	{
-		m_buffer.pop_front();
+		// Process packet for interpolation
+		XsDataPacket interpolatedPacket;
+		bool interpolated = m_interpolator.processPacket(*packet, interpolatedPacket);
+		
+		// Only buffer interpolated packets (which contain all three data types)
+		if (interpolated)
+		{
+			// Discard oldest packet if buffer full
+			if (m_buffer.size() == m_maxBufferSize)
+			{
+				m_buffer.pop_front();
+			}
+
+			rclcpp::Time now = m_timeHandler.convertUtcTimeToRosTime(interpolatedPacket);
+			// Push interpolated packet
+			m_buffer.push_back(RosXsDataPacket(now, interpolatedPacket));
+
+			// Manual unlocking is done before notifying, to avoid waking up
+			// the waiting thread only to block again
+			lock.unlock();
+			m_condition.notify_one();
+		}
+		// If not interpolated yet (still buffering), don't push to output buffer
 	}
+	else
+	{
+		// Interpolation disabled - pass through all packets as-is
+		// Discard oldest packet if buffer full
+		if (m_buffer.size() == m_maxBufferSize)
+		{
+			m_buffer.pop_front();
+		}
 
-	rclcpp::Time now = m_timeHandler.convertUtcTimeToRosTime(*packet);
-	// Push new packet
-	m_buffer.push_back(RosXsDataPacket(now, *packet));
+		rclcpp::Time now = m_timeHandler.convertUtcTimeToRosTime(*packet);
+		// Push original packet
+		m_buffer.push_back(RosXsDataPacket(now, *packet));
 
-	// Manual unlocking is done before notifying, to avoid waking up
-	// the waiting thread only to block again
-	lock.unlock();
-	m_condition.notify_one();
+		// Manual unlocking is done before notifying, to avoid waking up
+		// the waiting thread only to block again
+		lock.unlock();
+		m_condition.notify_one();
+	}
 }
-
 
 void XdaCallback::onError(XsDevice *dev, XsResultValue error)
 {
@@ -111,5 +155,4 @@ void XdaCallback::onError(XsDevice *dev, XsResultValue error)
 	{
 		RCLCPP_ERROR(parent_node->get_logger(), "Data overflow occurred. Use MT Manager - Device Settings, to change the baudrate to higher value like 921600 or 2000000!! Optionally, change the enable_outputConfig to true to change the output in the xsens_mti_node.yaml. If both doesn't work, reduce your output data rate.");
 	}
-
 }

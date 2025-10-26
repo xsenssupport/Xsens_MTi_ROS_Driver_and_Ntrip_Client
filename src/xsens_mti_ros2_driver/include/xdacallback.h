@@ -39,6 +39,7 @@
 #include <condition_variable>
 #include <list>
 #include "xsens_time_handler.h"
+#include "high_rate_interpolator.h"
 
 struct XsDataPacket;
 struct XsDevice;
@@ -65,6 +66,8 @@ private:
 	rclcpp::Node::SharedPtr parent_node;
 
 	XsensTimeHandler m_timeHandler;
+	HighRateInterpolator m_interpolator;
+	bool m_interpolationEnabled;
 };
 
 #endif

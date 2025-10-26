@@ -401,7 +401,7 @@ bool XdaInterface::prepare()
 		}
 		else
 		{
-			RCLCPP_WARN(m_node->get_logger(), "Rosnode time_option is using host controller's ros time, no recommended, use MT Manager - Device Settings - Output Configurations to select utc time or sample time fine, and set time_option to 0 or 1 in the xsens_mti_node.yaml file. ");
+			RCLCPP_WARN(m_node->get_logger(), "Rosnode time_option is using host controller's ros time.");
 		}
 	}
 
@@ -968,7 +968,7 @@ bool XdaInterface::configureSensorSettings()
 				if(enable_active_heading_stabilization)
 				{
 
-					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_EnableInrunCompassCalibration, XsDeviceOptionFlag::XDOF_None))
+					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_EnableAhs, XsDeviceOptionFlag::XDOF_None))
 					{
 						RCLCPP_INFO(m_node->get_logger(), "Enable Active Heading Stabilization Success!");
 					}
@@ -979,7 +979,7 @@ bool XdaInterface::configureSensorSettings()
 				}
 				else
 				{
-					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_None, XsDeviceOptionFlag::XDOF_EnableInrunCompassCalibration))
+					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_None, XsDeviceOptionFlag::XDOF_EnableAhs))
 					{
 						RCLCPP_INFO(m_node->get_logger(), "Disable Active Heading Stabilization Success!");
 					}

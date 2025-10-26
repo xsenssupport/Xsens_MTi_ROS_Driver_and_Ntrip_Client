@@ -20,6 +20,7 @@ find_package(nav_msgs REQUIRED)
 find_package(nmea_msgs REQUIRED)
 find_package(mavros_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 link_directories(lib/xspublic/xscontroller lib/xspublic/xscommon lib/xspublic/xstypes)
 
@@ -72,6 +73,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/include/
   ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/lib/xspublic
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 
@@ -83,6 +85,7 @@ add_executable(
 	src/xsens_log_handler.cpp
 	src/ntrip_util.cpp
 	src/xsens_time_handler.cpp
+  src/high_rate_interpolator.cpp
 )
 
 # Make sure xsens_mti_node depends on the xspublic build
@@ -183,6 +186,7 @@ ament_export_dependencies(
 	nmea_msgs
 	mavros_msgs
 	rosidl_default_runtime #the default runtime for ROS 2 interface (message, service, action) generation.
+  Eigen3
 )
 
 ament_export_include_directories(
