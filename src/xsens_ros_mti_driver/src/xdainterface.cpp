@@ -956,7 +956,7 @@ bool XdaInterface::configureSensorSettings()
 				if(enable_active_heading_stabilization)
 				{
 					
-					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_EnableInrunCompassCalibration, XsDeviceOptionFlag::XDOF_None))
+					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_EnableAhs, XsDeviceOptionFlag::XDOF_None))
 					{
 						ROS_INFO("Enable Active Heading Stabilization Success!");
 					}
@@ -967,7 +967,7 @@ bool XdaInterface::configureSensorSettings()
 				}
 				else
 				{
-					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_None, XsDeviceOptionFlag::XDOF_EnableInrunCompassCalibration))
+					if(m_device->setDeviceOptionFlags(XsDeviceOptionFlag::XDOF_None, XsDeviceOptionFlag::XDOF_EnableAhs))
 					{
 						ROS_INFO("Disable Active Heading Stabilization Success!");
 					}
