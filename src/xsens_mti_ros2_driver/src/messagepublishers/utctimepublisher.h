@@ -44,7 +44,7 @@ struct UTCTimePublisher : public PacketCallback
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);
-        pub = node->create_publisher<sensor_msgs::msg::TimeReference>("imu/utctime", pub_queue_size);
+        pub = node->create_publisher<sensor_msgs::msg::TimeReference>("~/imu/utctime", pub_queue_size);
     }
 
     void operator()(const XsDataPacket &packet, rclcpp::Time timestamp)

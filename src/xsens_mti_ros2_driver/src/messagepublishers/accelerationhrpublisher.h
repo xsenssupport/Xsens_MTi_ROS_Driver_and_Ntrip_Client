@@ -44,7 +44,7 @@ struct AccelerationHRPublisher : public PacketCallback
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);
-        pub = node->create_publisher<geometry_msgs::msg::Vector3Stamped>("/imu/acceleration_hr", pub_queue_size);
+        pub = node->create_publisher<geometry_msgs::msg::Vector3Stamped>("~/imu/acceleration_hr", pub_queue_size);
         node->get_parameter("frame_id", frame_id);
     }
 

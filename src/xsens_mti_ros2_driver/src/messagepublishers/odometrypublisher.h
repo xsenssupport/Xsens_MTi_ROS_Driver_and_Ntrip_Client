@@ -69,7 +69,7 @@ struct ODOMETRYPublisher : public PacketCallback
         node->get_parameter("publisher_queue_size", pub_queue_size);
         node->get_parameter("frame_id", frame_id);
 
-        pub = node->create_publisher<nav_msgs::msg::Odometry>("/odometry", pub_queue_size);
+        pub = node->create_publisher<nav_msgs::msg::Odometry>("~/odometry", pub_queue_size);
 
         m_static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(node);
         m_tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(node);
