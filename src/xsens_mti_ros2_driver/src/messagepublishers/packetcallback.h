@@ -37,7 +37,6 @@
 #include <xstypes/xsdatapacket.h>
 
 const char* DEFAULT_FRAME_ID = "imu_link";
-const char* DEFAULT_FIXED_FRAME_ID = "world";
 
 class PacketCallback
 {
