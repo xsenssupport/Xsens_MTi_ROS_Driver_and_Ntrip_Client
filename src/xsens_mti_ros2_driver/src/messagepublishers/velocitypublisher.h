@@ -39,15 +39,14 @@
 struct VelocityPublisher : public PacketCallback
 {
     rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub;
-    std::string frame_id = DEFAULT_FRAME_ID;
-
+    std::string frame_id = DEFAULT_FIXED_FRAME_ID;
 
     VelocityPublisher(rclcpp::Node::SharedPtr node)
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);
         pub = node->create_publisher<geometry_msgs::msg::Vector3Stamped>("/filter/velocity", pub_queue_size);
-        node->get_parameter("frame_id", frame_id);
+        node->get_parameter("fixed_frame_id", frame_id);
     }
 
     void operator()(const XsDataPacket &packet, rclcpp::Time timestamp)
