@@ -43,6 +43,7 @@ message(STATUS "Detected ROS_DISTRO: ${ROS_DISTRO}")
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/XsStatusWord.msg"
   "msg/ShipMotion.msg"
+  "msg/GnssPvt.msg"
   DEPENDENCIES std_msgs
 )
 

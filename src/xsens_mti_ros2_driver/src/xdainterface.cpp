@@ -46,6 +46,7 @@
 #include "messagepublishers/angularvelocitypublisher.h"
 #include "messagepublishers/freeaccelerationpublisher.h"
 #include "messagepublishers/gnsspublisher.h"
+#include "messagepublishers/gnsspvtpublisher.h"
 #include "messagepublishers/imupublisher.h"
 #include "messagepublishers/magneticfieldpublisher.h"
 #include "messagepublishers/orientationincrementspublisher.h"
@@ -228,6 +229,10 @@ void XdaInterface::registerPublishers()
 		{
 			//RCLCPP_INFO(m_node->get_logger(), "registerCallback ODOMETRYPublisher....");
 			registerCallback(new ODOMETRYPublisher(m_node));
+		}
+		if (m_node->get_parameter("pub_gnsspvt", should_publish) && should_publish)
+		{
+			registerCallback(new GnssPvtPublisher(m_node));
 		}
 	}
 
@@ -1542,6 +1547,8 @@ void XdaInterface::declareCommonParameters()
 		m_node->declare_parameter("pub_gnsspose", should_publish);
 	if (!m_node->has_parameter("pub_odometry"))
 		m_node->declare_parameter("pub_odometry", should_publish);
+	if (!m_node->has_parameter("pub_gnsspvt"))
+		m_node->declare_parameter("pub_gnsspvt", should_publish);
 	if (!m_node->has_parameter("pub_euler_stddev"))
 		m_node->declare_parameter("pub_euler_stddev", should_publish);
 	if (!m_node->has_parameter("port_config_hardware_flow_control"))
