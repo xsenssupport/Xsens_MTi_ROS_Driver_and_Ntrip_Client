@@ -161,12 +161,13 @@ void XdaInterface::registerPublishers()
 		registerCallback(new AngularVelocityHRPublisher(m_node));
 	}
 
+	if (m_node->get_parameter("pub_imu", should_publish) && should_publish)
+	{
+		registerCallback(new ImuPublisher(m_node, m_device->deviceId(), true));
+	}
+
 	if(isDeviceVruAhrs || isDeviceGnss)
 	{
-		if (m_node->get_parameter("pub_imu", should_publish) && should_publish)
-		{
-			registerCallback(new ImuPublisher(m_node, m_device));
-		}
 		if (m_node->get_parameter("pub_quaternion", should_publish) && should_publish)
 		{
 			registerCallback(new OrientationPublisher(m_node));
