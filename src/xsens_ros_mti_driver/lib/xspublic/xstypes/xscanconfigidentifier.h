@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -54,6 +54,8 @@ enum XsCanConfigIdentifier
 	XCCI_GotoConfig			= 0xAC,
 	XCCI_GotoMeasurement	= 0xAD,
 	XCCI_Reset				= 0xAE,
+	XCCI_IccCommand			= 0xAF,
+	XCCI_IccCommandAck		= 0xB0,
 
 
 	XCCI_HighestIdentifier, //Keep this entry last. Don't assign IDs with a higher value than this.

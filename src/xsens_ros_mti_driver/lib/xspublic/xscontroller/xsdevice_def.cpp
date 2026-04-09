@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -501,6 +501,15 @@ void XsDevice::setGotoConfigOnClose(bool gotoConfigOnClose)
 	\returns The battery level in the range 0-100
 */
 int XsDevice::batteryLevel() const
+{
+	return 0;
+}
+
+/*! \brief Get the secondaryBatterylevel of this device
+	The battery level is a value between 0 and 100 that indicates the remaining capacity as a percentage.
+	\returns The secondary battery level in the range (0..100)
+*/
+int XsDevice::secondaryBatteryLevel() const
 {
 	return 0;
 }
@@ -2943,6 +2952,34 @@ XsVector XsDevice::gnssLeverArm() const
 	return XsVector();
 }
 
+/*! \brief Sets the lever arm of the device
+	\details The lever arm is the vector from the center of the device to a specific point.
+	The specific point is indicated by the \a type parameter.
+	\param type The type of lever arm to set
+	\param arm The lever arm vector
+	\returns true if the lever arm was successfully set
+	\sa leverArm
+*/
+bool XsDevice::setLeverArm(XsLeverArmType type, const XsVector& arm)
+{
+	(void)type;
+	(void)arm;
+	return false;
+}
+
+/*! \brief Returns the lever arm of the device
+	\details The lever arm is the vector from the center of the device to a specific point.
+	The specific point is indicated by the \a type parameter.
+	\param type The type of lever arm to return
+	\returns The lever arm vector
+	\sa setLeverArm
+*/
+XsVector XsDevice::leverArm(XsLeverArmType type) const
+{
+	(void)type;
+	return XsVector();
+}
+
 /*! \cond XS_INTERNAL */
 /*! \brief Requests UTC time. */
 bool XsDevice::requestUtcTime()
@@ -4139,12 +4176,14 @@ void XsDevice::clearExternalPacketCaches()
 void XsDevice::clearCacheToRecordingStart()
 {
 	LockGuarded lockG(&m_deviceMutex);
-	for (auto item : m_dataCache)
+	for (auto it = m_dataCache.begin(); it != m_dataCache.end(); )
 	{
-		if (item.first < m_startRecordingPacketId)
-		{
-			delete item.second;
-			m_dataCache.erase(item.first);
+		if (it->first < m_startRecordingPacketId) {
+			delete it->second;
+			it = m_dataCache.erase(it); // Erase and move to the next element safely
+		}
+		else {
+			++it; // Move to the next element
 		}
 	}
 }

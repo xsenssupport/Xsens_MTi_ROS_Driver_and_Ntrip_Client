@@ -67,6 +67,8 @@
 #include "messagepublishers/utctimepublisher.h"
 #include "messagepublishers/accelerationhrpublisher.h"
 #include "messagepublishers/angularvelocityhrpublisher.h"
+#include "messagepublishers/odometrypublisher.h"
+#include "messagepublishers/shipmotionpublisher.h"
 #include "xsens_log_handler.h"
 
 #define XS_DEFAULT_BAUDRATE (115200)
@@ -109,6 +111,7 @@ void XdaInterface::registerPublishers()
 	bool isDeviceVruAhrs = m_device->deviceId().isAhrs() || m_device->deviceId().isVru();
 	bool isDeviceGnss = m_device->deviceId().isGnss();
 	bool isDeviceGnssRtk = m_device->deviceId().isRtk();
+	bool isDeviceSiriusAvior = m_device->deviceId().isSirius() || m_device->deviceId().isAvior();
 
 
 	if (ros::param::get("~pub_acceleration", should_publish) && should_publish)
@@ -166,7 +169,7 @@ void XdaInterface::registerPublishers()
 	{
 		if (ros::param::get("~pub_imu", should_publish) && should_publish)
 		{
-			registerCallback(new ImuPublisher(m_node));
+			registerCallback(new ImuPublisher(m_node, m_device));
 		}
 		if (ros::param::get("~pub_quaternion", should_publish) && should_publish)
 		{
@@ -184,9 +187,17 @@ void XdaInterface::registerPublishers()
 		{
 			registerCallback(new TransformPublisher(m_node));
 		}
+		//device is sirius or avior
+		if(isDeviceSiriusAvior)
+		{
+			if (ros::param::get("~pub_ship_motion", should_publish) && should_publish)
+			{
+				registerCallback(new ShipMotionPublisher(m_node));
+			}
+		}
 
 	}
-	
+
 
 	if(isDeviceGnss)
 	{
@@ -215,6 +226,10 @@ void XdaInterface::registerPublishers()
 		{
 			//ROS_INFO("registerCallback GNSSPOSEPublisher....");
 			registerCallback(new GNSSPOSEPublisher(m_node));
+		}
+		if (ros::param::get("~pub_odometry", should_publish) && should_publish)
+		{
+			registerCallback(new ODOMETRYPublisher(m_node));
 		}
 	}
 
@@ -605,9 +620,10 @@ bool XdaInterface::configureSensorSettings()
 	{	
 
 		XsVersion firmwareVersion = m_device->firmwareVersion();
-		bool isDeviceGnssIns = m_device->deviceId().isGnss();
-		bool isDeviceVruAhrs = m_device->deviceId().isAhrs() || m_device->deviceId().isVru();
-		bool isMTiX = m_device->deviceId().isMtiX(); // check if it is MTi-1/2/3/7/8
+		XsDeviceId xsens_device_id = m_device->deviceId();
+		bool isDeviceGnssIns = xsens_device_id.isGnss();
+		bool isDeviceVruAhrs = xsens_device_id.isAhrs() || xsens_device_id.isVru();
+		bool isMTiX = xsens_device_id.isMtiX(); // check if it is MTi-1/2/3/7/8
 
 		//use ros param get to get output_data_rate
 		int ODRoption = 100;
@@ -733,11 +749,21 @@ bool XdaInterface::configureSensorSettings()
 			}
 		}
 
+		// Configure Euler angles standard deviation output for Sirius or Avior devices
+		if ((xsens_device_id.isAvior() || xsens_device_id.isSirius()))
+		{
+			if (ros::param::get("~pub_euler_stddev", should_config) && should_config)
+			{
+				configArray.push_back(XsOutputConfiguration(XDI_EulerAnglesStd, ODRoption));
+				ROS_INFO("XDI_EulerAnglesStd, %dHz", ODRoption);
+			}
+		}
+
 		bool enableHRData = false;
 		if (ros::param::get("~enable_high_rate", enableHRData) && enableHRData)
 		{
-			int ODRHRGyroOption = 100;
-			int ODRHRAccOption = 100;
+			int ODRHRGyroOption = 1000;
+			int ODRHRAccOption = 1000;
 			//TODO: to make it more dummy, you should check the different option value to the allowed data rates for different models...
 			if(ros::param::get("~output_data_rate_acchr", ODRHRAccOption) && ros::param::get("~output_date_rate_gyrohr", ODRHRGyroOption))
 			{
@@ -779,6 +805,16 @@ bool XdaInterface::configureSensorSettings()
 				{
 					configArray.push_back(XsOutputConfiguration(XDI_FreeAcceleration, ODRoption));
 					ROS_INFO("XDI_FreeAcceleration, %dHz", ODRoption);
+				}
+			}
+			//heave position only for Avior and Sirius AHRS/VRU models
+			if ((xsens_device_id.isAvior() || xsens_device_id.isSirius()))
+			{
+				if (ros::param::get("~pub_ship_motion", should_config) && should_config)
+				{
+					configArray.push_back(XsOutputConfiguration(XDI_HeavePosition, ODRoptionLower));
+					configArray.push_back(XsOutputConfiguration(XDI_HeavePeriod, ODRoptionLower));
+					ROS_INFO("XDI_HeavePosition and XDI_HeavePeriod, %dHz", ODRoptionLower);
 				}
 			}
 		}
@@ -866,16 +902,16 @@ bool XdaInterface::configureSensorSettings()
 
 		
 		//ROS_INFO print the 5th to 7th characters of the product code to check if it is mti-680(G) or other mti-600 models.
-		bool isMTi620 = false;
-		bool isMTi630 = false;
 		bool isMTi670 = false;
 		bool isMTi680 = false;
 		bool isMTiG710 = false;
-		isMTi620 = m_productCode.toStdString().substr(4, 3) == "620";
-		isMTi630 = m_productCode.toStdString().substr(4, 3) == "630";
+		bool isModernSensor = false;
+		bool isModernVruAhrs = false;
 		isMTi670 = m_productCode.toStdString().substr(4, 3) == "670";
 		isMTi680 = m_productCode.toStdString().substr(4, 3) == "680";
-		isMTiG710 = m_device->deviceId().isMtig();
+		isMTiG710 = xsens_device_id.isMtig();
+		isModernSensor = xsens_device_id.isAvior() || xsens_device_id.isSirius() || xsens_device_id.isMti6X0();
+		isModernVruAhrs = isModernSensor && isDeviceVruAhrs;
 
 		ROS_INFO("Configuring Option Flags.....");
 		//TODO: check if MTi-100 has this feature or not...
@@ -946,8 +982,12 @@ bool XdaInterface::configureSensorSettings()
 
 		}
 		//AHS is for MTI-2/3/320, MTI-200/300, but for MTI-620/630, it is on the filter profile VRUAHS.
-		//not imu, not gnss, not 600
-		if(!m_device->deviceId().isImu() && !m_device->deviceId().isGnss() && !m_device->deviceId().isMti6X0())
+		//not imu, not gnss, not 600, not avior, not sirius
+		if(!xsens_device_id.isImu() &&
+			!xsens_device_id.isGnss() &&
+			!xsens_device_id.isMti6X0() &&
+			!xsens_device_id.isAvior() &&
+			!xsens_device_id.isSirius())
 		{
 			//enable_active_heading_stabilization
 			bool enable_active_heading_stabilization = false;
@@ -1182,10 +1222,11 @@ bool XdaInterface::configureSensorSettings()
 				std::string rollpitchLabel = "Robust";
 				std::string yawLabel = "VRUAHS";
 				bool isGotFilterParam = false;
-				if(isMTi620 || isMTi630)
+				if(isModernVruAhrs)
 				{
-					if(ros::param::get("~mti620630filterlabel_rollpitch", rollpitchLabel) && ros::param::get("~mti620630filterlabel_yaw", yawLabel))
+					if(ros::param::get("~filter_label_rollpitch", rollpitchLabel) && ros::param::get("~filter_label_yaw", yawLabel))
 					{
+						ROS_INFO("Got filter labels for roll/pitch/yaw.");
 						isGotFilterParam = true;
 					}
 				}
@@ -1210,7 +1251,7 @@ bool XdaInterface::configureSensorSettings()
 				if(isGotFilterParam)
 				{
 					std::string profileContent = profileDictionary[filterIndexToSet];
-					if(m_device->deviceId().isMti6X0())
+					if(xsens_device_id.isMti6X0() || xsens_device_id.isAvior() || xsens_device_id.isSirius())
 					{
 						if(isMTi670 || isMTi680)
 						{
@@ -1226,7 +1267,7 @@ bool XdaInterface::configureSensorSettings()
 						}
 						else
 						{
-							//For MTI-620 or MTI-630, for example: "Responsive/VRU"
+							//For MTI-620/MTI-630 or Sirius/Avior AHRS, VRU, for example: "Responsive/VRU"
 							XsString filterToSet = XsString(rollpitchLabel) + XsString("/") + XsString(yawLabel);
 							
 								if(m_device->setOnboardFilterProfile(filterToSet))
@@ -1266,39 +1307,90 @@ bool XdaInterface::configureSensorSettings()
 		if (ros::param::get("~enable_setting_baudrate", enableSettingBaudrate) && enableSettingBaudrate)
 		{
 			int setBaudrateParam = 0;
-			ros::param::get("~set_baudrate_value", setBaudrateParam);
-			ROS_INFO("Found baudrate parameter to set: %d", setBaudrateParam);
-			XsBaudRate baudrate = XBR_115k2;
-			baudrate = XsBaud::numericToRate(setBaudrateParam);
+			if(ros::param::get("~set_baudrate_value", setBaudrateParam))
+			{
+				ROS_INFO("baudrate parameter to set: %d", setBaudrateParam);
+				XsBaudRate baudrate = XsBaud::numericToRate(setBaudrateParam);
 
-			//set baudrate to 921600 if the above data output is too much, 400Hz.
-			if (enableHRData)
-			{
-				baudrate = XBR_2000k;
-				if (!m_device->setSerialBaudRate(baudrate))
-					return handleError("Could not set baudrate to " + std::to_string(XsBaud::rateToNumeric(baudrate)));
-				
-				ROS_INFO("Since the HighRate Data is enabled, Sensor baudrate forcely configured to %d.", XsBaud::rateToNumeric(baudrate));
-			}
-			else
-			{
-				if(ODRoption >= 400 && baudrate < XBR_921k6)
+				// Lambda function to configure baudrate for both modern and old sensors
+				auto configureBaudrate = [&](XsBaudRate rate) -> bool {
+					if (isModernSensor)
+					{
+						bool isHardwareFlowControlEnabled = true;
+						if(ros::param::get("~port_config_hardware_flow_control", isHardwareFlowControlEnabled))
+						{
+							ROS_INFO("port_config_hardware_flow_control parameter to set is %s.",
+								isHardwareFlowControlEnabled ? "true" : "false");
+						}
+
+						// Convert XsBaudRate to XsBaudCode
+						XsBaudCode baudCode = XsBaud::rateToCode(rate);
+
+						// Port 0 Configuration (Port 0)
+						int port0Config = 0;
+						port0Config |= (int)baudCode;                              // Bits 0-7: Baudrate code
+						port0Config |= (isHardwareFlowControlEnabled ? 1 : 0) << 8; // Bit 8: Hardware flow control
+						port0Config |= (1 << 16);                                  // Bits 16-19: Protocol = 1 (Xbus)
+
+						// Port 1 Configuration (Port 1)
+						int port1Config = 0;
+						port1Config |= (int)baudCode;  // Bits 0-7: Baudrate code
+						port1Config |= (0 << 8);       // Bit 8: No hardware flow control
+						port1Config |= (1 << 16);      // Bits 16-19: Protocol = 1 (Xbus)
+
+						XsIntArray config;
+						config.push_back(port0Config);  // RS232 port
+						config.push_back(port1Config);   // UART port
+						config.push_back(0);            // Third port (RS232 RTCM) - no configuration
+
+						bool success = m_device->setPortConfiguration(config);
+
+						if (success)
+						{
+							ROS_INFO(
+								"Port configuration set - Port 0: Baudrate=%d, HW Flow Control=%s | Port 1: Baudrate=%d, HW Flow Control=No",
+								XsBaud::rateToNumeric(rate),
+								isHardwareFlowControlEnabled ? "Yes" : "No",
+								XsBaud::rateToNumeric(rate));
+						}
+
+						return success;
+					}
+					else
+					{
+						return m_device->setSerialBaudRate(rate);
+					}
+				};
+
+				// Set baudrate to 2M if the data output is too much, >1000Hz
+				if (enableHRData)
 				{
-					baudrate = XBR_921k6;
-					if (!m_device->setSerialBaudRate(baudrate))
-						return handleError("Could not set baudrate to " + std::to_string(XsBaud::rateToNumeric(baudrate)));
-
-					ROS_INFO("Since 400Hz data is enabled, Sensor baudrate forcely configured to %d.", XsBaud::rateToNumeric(baudrate));
+					baudrate = XBR_2000k;
+					if (!configureBaudrate(baudrate))
+						return handleError("Could not set port configuration with baudrate " + std::to_string(XsBaud::rateToNumeric(baudrate)));
+					ROS_INFO("Since the HighRate Data is enabled, Sensor baudrate forcely configured to %d.", XsBaud::rateToNumeric(baudrate));
 				}
 				else
 				{
-					if (!m_device->setSerialBaudRate(baudrate))
-						return handleError("Could not set baudrate to " + std::to_string(XsBaud::rateToNumeric(baudrate)));
-
-					ROS_INFO("Sensor baudrate configured to %d success.", XsBaud::rateToNumeric(baudrate));
-				}		
+					if(ODRoption >= 400 && baudrate < XBR_921k6)
+					{
+						baudrate = XBR_921k6;
+						if (!configureBaudrate(baudrate))
+							return handleError("Could not set baudrate to " + std::to_string(XsBaud::rateToNumeric(baudrate)));
+						ROS_INFO("Since 400Hz data is enabled, Sensor baudrate forcely configured to %d.", XsBaud::rateToNumeric(baudrate));
+					}
+					else
+					{
+						if (!configureBaudrate(baudrate))
+							return handleError("Could not set baudrate to " + std::to_string(XsBaud::rateToNumeric(baudrate)));
+						ROS_INFO("Sensor baudrate configured to %d success.", XsBaud::rateToNumeric(baudrate));
+					}
+				}
 			}
-
+			else
+			{
+				ROS_WARN("No set_baudrate_value parameter found, do not set baudrate.");
+			}
 		}
 
 		//now we sleep a little while, since the configuration commands might take a little time.

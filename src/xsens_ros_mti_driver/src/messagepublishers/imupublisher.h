@@ -36,6 +36,8 @@
 #include "packetcallback.h"
 #include "publisherhelperfunctions.h"
 #include <sensor_msgs/Imu.h>
+#include <xstypes/xsmath.h>
+#include <xscontroller/xsdevice_def.h>
 
 
 struct ImuPublisher : public PacketCallback, PublisherHelperFunctions
@@ -46,8 +48,10 @@ struct ImuPublisher : public PacketCallback, PublisherHelperFunctions
     double orientation_variance[3];
     double linear_acceleration_variance[3];
     double angular_velocity_variance[3];
+    XsDevice *m_device;
 
-    ImuPublisher(ros::NodeHandle &node)
+    ImuPublisher(ros::NodeHandle &node, XsDevice *device = nullptr)
+        : m_device(device)
     {
         int pub_queue_size = 5;
         ros::param::get("~publisher_queue_size", pub_queue_size);
@@ -106,9 +110,34 @@ struct ImuPublisher : public PacketCallback, PublisherHelperFunctions
             msg.orientation = quaternion;
             if (quaternion_available)
             {
-                msg.orientation_covariance[0] = orientation_variance[0];
-                msg.orientation_covariance[4] = orientation_variance[1];
-                msg.orientation_covariance[8] = orientation_variance[2];
+                // Check if device is Avior or Sirius and if orientation std dev is available from packet
+                bool use_packet_std_dev = false;
+                if (m_device != nullptr)
+                {
+                    XsDeviceId xsens_device_id = m_device->deviceId();
+                    if (xsens_device_id.isAvior() || xsens_device_id.isSirius())
+                    {
+                        if (packet.containsOrientationEulerStd())
+                        {
+                            // Convert from degrees to radians, then calculate variance (std_dev^2)
+                            const XsReal deg_to_rad = XsMath_deg2radValue;
+                            XsVector euler_std_dev = packet.orientationEulerStd();
+                            XsVector euler_std_dev_rad = deg_to_rad * euler_std_dev;
+                            msg.orientation_covariance[0] = euler_std_dev_rad[0] * euler_std_dev_rad[0];
+                            msg.orientation_covariance[4] = euler_std_dev_rad[1] * euler_std_dev_rad[1];
+                            msg.orientation_covariance[8] = euler_std_dev_rad[2] * euler_std_dev_rad[2];
+                            use_packet_std_dev = true;
+                        }
+                    }
+                }
+
+                // Use yaml file values if packet std dev not used
+                if (!use_packet_std_dev)
+                {
+                    msg.orientation_covariance[0] = orientation_variance[0];
+                    msg.orientation_covariance[4] = orientation_variance[1];
+                    msg.orientation_covariance[8] = orientation_variance[2];
+                }
             }
             else
             {

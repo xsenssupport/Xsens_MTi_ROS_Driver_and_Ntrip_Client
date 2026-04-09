@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -61,10 +61,9 @@ ProtocolHandler::~ProtocolHandler() throw()
 
 /*! \copydoc IProtocolHandler::findMessage
 */
-MessageLocation ProtocolHandler::findMessage(XsProtocolType& type, const XsByteArray& raw) const
+MessageLocation ProtocolHandler::findMessage(const XsByteArray& raw) const
 {
-	type = XPT_Nmea;
-	MessageLocation location(-1, 0, -1, 0);
+	MessageLocation location;
 
 	int bufferSize = (int)raw.size();
 	if (bufferSize == 0)
@@ -74,8 +73,8 @@ MessageLocation ProtocolHandler::findMessage(XsProtocolType& type, const XsByteA
 
 	bool foundPreamble = false;
 	bool foundEnd = false;
-	int start = 0;
-	int end = 0;
+	int start = -1;
+	int end = -1;
 	for (int i = 0; i < bufferSize; i++)
 	{
 		if (!foundPreamble)
@@ -138,7 +137,7 @@ int ProtocolHandler::maximumMessageSize() const
 }
 
 /*! \returns The type of the protocol */
-int ProtocolHandler::type() const
+XsProtocolType ProtocolHandler::type() const
 {
 	return XPT_Nmea;
 }

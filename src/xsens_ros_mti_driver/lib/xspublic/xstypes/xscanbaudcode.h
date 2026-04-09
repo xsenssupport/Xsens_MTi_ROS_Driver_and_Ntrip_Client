@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -41,6 +41,9 @@
 enum XSNOCOMEXPORT XsCanBaudCode
 {
 	// Baudrate codes for SetBaudrate message
+	XCBC_8M			= 0x0F,	//!< CAN-FD only
+	XCBC_5M			= 0x0E,	//!< CAN-FD only
+	XCBC_2M			= 0x0D,	//!< CAN-FD only
 	XCBC_1M			= 0x0C,
 	XCBC_800k		= 0x0B,
 	XCBC_500k		= 0x0A,

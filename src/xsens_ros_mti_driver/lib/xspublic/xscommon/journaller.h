@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -397,7 +397,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JournalValueJanitor<T>(Journaller* journal, const T& value, const std::string& msg = std::string(), JournalLogLevel level = JLL_Debug, bool enabled = true)
+	JournalValueJanitor(Journaller* journal, const T& value, const std::string& msg = std::string(), JournalLogLevel level = JLL_Debug, bool enabled = true)
 		: m_journal(journal)
 		, m_value(value)
 		, m_msg(msg)

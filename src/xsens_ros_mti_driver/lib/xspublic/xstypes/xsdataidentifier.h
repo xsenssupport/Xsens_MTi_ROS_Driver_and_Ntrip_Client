@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -60,8 +60,8 @@ enum XsDataIdentifier
 
 	XDI_SubFormatMask			= 0x0003,	//!< Determines, float, fp12.20, fp16.32, double output... (where applicable)
 	XDI_SubFormatFloat			= 0x0000,	//!< Floating point format
-	XDI_SubFormatFp1220			= 0x0001,	//!< Fixed point 12.20
-	XDI_SubFormatFp1632			= 0x0002,	//!< Fixed point 16.32
+	XDI_SubFormatFp1220			= 0x0001,	//!< \deprecated Fixed point 12.20
+	XDI_SubFormatFp1632			= 0x0002,	//!< \deprecated Fixed point 16.32
 	XDI_SubFormatDouble			= 0x0003,	//!< Double format
 
 	XDI_SubFormatLeft			= 0x0000,	//!< Left side data (ie XDI_GloveData for the left hand)
@@ -91,6 +91,8 @@ enum XsDataIdentifier
 	XDI_Quaternion				= 0x2010,	//!< Orientation in quaternion format
 	XDI_RotationMatrix			= 0x2020,	//!< Orientation in rotation matrix format
 	XDI_EulerAngles				= 0x2030,	//!< Orientation in euler angles format
+	XDI_QuaternionStd			= 0x2040,	//!< Orientation uncertainty for quaternion
+	XDI_EulerAnglesStd			= 0x2050,	//!< Orientation uncertainty for euler angles
 
 	XDI_PressureGroup			= 0x3000,	//!< Group for pressure related outputs
 	XDI_BaroPressure			= 0x3010,	//!< Pressure output recorded from the barometer
@@ -111,6 +113,10 @@ enum XsDataIdentifier
 	XDI_AltitudeEllipsoid		= 0x5020,	//!< Altitude at ellipsoid
 	XDI_PositionEcef			= 0x5030,	//!< Position in earth-centered, earth-fixed format
 	XDI_LatLon					= 0x5040,	//!< Position in latitude, longitude
+
+	XDI_MaritimeMotionGroup		= 0x6000,	//!< Group for maritime motion related outputs
+	XDI_HeavePosition			= 0x6010,	//!< Heave position in meters
+	XDI_HeavePeriod				= 0x6020,	//!< Heave period in seconds
 
 	XDI_GnssGroup				= 0x7000,	//!< Group for Gnss related outputs
 	XDI_GnssPvtData				= 0x7010,	//!< Gnss position, velocity and time data

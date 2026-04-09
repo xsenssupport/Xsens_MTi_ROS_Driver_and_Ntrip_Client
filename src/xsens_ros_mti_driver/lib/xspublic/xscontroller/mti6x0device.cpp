@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -157,21 +157,36 @@ XsStringOutputTypeArray Mti6X0Device::supportedStringOutputTypes() const
 {
 	XsStringOutputTypeArray outputs;
 
-	outputs.push_back(XSOT_PSONCMS);
-	outputs.push_back(XSOT_HCMTW);
-	outputs.push_back(XSOT_HEROT);
-	outputs.push_back(XSOT_PTCF);
-	outputs.push_back(XSOT_GPZDA);
-	outputs.push_back(XSOT_TSS2);
-	outputs.push_back(XSOT_PHTRO);
-	outputs.push_back(XSOT_PRDID);
-	outputs.push_back(XSOT_EM1000);
-	outputs.push_back(XSOT_HEHDT);
-	outputs.push_back(XSOT_HCHDM);
-	outputs.push_back(XSOT_GPGGA);
-	outputs.push_back(XSOT_GPRMC);
-	outputs.push_back(XSOT_XSVEL);
-	outputs.push_back(XSOT_HCHDG);
+	if (deviceId().isImu() || deviceId().isVru() || deviceId().isAhrs() || deviceId().isGnss())
+	{
+		outputs.push_back(XSOT_PSONCMS);
+		outputs.push_back(XSOT_HCMTW);
+		outputs.push_back(XSOT_HEROT);
+		outputs.push_back(XSOT_PTCF);
+		outputs.push_back(XSOT_GPZDA);
+	}
+
+	if (deviceId().isVru() || deviceId().isAhrs() || deviceId().isGnss())
+	{
+		outputs.push_back(XSOT_TSS2);
+		outputs.push_back(XSOT_PHTRO);
+		outputs.push_back(XSOT_PRDID);
+		outputs.push_back(XSOT_EM1000);
+		outputs.push_back(XSOT_HEHDT);
+	}
+
+	if (deviceId().isAhrs() || deviceId().isGnss())
+	{
+		outputs.push_back(XSOT_HCHDM);
+		outputs.push_back(XSOT_HCHDG);
+	}
+
+	if (deviceId().isGnss())
+	{
+		outputs.push_back(XSOT_GPGGA);
+		outputs.push_back(XSOT_GPRMC);
+		outputs.push_back(XSOT_XSVEL);
+	}
 
 	return outputs;
 }

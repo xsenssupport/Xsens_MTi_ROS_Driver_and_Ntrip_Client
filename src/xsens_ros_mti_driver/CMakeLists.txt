@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   std_msgs
   geometry_msgs
+  nav_msgs
   nmea_msgs
   sensor_msgs
   message_generation
@@ -26,6 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate messages in the 'msg' folder
 add_message_files(FILES
   XsStatusWord.msg
+  ShipMotion.msg
 )
 
 ## Generate added messages and services with any dependencies listed here
@@ -51,6 +53,7 @@ catkin_package(
   roscpp
   tf2
   tf2_ros
+  nav_msgs
   nmea_msgs
   sensor_msgs
   std_msgs
@@ -83,9 +86,12 @@ include_directories(
   lib/xspublic
   ${PROJECT_SOURCE_DIR}/include/ #to include headers in the include directory
   ${catkin_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 link_directories(lib/xspublic/xscontroller lib/xspublic/xscommon lib/xspublic/xstypes)
+
+find_package(Eigen3 REQUIRED)
 
 add_executable(
   xsens_mti_node
@@ -95,6 +101,7 @@ add_executable(
   src/xsens_log_handler.cpp
   src/ntrip_util.cpp
   src/xsens_time_handler.cpp
+  src/high_rate_interpolator.cpp
 )
 
 # Make xsens_mti_node depend on xspublic and message generation

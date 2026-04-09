@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -82,6 +82,8 @@ Variant* createVariant(XsDataIdentifier id)
 			return new SimpleVariant<uint8_t>(id);
 		case XDI_SampleTime64			:// 0x10A0,
 			return new SimpleVariant<uint64_t>(id);
+		case XDI_PacketCounter32		:// 0x10B0,
+			return new SimpleVariant<uint32_t>(id);
 
 		//case XDI_OrientationGroup		:// 0x2000,
 		case XDI_Quaternion				:// 0x2010,
@@ -90,6 +92,10 @@ Variant* createVariant(XsDataIdentifier id)
 			return new XsMatrixVariant(id);
 		case XDI_EulerAngles			:// 0x2030,
 			return new XsEulerVariant(id);
+		case XDI_QuaternionStd			:// 0x2040,
+			return new XsVector3Variant(id);
+		case XDI_EulerAnglesStd			:// 0x2050,	
+			return new XsVector3Variant(id);
 
 		//case XDI_PressureGroup		:// 0x3000,
 		case XDI_BaroPressure			:// 0x3010,
@@ -111,10 +117,15 @@ Variant* createVariant(XsDataIdentifier id)
 		case XDI_LatLon					:// 0x5040,
 			return new XsVector2Variant(id);
 
+		//case XDI_MaritimeMotionGroup	:// 0x6000,
+		case XDI_HeavePosition			:// 0x6010,
+		case XDI_HeavePeriod			:// 0x6020,
+			return new SimpleVariant<double>(id);
+
 		//case XDI_SnapshotGroup		:// 0xC800,
 		//case XDI_RetransmissionMask	:// 0x0001,
 		//case XDI_RetransmissionFlag	:// 0x0001,
-		case XDI_AwindaSnapshot		:// 0xC810,
+		case XDI_AwindaSnapshot			:// 0xC810,
 			return new XsAwindaSnapshotVariant(id);
 		case XDI_FullSnapshot			:// 0xC820,
 			return new XsFullSnapshotVariant(id);
@@ -187,12 +198,12 @@ Variant* createVariant(XsDataIdentifier id)
 		case XDI_RawBlob				:// 0xA080
 			return new XsByteArrayVariant(id);
 
-		case XDI_GloveSnapshotLeft:			// 0xC830
-		case XDI_GloveSnapshotRight:		// 0xC840
+		case XDI_GloveSnapshotLeft		:// 0xC830
+		case XDI_GloveSnapshotRight		:// 0xC840
 			return new XsGloveSnapshotVariant(id);
 
-		case XDI_GloveDataLeft:				// 0xC930
-		case XDI_GloveDataRight:			// 0xC940
+		case XDI_GloveDataLeft			:// 0xC930
+		case XDI_GloveDataRight			:// 0xC940
 			return new XsGloveDataVariant(id);
 
 		default:
@@ -1037,7 +1048,7 @@ extern "C" {
 
 	    \param returnVal : An XsVector to put the requested in
 
-	    \returns A XsUShortVector containing the x, y and z axis values in that order
+	    \returns A XsUShortVector containing the x, y, and z axis values in that order
 	*/
 	XsVector* XsDataPacket_correctedMagneticField(const XsDataPacket* thisPtr, XsVector* returnVal)
 	{
@@ -1101,6 +1112,24 @@ extern "C" {
 		return returnVal;
 	}
 
+	/*! \brief Return the orientation uncertainty component of a data item as a vector.
+
+		\param returnVal An %XsVector to put the requested orientation uncertainty in
+
+		\returns An XsVector containing the orientation uncertainty data
+	*/
+	XsVector* XsDataPacket_orientationQuaternionStd(const XsDataPacket* thisPtr, XsVector* returnVal)
+	{
+		assert(returnVal);
+		auto it = MAP.find(XDI_QuaternionStd);
+		if (it != MAP.end())
+		{
+			*returnVal = it->second->toDerived<XsVector3Variant>().m_data;
+		}
+
+		return returnVal;
+	}
+
 	/*! \brief Removes all orientations from the datapacket */
 	static void removeAllOrientations(XsDataPacket* thisPtr)
 	{
@@ -1119,6 +1148,14 @@ extern "C" {
 		// always create a new one
 		removeAllOrientations(thisPtr);
 		MAP.insert(XDI_Quaternion, new XsQuaternionVariant(XDI_Quaternion | XDI_SubFormatDouble | (coordinateSystem & XDI_CoordSysMask), *data));
+	}
+
+	/*! \brief Add/update quaternion orientation uncertainty data for the item
+		\param data The new data to set
+	*/
+	void XsDataPacket_setOrientationQuaternionStd(XsDataPacket* thisPtr, const XsVector* data)
+	{
+		MAP.insert(XDI_QuaternionStd, new XsVector3Variant(XDI_QuaternionStd | XDI_SubFormatDouble, *data));
 	}
 
 	/*! \brief Return the orientation component of a data item as a euler angles.
@@ -1170,7 +1207,25 @@ extern "C" {
 		return returnVal;
 	}
 
-	/*! \brief Add/update quaternion orientation Data for the item
+	/*! \brief Return the orientation uncertainty component of a data item as a vector.
+
+		\param returnVal An %XsVector to put the requested orientation uncertainty
+
+		\returns A %XsVector containing the orientation uncertainty data
+	*/
+	XsVector* XsDataPacket_orientationEulerStd(const XsDataPacket* thisPtr, XsVector* returnVal)
+	{
+		assert(returnVal);
+		auto it = MAP.find(XDI_EulerAnglesStd);
+		if (it != MAP.end())
+		{
+			*returnVal = it->second->toDerived<XsVector3Variant>().m_data;
+		}
+
+		return returnVal;
+	}
+
+	/*! \brief Add/update euler orientation data for the item
 		\param data The new data to set
 		\param coordinateSystem The coordinate system of the orientation.
 	*/
@@ -1179,6 +1234,14 @@ extern "C" {
 		// always create a new one
 		removeAllOrientations(thisPtr);
 		MAP.insert(XDI_EulerAngles, new XsEulerVariant(XDI_EulerAngles | XDI_SubFormatDouble | (coordinateSystem & XDI_CoordSysMask), *data));
+	}
+
+	/*! \brief Add/update euler orientation uncertainty data for the item
+		\param data The new data to set
+	*/
+	void XsDataPacket_setOrientationEulerStd(XsDataPacket* thisPtr, const XsVector* data)
+	{
+		MAP.insert(XDI_EulerAnglesStd, new XsVector3Variant(XDI_EulerAnglesStd | XDI_SubFormatDouble, *data));
 	}
 
 	/*! \brief Return the orientation component of a data item as a orientation matrix.
@@ -1247,6 +1310,22 @@ extern "C" {
 			genericContains(thisPtr, XDI_RotationMatrix);
 	}
 
+	/*! \brief Check if data item contains orientation quaternion uncertainty data
+		\returns true if this packet contains orientation quaternion uncertainty data
+	*/
+	int XsDataPacket_containsOrientationQuaternionStd(const XsDataPacket* thisPtr)
+	{
+		return	genericContains(thisPtr, XDI_QuaternionStd);
+	}
+
+	/*! \brief Check if data item contains orientation euler uncertainty data
+		\returns true if this packet contains orientation euler uncertainty data
+	*/
+	int XsDataPacket_containsOrientationEulerStd(const XsDataPacket* thisPtr)
+	{
+		return	genericContains(thisPtr, XDI_EulerAnglesStd);
+	}
+
 	/*! \brief Returns the data identifier of the first orientation data of any kind in the packet
 		\returns The %XsDataIdentifier of the first orientation data of any kind in the packet
 	*/
@@ -1293,7 +1372,7 @@ extern "C" {
 
 	/*! \brief The air pressure component of a data item.
 
-		\param returnVal : An XsPressure object to put the requested in
+		\param returnVal : An XsPressure object to put the requested data in
 
 		\returns An XsPressure object containing the pressure and if available the pressure age
 	*/
@@ -1321,6 +1400,58 @@ extern "C" {
 	{
 		GenericSimple<uint32_t>::set(thisPtr, (uint32_t) XsMath::doubleToLong(data->m_pressure), XDI_BaroPressure);
 		GenericSimple<uint8_t>::set(thisPtr, data->m_pressureAge, XDI_PressureAge);
+	}
+
+	/*! \brief The heave position component of a data item.
+	\returns A double containing the heave position value in meters, 0.0 if the packet does not contain heave position
+*/
+	double XsDataPacket_heavePosition(const XsDataPacket* thisPtr)
+	{
+		return GenericSimple<double>::get(thisPtr, XDI_HeavePosition);
+	}
+
+	/*! \brief Check if data item contains heave position data
+		\returns true if this packet contains heave position data
+	*/
+	int XsDataPacket_containsHeavePosition(const XsDataPacket* thisPtr)
+	{
+		return genericContains(thisPtr, XDI_HeavePosition);
+	}
+
+	/*! \brief Adds or updates the heave position data in the datapacket
+		\details The \a heavePos is added to the datapacket. If the packet already contains
+				 heave position it is replaced with the new value.
+		\param heavePos : The heave position to set in meters
+	*/
+	void XsDataPacket_setHeavePosition(XsDataPacket* thisPtr, double heavePos)
+	{
+		GenericSimple<double>::set(thisPtr, heavePos, XDI_HeavePosition | XDI_SubFormatDouble);
+	}
+
+	/*! \brief The heave period component of a data item.
+		\returns A double containing the heave period value in seconds, 0.0 if the packet does not contain heave period
+	*/
+	double XsDataPacket_heavePeriod(const XsDataPacket* thisPtr)
+	{
+		return GenericSimple<double>::get(thisPtr, XDI_HeavePeriod);
+	}
+
+	/*! \brief Check if data item contains heave period data
+		\returns true if this packet contains heave period data
+	*/
+	int XsDataPacket_containsHeavePeriod(const XsDataPacket* thisPtr)
+	{
+		return genericContains(thisPtr, XDI_HeavePeriod);
+	}
+
+	/*! \brief Adds or updates the heave period data in the datapacket
+		\details The \a period is added to the datapacket. If the packet already contains
+				 heave period it is replaced with the new value.
+		\param period : The heave period to set in seconds
+	*/
+	void XsDataPacket_setHeavePeriod(XsDataPacket* thisPtr, double period)
+	{
+		GenericSimple<double>::set(thisPtr, period, XDI_HeavePeriod | XDI_SubFormatDouble);
 	}
 
 	/*! \brief Return the strapdown integration data component of a data item.

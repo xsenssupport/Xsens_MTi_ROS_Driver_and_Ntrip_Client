@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -30,28 +30,28 @@
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
 //  
 
-#ifndef XSMTI8X0DEVICE_H
-#define XSMTI8X0DEVICE_H
+#ifndef XSMTI8X0MTI9X0DEVICE_H
+#define XSMTI8X0MTI9X0DEVICE_H
 
 #include "mtibasedevice.h"
 
-/*! \class Mti8X0Device
-	\brief The MTi device used for the 8X0-series
+/*! \class Mti8X0Mti9X0Device
+	\brief The MTi device used for the 8X0 and 9X0-series (Avior and Sirius)
 */
-class Mti8X0Device : public MtiBaseDeviceEx
+class Mti8X0Mti9X0Device : public MtiBaseDeviceEx
 {
 public:
 	//! \copybrief MtiXDevice::constructStandalone
 	static XsDevice* constructStandalone(Communicator* comm)
 	{
-		return new Mti8X0Device(comm);
+		return new Mti8X0Mti9X0Device(comm);
 	}
 
-	explicit Mti8X0Device(Communicator* comm);
+	explicit Mti8X0Mti9X0Device(Communicator* comm);
 
 	//! \brief An empty constructor for a master device
-	explicit Mti8X0Device(XsDevice* master) : MtiBaseDeviceEx(master) {}
-	virtual ~Mti8X0Device();
+	explicit Mti8X0Mti9X0Device(XsDevice* master) : MtiBaseDeviceEx(master) {}
+	virtual ~Mti8X0Mti9X0Device();
 
 	XsStringOutputTypeArray supportedStringOutputTypes() const override;
 	bool setStringOutputMode6x0(uint32_t type, uint16_t frequency);
@@ -66,6 +66,15 @@ public:
 	uint32_t canConfiguration() const override;
 	bool setCanConfiguration(uint32_t config) override;
 
+	bool setGnssLeverArm(const XsVector& arm) override;
+	XsVector gnssLeverArm() const override;
+
+	XsUbloxGnssPlatform ubloxGnssPlatform() const override;
+	bool setUbloxGnssPlatform(XsUbloxGnssPlatform ubloxGnssPlatform) override;
+
+	bool setLeverArm(XsLeverArmType type, const XsVector& arm) override;
+	XsVector leverArm(XsLeverArmType type) const override;
+
 protected:
 	uint8_t syncLine(const XsSyncSetting& setting) const override;
 	bool hasIccSupport() const override;
@@ -74,19 +83,19 @@ protected:
 };
 
 #ifndef XDA_PRIVATE_BUILD
-/*! \class Mti8X0DeviceEx
-	\brief The internal base class for MTi-8X0 series devices
+/*! \class Mti8X0Mti9X0DeviceEx
+	\brief The internal base class for MTi-9X0 series devices
 */
-struct Mti8X0DeviceEx : public Mti8X0Device
+struct Mti8X0Mti9X0DeviceEx : public Mti8X0Mti9X0Device
 {
-	//! \copybrief Mti8X0Device::Mti8X0Device
-	explicit Mti8X0DeviceEx(Communicator* comm) : Mti8X0Device(comm) {};
+	//! \copybrief Mti8X0Mti9X0Device::Mti8X0Mti9X0Device
+	explicit Mti8X0Mti9X0DeviceEx(Communicator* comm) : Mti8X0Mti9X0Device(comm) {};
 
-	//! \copybrief Mti8X0Device::Mti8X0Device
-	explicit Mti8X0DeviceEx(XsDevice* master) : Mti8X0Device(master) {};
+	//! \copybrief Mti8X0Mti9X0Device::Mti8X0Mti9X0Device
+	explicit Mti8X0Mti9X0DeviceEx(XsDevice* master) : Mti8X0Mti9X0Device(master) {};
 };
 #else
-#include "mtix00deviceex.h"
+#include "mti8x0_mti9x0deviceex.h"
 #endif
 
 #endif

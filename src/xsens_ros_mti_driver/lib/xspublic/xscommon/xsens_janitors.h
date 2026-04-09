@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -81,7 +81,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorRestore<T>(T& control, bool enabl = true) :
+	JanitorRestore(T& control, bool enabl = true) :
 		m_control(control), m_value(control), m_enabled(enabl) {}
 
 	/*! \brief Destructor
@@ -122,7 +122,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorFree<T>(T* control, bool enabl = true) :
+	JanitorFree(T* control, bool enabl = true) :
 		m_control(control), m_enabled(enabl) {}
 
 	/*! \brief Destructor
@@ -163,7 +163,7 @@ public:
 
 	/*! \brief Default constructor
 	*/
-	JanitorDelete<T>() :
+	JanitorDelete() :
 		m_control(NULL),
 		m_enabled(true)
 	{
@@ -172,7 +172,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorDelete<T>(T* control, bool enabl = true) :
+	JanitorDelete(T* control, bool enabl = true) :
 		m_control(control),
 		m_enabled(enabl)
 	{
@@ -239,7 +239,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorDeleteNull<T>(T*& control, bool enabl = true) :
+	JanitorDeleteNull(T*& control, bool enabl = true) :
 		m_control(control),
 		m_enabled(enabl)
 	{
@@ -301,7 +301,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorDeleteArray<T>(T* control, bool enabl = true) :
+	JanitorDeleteArray(T* control, bool enabl = true) :
 		m_control(control), m_enabled(enabl) {}
 
 	/*! \brief Destructor
@@ -348,7 +348,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorClassFunc<T, R>(T& control, t_func_JanitorClassFunc func, bool enabl = true) :
+	JanitorClassFunc(T& control, t_func_JanitorClassFunc func, bool enabl = true) :
 		m_control(control), m_funcJCF(func), m_enabled(enabl)
 	{
 	}
@@ -397,7 +397,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorClassFuncP1<T, P1, R>(T& control, P1 p1, t_func_JanitorClassFunc func, bool enabl = true) :
+	JanitorClassFuncP1(T& control, P1 p1, t_func_JanitorClassFunc func, bool enabl = true) :
 		m_control(control), m_param1(p1), m_funcJCF(func), m_enabled(enabl)
 	{
 	}
@@ -445,7 +445,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorFunc0<ResultType>(t_func_JanitorFunc func, bool enabl = true) :
+	JanitorFunc0(t_func_JanitorFunc func, bool enabl = true) :
 		m_funcJF(func), m_enabled(enabl) {}
 
 	/*! \brief Destructor
@@ -491,7 +491,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorStdFunc0<ResultType>(t_func_JanitorFunc func, bool enabl = true) :
+	JanitorStdFunc0(t_func_JanitorFunc func, bool enabl = true) :
 		m_funcJF(func), m_enabled(enabl) {}
 
 	/*! \brief Destructor
@@ -538,7 +538,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorFunc1<ParamType, ResultType>(t_func_JanitorFunc func, ParamType control, bool enabl = true) :
+	JanitorFunc1(t_func_JanitorFunc func, ParamType control, bool enabl = true) :
 		m_control(control), m_funcJF(func), m_enabled(enabl) {}
 
 	/*! \brief Destructor
@@ -584,7 +584,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorFunc1R<ParamType, ResultType>(t_func_JanitorFunc func, ParamType& control, bool enabl = true) :
+	JanitorFunc1R(t_func_JanitorFunc func, ParamType& control, bool enabl = true) :
 		m_control(control), m_funcJF(func), m_enabled(enabl) {}
 
 	/*! \brief Destructor
@@ -631,7 +631,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorFunc2<Param1Type, Param2Type, ResultType>(t_func_JanitorFunc func, Param1Type control1, Param2Type control2, bool enabl = true) :
+	JanitorFunc2(t_func_JanitorFunc func, Param1Type control1, Param2Type control2, bool enabl = true) :
 		m_funcJF(func), m_control1(control1), m_control2(control2), m_enabled(enabl) {}
 
 	/*! \brief Destructor
@@ -678,7 +678,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorFunc2R<Param1Type, Param2Type, ResultType>(t_func_JanitorFunc func, Param1Type& control1, Param2Type& control2, bool enabl = true) :
+	JanitorFunc2R(t_func_JanitorFunc func, Param1Type& control1, Param2Type& control2, bool enabl = true) :
 		m_funcJF(func), m_control1(control1), m_control2(control2), m_enabled(enabl) {}
 
 	/*! \brief Destructor
@@ -727,13 +727,13 @@ public:
 
 	/*! \brief Constructor with additional 'function name' parameter
 	*/
-	JanitorLogFunc<T, C, R>(t_func_JanitorLogFunc func, const char* filter, const char* str, const char* functionName, T& control, bool enable = true) :
+	JanitorLogFunc(t_func_JanitorLogFunc func, const char* filter, const char* str, const char* functionName, T& control, bool enable = true) :
 		m_funcJF(func), m_filter(filter), m_str(str), m_functionName(functionName), m_control(control), m_enabled(enable)
 	{}
 
 	/*! \brief Constructor
 	*/
-	JanitorLogFunc<T, C, R>(t_func_JanitorLogFunc func, const char* filter, const char* str, T& control, bool enable = true) :
+	JanitorLogFunc(t_func_JanitorLogFunc func, const char* filter, const char* str, T& control, bool enable = true) :
 		m_funcJF(func), m_filter(filter), m_str(str), m_functionName(0), m_control(control), m_enabled(enable) {}
 
 	/*! \brief Destructor
@@ -785,13 +785,13 @@ public:
 
 	/*! \brief Constructor with additional 'function name' parameter
 	*/
-	JanitorSimpleLogFunc<R>(t_func_JanitorSimpleLogFunc func, const char* filter, const char* str, const char* functionName, bool enable = true) :
+	JanitorSimpleLogFunc(t_func_JanitorSimpleLogFunc func, const char* filter, const char* str, const char* functionName, bool enable = true) :
 		m_funcJF(func), m_filter(filter), m_str(str), m_functionName(functionName), m_enabled(enable)
 	{}
 
 	/*! \brief Constructor
 	*/
-	JanitorSimpleLogFunc<R>(t_func_JanitorSimpleLogFunc func, const char* filter, const char* str, bool enable = true) :
+	JanitorSimpleLogFunc(t_func_JanitorSimpleLogFunc func, const char* filter, const char* str, bool enable = true) :
 		m_funcJF(func), m_filter(filter), m_str(str), m_functionName(0), m_enabled(enable) {}
 
 	/*! \brief Destructor
@@ -846,7 +846,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorFuncStdCall<ParamType, ResultType>(t_func_JanitorFuncStdCall func, ParamType& control, bool enabl = true) :
+	JanitorFuncStdCall(t_func_JanitorFuncStdCall func, ParamType& control, bool enabl = true) :
 		m_funcJFSC(func), m_control(control), m_enabled(enabl) {}
 
 	/*! \brief Destructor
@@ -889,7 +889,7 @@ public:
 
 	/*! \brief Constructor
 	*/
-	JanitorSet<T>(T& control, const T& val, bool enabl = true) :
+	JanitorSet(T& control, const T& val, bool enabl = true) :
 		m_control(control), m_value(val), m_enabled(enabl) {}
 
 	/*! \brief Destructor

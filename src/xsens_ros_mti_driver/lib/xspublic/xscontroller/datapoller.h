@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -34,6 +34,7 @@
 #define DATAPOLLER_H
 
 #include <xscommon/threading.h>
+#include <xstypes/xsbytearray.h>
 
 struct XsMessage;
 class DataParser;
@@ -57,6 +58,7 @@ protected:
 
 private:
 	DataParser& m_parser;
+	XsByteArray m_readbuffer;
 };
 
 #endif

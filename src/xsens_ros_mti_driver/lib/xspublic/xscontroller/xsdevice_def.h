@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -52,6 +52,7 @@
 #include "xsgnssplatform.h"
 #include <functional>
 #include "xsoperationalmode.h"
+#include "xsleverarmtype.h"
 
 class XSNOEXPORT MtContainer;
 class XSNOEXPORT DataLogger;
@@ -125,6 +126,7 @@ struct XsFilterProfile;
 //AUTO struct XsDeviceParameter;
 //AUTO enum XsUbloxGnssPlatform;
 //AUTO struct XsIccRepMotionResult;
+//AUTO enum XsLeverArmType;
 //AUTO }
 
 //AUTO struct XdaConfig;
@@ -226,6 +228,7 @@ public:
 	virtual void XSNOEXPORT deinitializeSoftwareCalibration();
 
 	virtual int batteryLevel() const;
+	virtual int secondaryBatteryLevel() const;
 	virtual int updateRateForDataIdentifier(XsDataIdentifier dataType) const;
 	virtual int updateRateForProcessedDataIdentifier(XsDataIdentifier dataType) const;
 	virtual std::vector<int> supportedUpdateRates(XsDataIdentifier dataType = XDI_None) const;
@@ -464,6 +467,10 @@ public:
 	virtual XsMatrix alignmentRotationMatrix(XsAlignmentFrame frame) const;
 	virtual bool setAlignmentRotationQuaternion(XsAlignmentFrame frame, const XsQuaternion& quat);
 	virtual XsQuaternion alignmentRotationQuaternion(XsAlignmentFrame frame) const;
+
+	// Sirius/Avior devices
+	virtual bool setLeverArm(XsLeverArmType type, const XsVector& arm);
+	virtual XsVector leverArm(XsLeverArmType type) const;
 
 	//! \returns The device mutex.
 	xsens::GuardedMutex* mutex() const

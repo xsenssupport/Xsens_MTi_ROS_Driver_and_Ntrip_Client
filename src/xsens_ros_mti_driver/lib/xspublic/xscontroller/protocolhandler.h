@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -43,11 +43,11 @@ public:
 	ProtocolHandler();
 	virtual ~ProtocolHandler();
 
-	MessageLocation findMessage(XsProtocolType& type, const XsByteArray& raw) const override;
+	MessageLocation findMessage(const XsByteArray& raw) const override;
 	XsMessage convertToMessage(MessageLocation& location, const XsByteArray& raw) const override;
 	int minimumMessageSize() const override;
 	int maximumMessageSize() const override;
-	int type() const override;
+	XsProtocolType type() const override;
 	static int composeMessage(XsByteArray& raw, const XsMessage& msg);
 	void ignoreMaximumMessageSize(bool ignore) override;
 

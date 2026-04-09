@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -492,6 +492,11 @@ enum XsXbusMessageId
 
 	XMID_SetInternalOptions			= 0xA104,
 	XMID_SetInternalOptionsAck		= 0xA105,
+
+	XMID_ReqLeverArm				= 0x0100,
+	XMID_ReqLeverArmAck				= 0x0101,
+	XMID_SetLeverArm				= 0x0100,
+	XMID_SetLeverArmAck				= 0x0101,
 };
 /*! @} */
 typedef enum XsXbusMessageId XsXbusMessageId;

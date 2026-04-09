@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -335,7 +335,7 @@ struct XsDeviceId
 	/*! \brief \copybrief XsDeviceId_isBodyPack(const struct XsDeviceId*) */
 	inline bool isBodyPack() const
 	{
-		return 0 != XsDeviceId_isBodyPack(this);
+		return 0 != XsDeviceId_isBodyPack(this) || isBodyHub();
 	}
 	/*! \brief \copybrief XsDeviceId_isBodyPackV1(const struct XsDeviceId*) */
 	inline bool isBodyPackV1() const

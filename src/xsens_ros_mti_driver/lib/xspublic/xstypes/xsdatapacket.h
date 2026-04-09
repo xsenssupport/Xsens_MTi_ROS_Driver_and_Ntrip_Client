@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -148,6 +148,12 @@ XSTYPES_DLL_API void XsDataPacket_setOrientationEuler(XsDataPacket* thisPtr, con
 XSTYPES_DLL_API XsMatrix* XsDataPacket_orientationMatrix(const XsDataPacket* thisPtr, XsMatrix* returnVal, XsDataIdentifier coordinateSystem);
 XSTYPES_DLL_API void XsDataPacket_setOrientationMatrix(XsDataPacket* thisPtr, const XsMatrix* data, XsDataIdentifier coordinateSystem);
 XSTYPES_DLL_API int XsDataPacket_containsOrientation(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API XsVector* XsDataPacket_orientationQuaternionStd(const XsDataPacket* thisPtr, XsVector* returnVal);
+XSTYPES_DLL_API void XsDataPacket_setOrientationQuaternionStd(XsDataPacket* thisPtr, const XsVector* data);
+XSTYPES_DLL_API XsVector* XsDataPacket_orientationEulerStd(const XsDataPacket* thisPtr, XsVector* returnVal);
+XSTYPES_DLL_API void XsDataPacket_setOrientationEulerStd(XsDataPacket* thisPtr, const XsVector* data);
+XSTYPES_DLL_API int XsDataPacket_containsOrientationQuaternionStd(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API int XsDataPacket_containsOrientationEulerStd(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API XsDataIdentifier XsDataPacket_orientationIdentifier(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API XsDataIdentifier XsDataPacket_coordinateSystemOrientation(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API XsSdiData* XsDataPacket_sdiData(const XsDataPacket* thisPtr, XsSdiData* returnVal);
@@ -195,6 +201,12 @@ XSTYPES_DLL_API int XsDataPacket_containsPressure(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API XsPressure* XsDataPacket_pressure(const XsDataPacket* thisPtr, XsPressure* returnVal);
 XSTYPES_DLL_API int XsDataPacket_containsPressureAge(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API void XsDataPacket_setPressure(XsDataPacket* thisPtr, const XsPressure* data);
+XSTYPES_DLL_API double XsDataPacket_heavePosition(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API int XsDataPacket_containsHeavePosition(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API void XsDataPacket_setHeavePosition(XsDataPacket* thisPtr, double heavePos);
+XSTYPES_DLL_API double XsDataPacket_heavePeriod(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API int XsDataPacket_containsHeavePeriod(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API void XsDataPacket_setHeavePeriod(XsDataPacket* thisPtr, double heavePeriod);
 XSTYPES_DLL_API XsAnalogInData* XsDataPacket_analogIn1Data(const XsDataPacket* thisPtr, XsAnalogInData* returnVal);
 XSTYPES_DLL_API int XsDataPacket_containsAnalogIn1Data(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API void XsDataPacket_setAnalogIn1Data(XsDataPacket* thisPtr, const XsAnalogInData* data);
@@ -762,6 +774,20 @@ struct XsDataPacket
 		XsDataPacket_setOrientationQuaternion(this, &data, coordinateSystem);
 	}
 
+	/*! \brief Returns the orientation uncertainty as a vector
+	*/
+	inline XsVector orientationQuaternionStd() const
+	{
+		XsVector returnVal;
+		return *XsDataPacket_orientationQuaternionStd(this, &returnVal);
+	}
+
+	/*! \copydoc XsDataPacket_setOrientationQuaternionStd(XsDataPacket*, const XsVector*) */
+	inline void setOrientationQuaternionStd(const XsVector& data)
+	{
+		XsDataPacket_setOrientationQuaternionStd(this, &data);
+	}
+
 	/*! \brief \copybrief XsDataPacket_orientationEuler(const XsDataPacket*, XsEuler*, XsDataIdentifier)
 		\param coordinateSystem The coordinate system of the requested orientation. If this does not match
 				the stored coordinate system, it will be transformed to the requested orientation.
@@ -784,6 +810,19 @@ struct XsDataPacket
 	inline void setOrientationEuler(const XsEuler& data, XsDataIdentifier coordinateSystem)
 	{
 		XsDataPacket_setOrientationEuler(this, &data, coordinateSystem);
+	}
+
+	/*! \brief Returns the orientation uncertainty as an XsVector*/
+	inline XsVector orientationEulerStd() const
+	{
+		XsVector returnVal;
+		return *XsDataPacket_orientationEulerStd(this, &returnVal);
+	}
+
+	/*! \copydoc XsDataPacket_setOrientationEulerStd(XsDataPacket*, const XsVector*) */
+	inline void setOrientationEulerStd(const XsVector& data)
+	{
+		XsDataPacket_setOrientationEulerStd(this, &data);
 	}
 
 	/*! \brief \copybrief XsDataPacket_orientationMatrix(const XsDataPacket*, XsMatrix*, XsDataIdentifier)
@@ -814,6 +853,18 @@ struct XsDataPacket
 	inline bool containsOrientation(void) const
 	{
 		return 0 != XsDataPacket_containsOrientation(this);
+	}
+
+	/*! \copydoc XsDataPacket_containsOrientationQuaternionStd(const XsDataPacket*) */
+	inline bool containsOrientationQuaternionStd(void) const
+	{
+		return 0 != XsDataPacket_containsOrientationQuaternionStd(this);
+	}
+
+	/*! \copydoc XsDataPacket_containsOrientationEulerStd(const XsDataPacket*) */
+	inline bool containsOrientationEulerStd(void) const
+	{
+		return 0 != XsDataPacket_containsOrientationEulerStd(this);
 	}
 
 	/*! \copydoc XsDataPacket_orientationIdentifier(const XsDataPacket*) */
@@ -1106,6 +1157,42 @@ struct XsDataPacket
 	inline void setPressure(const XsPressure& data)
 	{
 		XsDataPacket_setPressure(this, &data);
+	}
+
+	/*! \brief \copybrief XsDataPacket_heavePosition(const XsDataPacket*) */
+	inline double heavePosition(void) const
+	{
+		return XsDataPacket_heavePosition(this);
+	}
+
+	/*! \copydoc XsDataPacket_containsHeavePosition(const XsDataPacket*) */
+	inline bool containsHeavePosition(void) const
+	{
+		return 0 != XsDataPacket_containsHeavePosition(this);
+	}
+
+	/*! \copydoc XsDataPacket_setHeavePosition(XsDataPacket*, double) */
+	inline void setHeavePosition(double heavePos)
+	{
+		XsDataPacket_setHeavePosition(this, heavePos);
+	}
+
+	/*! \brief \copybrief XsDataPacket_heavePeriod(const XsDataPacket*) */
+	inline double heavePeriod(void) const
+	{
+		return XsDataPacket_heavePeriod(this);
+	}
+
+	/*! \copydoc XsDataPacket_containsHeavePeriod(const XsDataPacket*) */
+	inline bool containsHeavePeriod(void) const
+	{
+		return 0 != XsDataPacket_containsHeavePeriod(this);
+	}
+
+	/*! \copydoc XsDataPacket_setHeavePeriod(XsDataPacket*, double) */
+	inline void setHeavePeriod(double period)
+	{
+		XsDataPacket_setHeavePeriod(this, period);
 	}
 
 	/*! \brief \copybrief XsDataPacket_analogIn1Data(const XsDataPacket*, XsAnalogInData*) */

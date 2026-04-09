@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -228,13 +228,13 @@ struct XsArrayImpl : private XsArray
 		\param src pointer to an array of output configurations
 		\sa XsArray_construct
 	*/
-	inline explicit XsArrayImpl<T, D, I>(XsSize count = 0, T const* src = 0)
+	inline explicit XsArrayImpl(XsSize count = 0, T const* src = 0)
 		: XsArray(&D, count, src)
 	{
 	}
 
 	//! \brief Constructs the XsArray as a copy of \a other
-	inline XsArrayImpl<T, D, I>(ArrayImpl const& other)
+	inline XsArrayImpl(ArrayImpl const& other)
 		: XsArray(other)
 	{
 	}
@@ -242,7 +242,7 @@ struct XsArrayImpl : private XsArray
 #ifndef XSENS_NOITERATOR
 	//! \brief Constructs the XsArray with a copy of the array bound by the supplied iterators \a beginIt and \a endIt
 	template <typename Iterator>
-	inline explicit XsArrayImpl<T, D, I>(Iterator const& beginIt, Iterator const& endIt)
+	inline explicit XsArrayImpl(Iterator const& beginIt, Iterator const& endIt)
 		: XsArray(&D, 0, 0)
 	{
 		ptrdiff_t diff = endIt - beginIt;
@@ -255,7 +255,7 @@ struct XsArrayImpl : private XsArray
 	}
 #endif
 	//! \brief Creates the XsArray as a reference to the data supplied in \a ref
-	inline explicit XsArrayImpl<T, D, I>(T* ref, XsSize sz, XsDataFlags flags /* = XSDF_None */)
+	inline explicit XsArrayImpl(T* ref, XsSize sz, XsDataFlags flags /* = XSDF_None */)
 		: XsArray(&D, ref, sz, flags)
 	{
 	}

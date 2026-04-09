@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -188,9 +188,8 @@ void XsDeviceConfiguration_writeToMessage(const XsDeviceConfiguration* thisPtr, 
 	uint16_t i;
 	XsMessageHeader* msgHeader;
 
-	XsMessage_constructSized(msg, 98 + thisPtr->m_numberOfDevices * 20);
+	XsMessage_constructSized(msg, 98 + thisPtr->m_numberOfDevices * 20, XMID_Configuration);
 	msgHeader = XsMessage_getHeader(msg);
-	msgHeader->m_messageId = XMID_Configuration;
 	msgHeader->m_busId = XS_BID_MASTER;
 
 	{

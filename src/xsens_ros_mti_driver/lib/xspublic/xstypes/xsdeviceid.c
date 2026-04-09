@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -705,7 +705,7 @@ int XsDeviceId_isRtk(const struct XsDeviceId* thisPtr)
 */
 int XsDeviceId_isContainerDevice(const struct XsDeviceId* thisPtr)
 {
-	return XsDeviceId_isBodyPack(thisPtr) || XsDeviceId_isWirelessMaster(thisPtr);
+	return XsDeviceId_isBodyPack(thisPtr) || XsDeviceId_isBodyHub(thisPtr) || XsDeviceId_isWirelessMaster(thisPtr);
 }
 
 /*! \brief Test if this device ID represents an MT device (any Mti, Mtig, Mtx or Mtw)
@@ -935,6 +935,8 @@ void XsDeviceId_typeName(XsDeviceId const* thisPtr, XsString* str)
 		XsString_assignCharArray(str, "MTw2");
 	else if (XsDeviceId_isMtx2(thisPtr))
 		XsString_assignCharArray(str, "MTx2");
+	else if (XsDeviceId_isMtx3(thisPtr))
+		XsString_assignCharArray(str, "MTx3");
 	else if (XsDeviceId_isBodyPackV2(thisPtr))
 		XsString_assignCharArray(str, "BPACK-V2");
 	else if (XsDeviceId_isBodyPack(thisPtr))

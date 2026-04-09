@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -39,6 +39,7 @@ DataPoller::DataPoller(DataParser& parser)
 	: m_parser(parser)
 {
 	JLDEBUGG("Starting DataPoller " << this << " for parser " << &parser);
+	m_yieldOnZeroSleep = false;
 }
 
 /*! \brief Destroy the data poller */
@@ -59,8 +60,6 @@ DataPoller::~DataPoller()
 int32_t DataPoller::conjureUpWaitTime(const XsByteArray& bytes) const
 {
 	if (bytes.size() == 0)
-		return 3;
-	else if (bytes.size() < 256)
 		return 2;
 	return 0;
 }
@@ -88,13 +87,14 @@ void DataPoller::cleanup()
 */
 int32_t DataPoller::innerFunction(void)
 {
-	XsByteArray ba;
-	if (m_parser.readDataToBuffer(ba) != XRV_OK)
+	m_readbuffer.assign(0, NULL);
+
+	if (m_parser.readDataToBuffer(m_readbuffer) != XRV_OK)
 		return 1;
 
-	int32_t retval = conjureUpWaitTime(ba);
-	if (ba.size())
-		m_parser.addRawData(ba);
+	int32_t retval = conjureUpWaitTime(m_readbuffer);
+	if (m_readbuffer.size())
+		m_parser.addRawData(m_readbuffer);
 
 	return retval;
 }

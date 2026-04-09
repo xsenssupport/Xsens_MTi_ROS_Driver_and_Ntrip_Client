@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -43,8 +43,7 @@
 #include "mti7_mti8device.h"
 #include "mti3x0device.h"
 #include "mti6x0device.h"
-#include "mti8x0device.h"
-#include "mti9x0device.h"
+#include "mti8x0_mti9x0device.h"
 #include "dotdevice.h"
 
 /*! \class DeviceFactory
@@ -234,7 +233,7 @@ void DeviceFactory::registerDevices()
 	(void)registerStandaloneDeviceType(DeviceType::MTI_7_MTI_8,		&MTi7_MTi8Device::constructStandalone);
 	(void)registerStandaloneDeviceType(DeviceType::MTI_3X0,			&Mti3X0Device::constructStandalone);
 	(void)registerStandaloneDeviceType(DeviceType::MTI_6X0,			&Mti6X0Device::constructStandalone);
-	(void)registerStandaloneDeviceType(DeviceType::MTI_8X0,			&Mti8X0Device::constructStandalone);
-	(void)registerStandaloneDeviceType(DeviceType::MTI_9X0,			&Mti9X0Device::constructStandalone);
+	(void)registerStandaloneDeviceType(DeviceType::MTI_8X0,			&Mti8X0Mti9X0Device::constructStandalone);
+	(void)registerStandaloneDeviceType(DeviceType::MTI_9X0,			&Mti8X0Mti9X0Device::constructStandalone);
 	(void)registerStandaloneDeviceType(DeviceType::DOT, 			&DotDevice::constructStandalone);
 }

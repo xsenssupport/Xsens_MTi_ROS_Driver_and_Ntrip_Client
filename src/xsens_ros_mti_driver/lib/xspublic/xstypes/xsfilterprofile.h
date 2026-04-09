@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -56,6 +56,7 @@ XSTYPES_DLL_API void XsFilterProfile_swap(struct XsFilterProfile* a, struct XsFi
 #define XS_LEN_FILTERPROFILELABEL_TERM	(20+1)
 #define XS_LEN_FILTERPROFILEKIND_TERM	(20+1)
 #define XS_MAX_FILTERPROFILES_IN_MT		5
+#define XS_MAX_FILTERPROFILELABEL_SIZE	(1 + 2 * XS_LEN_FILTERPROFILELABEL_TERM)	//!< The maximum size of the label (2 names, including the separator)
 
 struct XsFilterProfile
 {
@@ -252,14 +253,13 @@ struct XsFilterProfile
 	{
 		return m_filterMajor == other.m_filterMajor && m_filterMinor == other.m_filterMinor;
 	}
-
 protected:
 #endif
 
 	uint8_t m_type;								//!< The type of the filter profile. When set to 255 in an operation, the 'current' filter profile is used.
 	uint8_t m_version;							//!< The version of the filter profile.
 	char m_kind[XS_LEN_FILTERPROFILEKIND_TERM];	//!< The kind of filter profile.
-	char m_label[1 + 2 * XS_LEN_FILTERPROFILELABEL_TERM];	//!< The label of the filter profile (Can be 2 names, including separator)
+	char m_label[XS_MAX_FILTERPROFILELABEL_SIZE]; //!< The label of the filter profile (Can be 2 names, including separator)
 	char m_filterType;							//!< The type of the XKF filter this filter profile is intended for '3': XKF-3, '6': XKF-6. \note The value is a character, so XKF-3 is '3', which is hex 0x33
 	uint8_t m_filterMajor;						//!< The major version of the XKF filter this filter profile is intended for
 	uint8_t m_filterMinor;						//!< The minor version of the XKF filter this filter profile is intended for

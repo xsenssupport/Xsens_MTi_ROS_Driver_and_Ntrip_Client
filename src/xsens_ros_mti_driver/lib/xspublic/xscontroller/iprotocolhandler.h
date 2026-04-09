@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -59,11 +59,10 @@ public:
 		\li \a startpos >= 0 and \a size < 0: The start of a message has been found at \a startpos, and the size of the full message is at least \a -size.
 		\li \a startpos < 0: No messages have been found.
 
-		\param type The protocol type that was used.
 		\param raw The raw byte stream to analyze.
 		\returns A %MessageLocation object that describes what was found.
 	*/
-	virtual MessageLocation findMessage(XsProtocolType& type, const XsByteArray& raw) const = 0;
+	virtual MessageLocation findMessage(const XsByteArray& raw) const = 0;
 
 	/*! \brief Converts \a raw data using \a location into a %XsMessage object.
 		\param location The location of a message to convert from \a raw data.
@@ -87,9 +86,9 @@ public:
 	/*! \brief Returns the type of the protocol handler
 		\details Each protocol handler has a locally unique id that can be used for instantiation of
 		the correct protocol handler.
-		\returns The type id of the protocol handler.
+		\returns The type of the protocol handler.
 	*/
-	virtual int type() const = 0;
+	virtual XsProtocolType type() const = 0;
 
 	/*! \brief Tells the protocol handler to ignore/expand its maximum message size
 		\details This is mostly used when reading from a file that is known to contain correct data.

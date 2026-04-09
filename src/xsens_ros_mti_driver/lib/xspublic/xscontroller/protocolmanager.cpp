@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -87,7 +87,7 @@ MessageLocation ProtocolManager::findMessage(XsProtocolType& type, const XsByteA
 		assert((*i).operator->() != 0);
 		IProtocolHandler const& handler = **i;
 		XsProtocolType currentProtocolType = static_cast<XsProtocolType>(handler.type());
-		MessageLocation currentMessageLocation = handler.findMessage(type, raw);
+		MessageLocation currentMessageLocation = handler.findMessage(raw);
 
 		int currentPosition = currentMessageLocation.m_incompletePos >= 0 ? currentMessageLocation.m_incompletePos : currentMessageLocation.m_startPos;
 		if (currentPosition < 0)

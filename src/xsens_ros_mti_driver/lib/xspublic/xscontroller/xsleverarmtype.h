@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -30,41 +30,23 @@
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
 //  
 
-#ifndef SIMPLEPROTOCOLMANAGER_H
-#define SIMPLEPROTOCOLMANAGER_H
+#ifndef XSLEVERARMTYPE_H
+#define XSLEVERARMTYPE_H
 
-#include "iprotocolmanager.h"
-#include "protocolhandler.h"
-
-/*! \brief A very basic protocol manager
-	\details This protocol manager supports only the xbus protocol
+/*!	\addtogroup enums Global enumerations
+	@{
 */
-class SimpleProtocolManager : public IProtocolManager
+//AUTO namespace xscontroller {
+/*! \brief Lever arm type.
+*/
+enum XsLeverArmType
 {
-public:
-	/*! \copydoc IProtocolManager::findMessage
-	*/
-	MessageLocation findMessage(XsProtocolType& type, const XsByteArray& raw) override
-	{
-		return m_protocolHandler.findMessage(type, raw);
-	};
-
-	/*! \copydoc IProtocolManager::convertToMessage
-	*/
-	XsMessage convertToMessage(XsProtocolType& type, MessageLocation& location, const XsByteArray& raw) override
-	{
-		(void)type;
-		return m_protocolHandler.convertToMessage(location, raw);
-	};
-
-	/*! \copydoc IProtocolManager::validateMessage
-	*/
-	bool validateMessage(XsMessage const& msg) const override
-	{
-		return msg.isChecksumOk();
-	}
-private:
-	ProtocolHandler m_protocolHandler; //!< Standard protocol handler; used for finding messages.
+	XLAT_Cor,	//!< Sensor to Center of Rotation (COR)
+	XLAT_Poi,	//!< Sensor to Point of Interest (POI)	
 };
+/*! @} */
+typedef enum XsLeverArmType XsLeverArmType;
+
+//AUTO }
 
 #endif

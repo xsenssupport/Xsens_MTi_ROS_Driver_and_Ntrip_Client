@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -75,7 +75,7 @@ static int expectedMessageSize(const unsigned char* buffer, int sz)
 		if (sz < 6)
 			return XS_EXTLENCODE + XS_LEN_MSGEXTHEADERCS;	// typical minimum size at which point extended size is needed
 
-		return XS_LEN_MSGEXTHEADERCS + (int)(((uint32_t) hdr->m_datlen.m_extended.m_length.m_high * 256 + (uint32_t) hdr->m_datlen.m_extended.m_length.m_low));
+		return XS_LEN_MSGEXTHEADERCS + ((uint16_t)(hdr->m_payload[0] << 8) | hdr->m_payload[1]);
 	}
 	return XS_LEN_MSGHEADERCS + (int)(hdr->m_length);
 }
@@ -99,10 +99,9 @@ inline std::string dumpBuffer(const uint8_t* buff, XsSize sz)
 
 /*! \copydoc IProtocolHandler::findMessage
 */
-MessageLocation ProtocolHandler::findMessage(XsProtocolType& type, const XsByteArray& raw) const
+MessageLocation ProtocolHandler::findMessage(const XsByteArray& raw) const
 {
 	JLTRACEG("Entry");
-	type = static_cast<XsProtocolType>(ProtocolHandler::type());
 	MessageLocation rv;
 
 	int bufferSize = (int)raw.size();
@@ -252,7 +251,7 @@ int ProtocolHandler::composeMessage(XsByteArray& raw, const XsMessage& msg)
 	return (int) raw.size();
 }
 
-int ProtocolHandler::type() const
+XsProtocolType ProtocolHandler::type() const
 {
 	return XPT_Xbus;
 }

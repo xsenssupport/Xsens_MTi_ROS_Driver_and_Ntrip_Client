@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -55,14 +55,14 @@ typedef struct XsMessageHeader XsMessageHeader;
 #endif
 
 XSTYPES_DLL_API void XsMessage_construct(XsMessage* thisPtr);
-XSTYPES_DLL_API void XsMessage_constructSized(XsMessage* thisPtr, XsSize dataSize);
+XSTYPES_DLL_API void XsMessage_constructSized(XsMessage* thisPtr, XsSize payloadSize, XsXbusMessageId msgId);
 XSTYPES_DLL_API void XsMessage_copyConstruct(XsMessage* thisPtr, XsMessage const* src);
-XSTYPES_DLL_API void XsMessage_assign(XsMessage* thisPtr, XsSize dataSize);
 XSTYPES_DLL_API void XsMessage_load(XsMessage* thisPtr, XsSize msgSize, unsigned char const* src);
 XSTYPES_DLL_API void XsMessage_destruct(XsMessage* thisPtr);
 XSTYPES_DLL_API void XsMessage_copy(XsMessage* copy, XsMessage const* thisPtr);
 XSTYPES_DLL_API void XsMessage_swap(XsMessage* a, XsMessage* b);
 XSTYPES_DLL_API XsSize XsMessage_dataSize(XsMessage const* thisPtr);
+XSTYPES_DLL_API XsXbusMessageId XsMessage_messageId(XsMessage const* thisPtr);
 XSTYPES_DLL_API const uint8_t* XsMessage_constData(XsMessage const* thisPtr, XsSize offset);
 XSTYPES_DLL_API const uint8_t* XsMessage_getMessageStart(XsMessage const* thisPtr);
 XSTYPES_DLL_API XsSize XsMessage_getTotalMessageSize(XsMessage const* thisPtr);
@@ -86,6 +86,7 @@ XSTYPES_DLL_API void XsMessage_setDataFP1632(XsMessage* thisPtr, double value, X
 XSTYPES_DLL_API void XsMessage_setDataBuffer(XsMessage* thisPtr, const uint8_t* buffer, XsSize size, XsSize offset);
 XSTYPES_DLL_API uint8_t XsMessage_computeChecksum(XsMessage const* thisPtr);
 XSTYPES_DLL_API void XsMessage_recomputeChecksum(XsMessage* thisPtr);
+XSTYPES_DLL_API void XsMessage_updateChecksumAddress(XsMessage* thisPtr);
 XSTYPES_DLL_API int XsMessage_isChecksumOk(XsMessage const* thisPtr);
 XSTYPES_DLL_API XsMessageHeader* XsMessage_getHeader(XsMessage*);
 XSTYPES_DLL_API const XsMessageHeader* XsMessage_getConstHeader(XsMessage const* thisPtr);
@@ -111,15 +112,16 @@ XSTYPES_DLL_API void XsMessage_setEndianCorrectData(XsMessage* thisPtr, void con
 
 #define XS_PREAMBLE           0xFA
 #define XS_EXTLENCODE         0xFF
+#define XS_EXTMIDCODE		  0xEE
 
-#define XS_LEN_MSGHEADER      4
-#define XS_LEN_MSGEXTHEADER   6
-#define XS_LEN_MSGHEADERCS    5
-#define XS_LEN_MSGEXTHEADERCS 7
-#define XS_LEN_CHECKSUM       1
-#define XS_LEN_UNSIGSHORT     2
-#define XS_LEN_UNSIGINT       4
-#define XS_LEN_FLOAT          4
+#define XS_LEN_MSGHEADER			4
+#define XS_LEN_CHECKSUM				1
+#define XS_LEN_MSGEXTHEADER			(XS_LEN_MSGHEADER + 2)
+#define XS_LEN_MSGHEADERCS			(XS_LEN_MSGHEADER + XS_LEN_CHECKSUM)
+#define XS_LEN_MSGEXTHEADERCS		(XS_LEN_MSGHEADER + XS_LEN_CHECKSUM + 2)
+#define XS_LEN_UNSIGSHORT			2
+#define XS_LEN_UNSIGINT				4
+#define XS_LEN_FLOAT				4
 
 // Maximum message/data length
 #define XS_MAXDATALEN         (8192-XS_LEN_MSGEXTHEADERCS)
@@ -138,25 +140,15 @@ struct XsMessageHeader
 {
 	uint8_t m_preamble;  //!< \brief The message preamble (always 0xFA)
 	uint8_t m_busId;     //!< \brief The bus ID \sa XS_BID_MASTER XS_BID_BROADCAST XS_BID_MT
-	uint8_t m_messageId; //!< \brief The message ID \sa XsXbusMessageId
+	uint8_t m_messageId; //!< \brief The message ID \sa XsXbusMessageId A message id of 0xEE means extended message id is used
 	uint8_t m_length;    //!< \brief The length of the message \details A length of 255 means extended length is used
 
-	/*! Contains optional extended length of message and first byte of data buffer */
-	union LengthData
-	{
-		/*! Contains extended length information and first byte of data buffer if normal length is 255 */
-		struct ExtendedLength
-		{
-			/*! The high and low byte of the extended length */
-			struct ExtendedParts
-			{
-				uint8_t m_high;	//!< \brief High byte of extended length
-				uint8_t m_low;	//!< \brief Low byte of extended length
-			} m_length;			//!< \brief Extended length, only valid if normal length is 255
-			uint8_t m_data[1];	//!< \brief The first byte of the data buffer, the data buffer is always at least 1 byte since it has to contain the checksum, but it can be bigger.
-		} m_extended;			//!< \brief The extended length, only valid if normal length is 255
-		uint8_t m_data[1];		//!< \brief The first byte of the data buffer if length < 255, the data buffer is always at least 1 byte since it has to contain the checksum, but it can be bigger.
-	} m_datlen;	//!< \brief Data or length and data
+	// The rest of the bytes depend on m_messageId and m_length
+	/*! \brief The payload of the message
+		\details This is the first byte after the fixed header, it may be part of extended fields or actual data.
+				 The data buffer is always at least 1 byte since it has to contain the checksum, but it can be bigger.
+	*/
+	uint8_t m_payload[1];
 #ifdef SWIG
 };
 #else
@@ -181,8 +173,7 @@ struct XsMessage
 		: m_autoUpdateChecksum(1)
 		, m_checksum(0)
 	{
-		XsMessage_constructSized(this, dataLength);
-		XsMessage_setMessageId(this, msgId);
+		XsMessage_constructSized(this, dataLength, msgId);
 	}
 
 	/*! \brief Create a message from the given source byte array
@@ -344,10 +335,7 @@ struct XsMessage
 	//! Return the current value of the m_messageId field.
 	inline XsXbusMessageId getMessageId(void) const
 	{
-		const XsMessageHeader* hdr = XsMessage_getConstHeader(this);
-		if (!hdr)
-			return XMID_InvalidMessage;
-		return (XsXbusMessageId) hdr->m_messageId;
+		return XsMessage_messageId(this);
 	}
 
 	//! Returns XRV_OK if this is a normal message or an error code if the message was an XMID_Error message or XRV_NULLPTR if the message is invalid / empty

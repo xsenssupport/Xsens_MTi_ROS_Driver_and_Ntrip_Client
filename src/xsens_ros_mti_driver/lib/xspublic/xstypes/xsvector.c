@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2024 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -229,7 +229,6 @@ void XsVector_multiplyScalar(const XsVector* thisPtr, XsReal scalar, XsVector* d
 	\brief Get an effective angular velocity from the quaternion, which must represent a delta angle.
 	\param deltaT The length of the time interval over which \a quat was integrated in seconds
 	\param quat The orientation increment to convert to an angular velocity
-	\returns A vector containing the effective angular velocity in radians around each axis.
 */
 void XsVector_angularVelocityFromQuaternion(XsVector* thisPtr, XsReal deltaT, const XsQuaternion* quat)
 {
@@ -303,7 +302,11 @@ int XsVector_compare(const struct XsVector* thisPtr, const struct XsVector* that
 		return 0;
 
 	for (i = 0; i < thisPtr->m_size; ++i)
+#ifdef XSENS_SINGLE_PRECISION
+		if (fabsf(thisPtr->m_data[i] - thatPtr->m_data[i]) > epsilon)
+#else
 		if (fabs(thisPtr->m_data[i] - thatPtr->m_data[i]) > epsilon)
+#endif
 			return 0;
 
 	return 1;
