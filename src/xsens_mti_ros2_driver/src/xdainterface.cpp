@@ -161,12 +161,13 @@ void XdaInterface::registerPublishers()
 		registerCallback(new AngularVelocityHRPublisher(m_node));
 	}
 
+	if (m_node->get_parameter("pub_imu", should_publish) && should_publish)
+	{
+		registerCallback(new ImuPublisher(m_node, m_device->deviceId(), true));
+	}
+
 	if(isDeviceVruAhrs || isDeviceGnss)
 	{
-		if (m_node->get_parameter("pub_imu", should_publish) && should_publish)
-		{
-			registerCallback(new ImuPublisher(m_node, m_device));
-		}
 		if (m_node->get_parameter("pub_quaternion", should_publish) && should_publish)
 		{
 			registerCallback(new OrientationPublisher(m_node));
@@ -1450,6 +1451,9 @@ void XdaInterface::declareCommonParameters()
 	std::string frame_id = DEFAULT_FRAME_ID;
 	if (!m_node->has_parameter("frame_id"))
 		m_node->declare_parameter("frame_id", frame_id);
+	std::string fixed_frame_id = DEFAULT_FIXED_FRAME_ID;
+	if (!m_node->has_parameter("fixed_frame_id"))
+		m_node->declare_parameter("fixed_frame_id", fixed_frame_id);
 	if (!m_node->has_parameter("enable_deviceConfig"))
 		m_node->declare_parameter("enable_deviceConfig", false);
 	if (!m_node->has_parameter("enable_filter_config"))

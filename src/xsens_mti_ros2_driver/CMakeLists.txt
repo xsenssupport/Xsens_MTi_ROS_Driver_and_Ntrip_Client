@@ -145,6 +145,36 @@ target_link_libraries(
 
 
 #############
+## Testing ##
+#############
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_imu_publisher
+    test/test_imu_publisher.cpp
+  )
+  add_dependencies(test_imu_publisher xspublic ${PROJECT_NAME})
+  target_include_directories(test_imu_publisher PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/xspublic
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/
+    ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
+  )
+  ament_target_dependencies(test_imu_publisher
+    rclcpp
+    sensor_msgs
+    geometry_msgs
+  )
+  rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
+  target_link_libraries(test_imu_publisher
+    "${cpp_typesupport_target}"
+    xstypes
+    pthread
+    dl
+  )
+endif()
+
+#############
 ## Install ##
 #############
 

@@ -57,6 +57,13 @@
         # Default frame_id is "imu_link". Change this if using multiple devices to avoid conflicts.
         # frame_id: "imu_link"
 
+        # Fixed Frame ID
+        # ------------------
+        # frame_id for filter outputs that are expressed in a local fixed frame (ENU/NED/NWU),
+        # such as free_acceleration, orientation, velocity, position, and GNSS topics.
+        # Default is "world". Change to match your TF tree (e.g. "odom", "map").
+        # fixed_frame_id: "world"
+
 
         # Sensor Configuration
         # ---------------------------
