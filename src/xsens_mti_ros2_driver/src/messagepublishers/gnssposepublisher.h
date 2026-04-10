@@ -38,14 +38,14 @@
 struct GNSSPOSEPublisher : public PacketCallback
 {
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub;
-    std::string frame_id = DEFAULT_FIXED_FRAME_ID;
+    std::string frame_id = DEFAULT_FRAME_ID;
 
     GNSSPOSEPublisher(rclcpp::Node::SharedPtr node)
     {
         int pub_queue_size = 5;
 
         node->get_parameter("publisher_queue_size", pub_queue_size);
-        node->get_parameter("fixed_frame_id", frame_id);
+        node->get_parameter("frame_id", frame_id);
 
         pub = node->create_publisher<geometry_msgs::msg::PoseStamped>("/gnss_pose", pub_queue_size);
 
