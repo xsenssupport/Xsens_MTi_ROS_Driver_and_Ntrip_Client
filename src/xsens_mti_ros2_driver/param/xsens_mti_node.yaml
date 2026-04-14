@@ -154,6 +154,7 @@
         pub_gnsspose: true      # For GNSS/INS Version of MTI only
         pub_odometry: false     # For GNSS/INS Version of MTI only
         pub_gnsspvt: true       # For GNSS/INS Version of MTI only (MTi-7/8/670G/680G/G-710); fixed 4 Hz output rate
+        pub_gnssatinfo: true    # For GNSS/INS Version of MTI only (MTi-7/8/670G/680G/G-710); satellite info
         pub_euler_stddev: false # For Sirius and Avior AHRS/VRU only, this is for setouput config, and value will be published at /imu/data topic.
         pub_ship_motion: true   # For Sirius and Avior AHRS Only
 

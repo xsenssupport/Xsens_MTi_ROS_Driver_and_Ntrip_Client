@@ -44,6 +44,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/XsStatusWord.msg"
   "msg/ShipMotion.msg"
   "msg/GnssPvt.msg"
+  "msg/GnssSatInfo.msg"
   DEPENDENCIES std_msgs
 )
 
