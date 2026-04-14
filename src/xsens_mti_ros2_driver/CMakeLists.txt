@@ -64,7 +64,7 @@ ExternalProject_Add(
   PREFIX ${CMAKE_BINARY_DIR}/xspublic
   SOURCE_DIR ${CMAKE_SOURCE_DIR}/lib/xspublic
   CONFIGURE_COMMAND ""  # No configure step
-  BUILD_COMMAND make
+  BUILD_COMMAND env --unset=MAKEFLAGS make
   BUILD_IN_SOURCE 1  # Build in the source directory
   INSTALL_COMMAND ""  # No install step
 )
@@ -99,18 +99,36 @@ add_dependencies(xsens_mti_node xspublic ${PROJECT_NAME})
 #   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp> 
 #   $<INSTALL_INTERFACE:include>)
 
-ament_target_dependencies(xsens_mti_node 
-	rclcpp
-	tf2
-	tf2_ros
-	std_msgs
-	geometry_msgs
-	sensor_msgs
-	nav_msgs
-	nmea_msgs
-	mavros_msgs
-	rosidl_default_runtime
-)
+if(TARGET rclcpp::rclcpp)
+  # Rolling and newer: use modern CMake targets
+  target_link_libraries(xsens_mti_node
+    ${geometry_msgs_TARGETS}
+    ${mavros_msgs_TARGETS}
+    ${nav_msgs_TARGETS}
+    ${nmea_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${std_msgs_TARGETS}
+    rclcpp::rclcpp
+    sensor_msgs::sensor_msgs_library
+    tf2::tf2
+    tf2_ros::static_transform_broadcaster_node
+    tf2_ros::tf2_ros
+  )
+else()
+  # Humble/Jazzy: use ament_target_dependencies
+  ament_target_dependencies(xsens_mti_node
+    rclcpp
+    tf2
+    tf2_ros
+    std_msgs
+    geometry_msgs
+    sensor_msgs
+    nav_msgs
+    nmea_msgs
+    mavros_msgs
+    rosidl_default_runtime
+  )
+endif()
 
 # Handle typesupport linking differently based on ROS distro
 if(${ROS_DISTRO} STREQUAL "foxy")
@@ -161,11 +179,20 @@ if(BUILD_TESTING)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/
     ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
   )
-  ament_target_dependencies(test_imu_publisher
-    rclcpp
-    sensor_msgs
-    geometry_msgs
-  )
+  if(TARGET rclcpp::rclcpp)
+    target_link_libraries(test_imu_publisher
+      ${geometry_msgs_TARGETS}
+      ${sensor_msgs_TARGETS}
+      rclcpp::rclcpp
+      sensor_msgs::sensor_msgs_library
+    )
+  else()
+    ament_target_dependencies(test_imu_publisher
+      rclcpp
+      sensor_msgs
+      geometry_msgs
+    )
+  endif()
   rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
   target_link_libraries(test_imu_publisher
     "${cpp_typesupport_target}"
