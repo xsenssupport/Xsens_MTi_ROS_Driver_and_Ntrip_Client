@@ -52,8 +52,8 @@ User needs to change the ``ntrip_launch.py`` for their own credentials/servers/m
 ## How to Install:
 install dependency:
 ```
-sudo apt install ros-[ROSDISTRIBUTION]-nmea-msgs
-sudo apt install ros-[ROSDISTRIBUTION]-mavros-msgs
+sudo apt install ros-${ROS_DISTRO}-nmea-msgs
+sudo apt install ros-${ROS_DISTRO}-mavros-msgs
 ```
 for example for ROS2 Humble:
 ```

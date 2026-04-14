@@ -55,8 +55,8 @@ Ntrip客户端订阅来自``xsens_mti_ros2_driver``的``/nmea`` 话题，并等�
 ## 安装方法
 安装依赖项：
 ```
-sudo apt install ros-[ROSDISTRIBUTION]-nmea-msgs
-sudo apt install ros-[ROSDISTRIBUTION]-mavros-msgs
+sudo apt install ros-${ROS_DISTRO}-nmea-msgs
+sudo apt install ros-${ROS_DISTRO}-mavros-msgs
 ```
 例如对于ROS2 Humble：
 ```
