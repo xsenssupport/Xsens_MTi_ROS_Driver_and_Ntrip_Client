@@ -55,8 +55,8 @@ Ntrip客户端订阅来自``xsens_mti_ros2_driver``的``/nmea`` 话题，并等�
 ## 安装方法
 安装依赖项：
 ```
-sudo apt install ros-[ROSDISTRIBUTION]-nmea-msgs
-sudo apt install ros-[ROSDISTRIBUTION]-mavros-msgs
+sudo apt install ros-${ROS_DISTRO}-nmea-msgs
+sudo apt install ros-${ROS_DISTRO}-mavros-msgs
 ```
 例如对于ROS2 Humble：
 ```
@@ -124,6 +124,8 @@ ros2 launch ntrip ntrip_launch.py
 | filter/velocity          | geometry_msgs/Vector3Stamped    | filtered velocity output as Vector3                                                                                                           | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | filter/shipmotion          | xsens_mti_ros2_driver/msg/ShipMotion    | Heave position and Heave period                                                                                                           | 1-100Hz                      |
 | gnss                     | sensor_msgs/NavSatFix           | raw 4 Hz latitude, longitude, altitude and status data from GNSS receiver                                                                     | 4Hz                                                                             |
+| gnss/pvt                 | xsens_mti_ros2_driver/msg/GnssPvt | 原始GNSS PVT（位置、速度、时间）数据，字段名兼容ublox NavPVT。适用于GNSS/INS型号：MTi-7/8/670(G)/680(G)/G-710                | 4Hz                                                                             |
+| gnss/satinfo             | xsens_mti_ros2_driver/msg/GnssSatInfo | GNSS卫星信息，包含每颗卫星的GNSS ID、卫星编号、载噪比和标志位。仅适用于MTi-670(G)/680(G)/G-710                              | 4Hz                                                                             |
 | gnss_pose                | geometry_msgs/PoseStamped       | filtered position output in latitude (x), longitude (y) and altitude (z) as Vector3 in WGS84 datum, and quaternion from filter                | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | imu/acceleration         | geometry_msgs/Vector3Stamped    | calibrated acceleration                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | imu/angular_velocity     | geometry_msgs/Vector3Stamped    | calibrated angular velocity                                                                                                                   | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |

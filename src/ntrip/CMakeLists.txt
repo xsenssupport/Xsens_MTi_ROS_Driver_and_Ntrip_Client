@@ -21,28 +21,45 @@ add_library(${PROJECT_NAME}_lib
   src/rtcm_parser.cpp
 )
 
-ament_target_dependencies(${PROJECT_NAME}_lib
-  rclcpp
-  nmea_msgs
-  mavros_msgs
-  diagnostic_msgs
-  std_msgs
-)
-
-target_link_libraries(${PROJECT_NAME}_lib
-  Boost::system
-  Boost::thread
-)
+if(TARGET rclcpp::rclcpp)
+  target_link_libraries(${PROJECT_NAME}_lib
+    ${diagnostic_msgs_TARGETS}
+    ${mavros_msgs_TARGETS}
+    ${nmea_msgs_TARGETS}
+    ${std_msgs_TARGETS}
+    rclcpp::rclcpp
+    Boost::system
+    Boost::thread
+  )
+else()
+  ament_target_dependencies(${PROJECT_NAME}_lib
+    rclcpp
+    nmea_msgs
+    mavros_msgs
+    diagnostic_msgs
+    std_msgs
+  )
+  target_link_libraries(${PROJECT_NAME}_lib
+    Boost::system
+    Boost::thread
+  )
+endif()
 
 # Create the node executable
 add_executable(ntrip src/ntrip_client_node.cpp)
-target_link_libraries(ntrip
-  ${PROJECT_NAME}_lib
-)
-
-ament_target_dependencies(ntrip
-  rclcpp
-)
+if(TARGET rclcpp::rclcpp)
+  target_link_libraries(ntrip
+    ${PROJECT_NAME}_lib
+    rclcpp::rclcpp
+  )
+else()
+  target_link_libraries(ntrip
+    ${PROJECT_NAME}_lib
+  )
+  ament_target_dependencies(ntrip
+    rclcpp
+  )
+endif()
 
 install(TARGETS
   ${PROJECT_NAME}_lib
