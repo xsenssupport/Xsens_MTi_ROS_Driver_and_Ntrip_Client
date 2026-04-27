@@ -52,8 +52,8 @@ User needs to change the ``ntrip_launch.py`` for their own credentials/servers/m
 ## How to Install:
 install dependency:
 ```
-sudo apt install ros-$ROS_DISTRO-nmea-msgs
-sudo apt install ros-$ROS_DISTRO-mavros-msgs
+sudo apt install ros-${ROS_DISTRO}-nmea-msgs
+sudo apt install ros-${ROS_DISTRO}-mavros-msgs
 ```
 for example for ROS2 Humble:
 ```
@@ -120,11 +120,14 @@ or ``ros2 topic echo /status`` to check the RTK Fix type, it should be 1(RTK Flo
 | filter/euler        | geometry_msgs/Vector3Stamped | euler(roll,pitch,yaw) from filter                                                                                                                        | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | filter/twist             | geometry_msgs/TwistStamped      | filtered velocity and calibrated angular velocity                                                                                                                 | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | filter/velocity          | geometry_msgs/Vector3Stamped    | filtered velocity output as Vector3                                                                                                           | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
+| filter/shipmotion          | xsens_mti_ros2_driver/msg/ShipMotion    | Heave position and Heave period                                                                                                           | 1-100Hz                      |
 | gnss                     | sensor_msgs/NavSatFix           | raw 4 Hz latitude, longitude, altitude and status data from GNSS receiver                                                                     | 4Hz                                                                             |
+| gnss/pvt                 | xsens_mti_ros2_driver/msg/GnssPvt | raw GNSS PVT (Position, Velocity, Time) data mirroring ublox NavPVT fields. For GNSS/INS models: MTi-7/8/670(G)/680(G)/G-710                | 4Hz                                                                             |
+| gnss/satinfo             | xsens_mti_ros2_driver/msg/GnssSatInfo | GNSS satellite info including per-satellite GNSS ID, SV ID, C/N0 and flags. For MTi-670(G)/680(G)/G-710 only                              | 4Hz                                                                             |
 | gnss_pose                | geometry_msgs/PoseStamped       | filtered position output in latitude (x), longitude (y) and altitude (z) as Vector3 in WGS84 datum, and quaternion from filter                | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | imu/acceleration         | geometry_msgs/Vector3Stamped    | calibrated acceleration                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | imu/angular_velocity     | geometry_msgs/Vector3Stamped    | calibrated angular velocity                                                                                                                   | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| imu/data                 | sensor_msgs/Imu                 | quaternion, calibrated angular velocity and acceleration                                                                                      | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
+| imu/data                 | sensor_msgs/Imu                 | quaternion, orientation covariance，calibrated angular velocity and acceleration                                                                                      | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | imu/dq                   | geometry_msgs/QuaternionStamped | integrated angular velocity from sensor (in quaternion representation)                                                                        | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | imu/dv                   | geometry_msgs/Vector3Stamped    | integrated acceleration from sensor                                                                                                           | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | imu/mag                  | sensor_msgs/MagneticField    | calibrated magnetic field                                                                                                                     | 1-100Hz                                                                         |

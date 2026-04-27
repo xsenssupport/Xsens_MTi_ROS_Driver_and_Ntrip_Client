@@ -34,9 +34,15 @@
 #include "packetcallback.h"
 #include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#if __has_include(<tf2/LinearMath/Quaternion.hpp>)
+#include <tf2/LinearMath/Quaternion.hpp>
+#include <tf2_ros/static_transform_broadcaster.hpp>
+#include <tf2_ros/transform_broadcaster.hpp>
+#else
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
+#endif
 #include <cmath>
 
 struct ODOMETRYPublisher : public PacketCallback
@@ -71,8 +77,8 @@ struct ODOMETRYPublisher : public PacketCallback
 
         pub = node->create_publisher<nav_msgs::msg::Odometry>("/odometry", pub_queue_size);
 
-        m_static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(node);
-        m_tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(node);
+        m_static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(*node);
+        m_tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*node);
     }
 
     /**

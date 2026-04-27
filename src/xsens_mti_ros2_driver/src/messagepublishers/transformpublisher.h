@@ -36,14 +36,18 @@
 
 #include "packetcallback.h"
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#if __has_include(<tf2_ros/transform_broadcaster.hpp>)
+#include <tf2_ros/transform_broadcaster.hpp>
+#else
 #include <tf2_ros/transform_broadcaster.h>
+#endif
 
 struct TransformPublisher : public PacketCallback
 {
     tf2_ros::TransformBroadcaster tf_broadcaster;
     std::string frame_id = DEFAULT_FRAME_ID;
 
-    TransformPublisher(rclcpp::Node::SharedPtr node) : tf_broadcaster(node)
+    TransformPublisher(rclcpp::Node::SharedPtr node) : tf_broadcaster(*node)
     {
         node->get_parameter("frame_id", frame_id);
     }
