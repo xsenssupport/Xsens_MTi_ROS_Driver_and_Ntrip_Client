@@ -65,6 +65,8 @@ struct ODOMETRYPublisher : public PacketCallback
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> m_static_tf_broadcaster_;
     std::shared_ptr<tf2_ros::TransformBroadcaster> m_tf_broadcaster_;
 
+    bool m_pub_tf = true;
+
     double m_latitude = 0.0;
     double m_longitude = 0.0;
 
@@ -74,11 +76,15 @@ struct ODOMETRYPublisher : public PacketCallback
 
         node->get_parameter("publisher_queue_size", pub_queue_size);
         node->get_parameter("frame_id", frame_id);
+        node->get_parameter("pub_odometry_transform", m_pub_tf);
 
         pub = node->create_publisher<nav_msgs::msg::Odometry>("/odometry", pub_queue_size);
 
-        m_static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(*node);
-        m_tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*node);
+        if (m_pub_tf)
+        {
+            m_static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(*node);
+            m_tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*node);
+        }
     }
 
     /**
@@ -353,9 +359,12 @@ struct ODOMETRYPublisher : public PacketCallback
                 pose.orientation.y = 0.0;
                 pose.orientation.z = 0.0;
 
-                geometry_msgs::msg::TransformStamped transform;
-                fillTransform(odom_init_frame_id, frame_id, pose, transform, timestamp);
-                m_static_tf_broadcaster_->sendTransform(transform);
+                if (m_pub_tf)
+                {
+                    geometry_msgs::msg::TransformStamped transform;
+                    fillTransform(odom_init_frame_id, frame_id, pose, transform, timestamp);
+                    m_static_tf_broadcaster_->sendTransform(transform);
+                }
             }
 
             // Compute position relative to initial position
@@ -384,13 +393,16 @@ struct ODOMETRYPublisher : public PacketCallback
             pub->publish(msg);
 
             // Publish odometry transformation
-            geometry_msgs::msg::Pose pose;
-            pose.position = msg.pose.pose.position;
-            pose.orientation = msg.pose.pose.orientation;
+            if (m_pub_tf)
+            {
+                geometry_msgs::msg::Pose pose;
+                pose.position = msg.pose.pose.position;
+                pose.orientation = msg.pose.pose.orientation;
 
-            geometry_msgs::msg::TransformStamped transform;
-            fillTransform(msg.header.frame_id, msg.child_frame_id, pose, transform, timestamp);
-            m_tf_broadcaster_->sendTransform(transform);
+                geometry_msgs::msg::TransformStamped transform;
+                fillTransform(msg.header.frame_id, msg.child_frame_id, pose, transform, timestamp);
+                m_tf_broadcaster_->sendTransform(transform);
+            }
         }
     }
 };

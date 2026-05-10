@@ -153,6 +153,7 @@
         pub_nmea: true          # For GNSS/INS Version of MTI only
         pub_gnsspose: true      # For GNSS/INS Version of MTI only
         pub_odometry: false     # For GNSS/INS Version of MTI only
+        pub_odometry_transform: true  # Broadcast odom_init->frame_id (static) and frame_id->base_link (dynamic) TFs from /odometry; requires pub_odometry: true
         pub_gnsspvt: true       # For GNSS/INS Version of MTI only (MTi-7/8/670G/680G/G-710); fixed 4 Hz output rate
         pub_gnssatinfo: true    # For GNSS/INS Version of MTI only (MTi-7/8/670G/680G/G-710); satellite info
         pub_euler_stddev: false # For Sirius and Avior AHRS/VRU only, this is for setouput config, and value will be published at /imu/data topic.
