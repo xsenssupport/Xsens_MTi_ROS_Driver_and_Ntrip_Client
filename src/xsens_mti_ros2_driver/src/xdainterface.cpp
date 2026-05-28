@@ -81,6 +81,7 @@ XdaInterface::XdaInterface(rclcpp::Node::SharedPtr node)
 	RCLCPP_INFO(node->get_logger(), "Creating XsControl object...");
 	m_control = XsControl::construct();
 	assert(m_control != 0);
+	m_diag_pub = node->create_publisher<diagnostic_msgs::msg::DiagnosticArray>("/diagnostics", 10);
 	declareCommonParameters();
 }
 
@@ -122,7 +123,7 @@ void XdaInterface::registerPublishers()
 	}
 	if (m_node->get_parameter("pub_mag", should_publish) && should_publish)
 	{
-		registerCallback(new MagneticFieldPublisher(m_node));
+		registerCallback(new MagneticFieldPublisher(m_node, m_diag_pub));
 	}
 	if (m_node->get_parameter("pub_dq", should_publish) && should_publish)
 	{
@@ -138,7 +139,7 @@ void XdaInterface::registerPublishers()
 	}
 	if (m_node->get_parameter("pub_temperature", should_publish) && should_publish)
 	{
-		registerCallback(new TemperaturePublisher(m_node));
+		registerCallback(new TemperaturePublisher(m_node, m_diag_pub));
 	}
 	if (m_node->get_parameter("pub_pressure", should_publish) && should_publish)
 	{
@@ -147,7 +148,7 @@ void XdaInterface::registerPublishers()
 	if (m_node->get_parameter("pub_status", should_publish) && should_publish)
 	{
 		// RCLCPP_INFO(m_node->get_logger(), "registerCallback StatusPublisher....");
-		registerCallback(new StatusPublisher(m_node));
+		registerCallback(new StatusPublisher(m_node, m_diag_pub));
 	}
 	if (m_node->get_parameter("pub_utctime", should_publish) && should_publish)
 	{

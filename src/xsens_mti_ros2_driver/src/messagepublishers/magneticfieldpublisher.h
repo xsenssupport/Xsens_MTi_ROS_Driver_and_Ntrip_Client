@@ -33,6 +33,11 @@
 #ifndef MAGNETICFIELDPUBLISHER_H
 #define MAGNETICFIELDPUBLISHER_H
 
+#include <cmath>
+#include <diagnostic_msgs/msg/diagnostic_array.hpp>
+#include <diagnostic_msgs/msg/diagnostic_status.hpp>
+#include <diagnostic_msgs/msg/key_value.hpp>
+
 #include "packetcallback.h"
 #include "publisherhelperfunctions.h"
 #include <sensor_msgs/msg/magnetic_field.hpp>
@@ -40,10 +45,12 @@
 struct MagneticFieldPublisher : public PacketCallback, PublisherHelperFunctions
 {
     rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr pub;
+    rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub;
+    rclcpp::Time last_diag_time_{0, 0, RCL_ROS_TIME};
     std::string frame_id = DEFAULT_FRAME_ID;
     double magnetic_field_variance[3];
 
-    MagneticFieldPublisher(rclcpp::Node::SharedPtr node)
+    MagneticFieldPublisher(rclcpp::Node::SharedPtr node, rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr shared_diag_pub)
     {
         std::vector<double> variance = {0, 0, 0};
         node->declare_parameter("magnetic_field_stddev", variance);
@@ -51,6 +58,7 @@ struct MagneticFieldPublisher : public PacketCallback, PublisherHelperFunctions
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);
         pub = node->create_publisher<sensor_msgs::msg::MagneticField>("/imu/mag", pub_queue_size);
+        diag_pub = shared_diag_pub;
         node->get_parameter("frame_id", frame_id);
         variance_from_stddev_param("magnetic_field_stddev", magnetic_field_variance, node);
     }
@@ -76,6 +84,30 @@ struct MagneticFieldPublisher : public PacketCallback, PublisherHelperFunctions
             msg.magnetic_field_covariance[8] = magnetic_field_variance[2];
 
             pub->publish(msg);
+
+            if ((timestamp - last_diag_time_).seconds() >= 1.0)
+            {
+                last_diag_time_ = timestamp;
+
+                double mag_norm = std::sqrt(mag[0] * mag[0] + mag[1] * mag[1] + mag[2] * mag[2]);
+
+                diagnostic_msgs::msg::DiagnosticArray diag_msg;
+                diag_msg.header.stamp = timestamp;
+
+                diagnostic_msgs::msg::DiagnosticStatus status;
+                status.name = "IMU magnetometer";
+                status.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+                status.message = "";
+
+                status.values.resize(4);
+                status.values[0].set__key("mag_norm").set__value(std::to_string(mag_norm));
+                status.values[1].set__key("mag_x").set__value(std::to_string(mag[0]));
+                status.values[2].set__key("mag_y").set__value(std::to_string(mag[1]));
+                status.values[3].set__key("mag_z").set__value(std::to_string(mag[2]));
+
+                diag_msg.status.push_back(status);
+                diag_pub->publish(diag_msg);
+            }
         }
     }
 };

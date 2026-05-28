@@ -33,19 +33,26 @@
 #ifndef TEMPERATUREPUBLISHER_H
 #define TEMPERATUREPUBLISHER_H
 
+#include <diagnostic_msgs/msg/diagnostic_array.hpp>
+#include <diagnostic_msgs/msg/diagnostic_status.hpp>
+#include <diagnostic_msgs/msg/key_value.hpp>
+
 #include "packetcallback.h"
 #include <sensor_msgs/msg/temperature.hpp>
 
 struct TemperaturePublisher : public PacketCallback
 {
     rclcpp::Publisher<sensor_msgs::msg::Temperature>::SharedPtr pub;
+    rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub;
+    rclcpp::Time last_diag_time_{0, 0, RCL_ROS_TIME};
     std::string frame_id = DEFAULT_FRAME_ID;
 
-    TemperaturePublisher(rclcpp::Node::SharedPtr node)
+    TemperaturePublisher(rclcpp::Node::SharedPtr node, rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr shared_diag_pub)
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);
         pub = node->create_publisher<sensor_msgs::msg::Temperature>("/temperature", pub_queue_size);
+        diag_pub = shared_diag_pub;
         node->get_parameter("frame_id", frame_id);
     }
 
@@ -62,6 +69,26 @@ struct TemperaturePublisher : public PacketCallback
             msg.variance = 0; // unknown
 
             pub->publish(msg);
+
+            if ((timestamp - last_diag_time_).seconds() >= 1.0)
+            {
+                last_diag_time_ = timestamp;
+
+                diagnostic_msgs::msg::DiagnosticArray diag_msg;
+                diag_msg.header.stamp = timestamp;
+
+                diagnostic_msgs::msg::DiagnosticStatus status;
+                status.name = "IMU temperature";
+                status.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+                status.message = "";
+
+                diagnostic_msgs::msg::KeyValue kv;
+                kv.set__key("temperature_c").set__value(std::to_string(msg.temperature));
+                status.values.push_back(kv);
+
+                diag_msg.status.push_back(status);
+                diag_pub->publish(diag_msg);
+            }
         }
     }
 };

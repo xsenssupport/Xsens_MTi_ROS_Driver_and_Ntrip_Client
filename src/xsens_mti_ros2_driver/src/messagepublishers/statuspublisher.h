@@ -48,7 +48,7 @@ struct StatusPublisher : public PacketCallback
     //    diagnostic_updater::Updater updater;
     //std::string frame_id = DEFAULT_FRAME_ID;
 
-    StatusPublisher(rclcpp::Node::SharedPtr node)
+    StatusPublisher(rclcpp::Node::SharedPtr node, rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr shared_diag_pub)
     {
         int pub_queue_size = 5;
 
@@ -56,7 +56,7 @@ struct StatusPublisher : public PacketCallback
         //node->get_parameter("frame_id", frame_id);
 
         pub = node->create_publisher<xsens_mti_ros2_driver::msg::XsStatusWord>("/status", pub_queue_size);
-        diag_pub = node->create_publisher<diagnostic_msgs::msg::DiagnosticArray>("/diagnostics", 10);
+        diag_pub = shared_diag_pub;
     }
 
     void parseToMessage(xsens_mti_ros2_driver::msg::XsStatusWord &msg, uint32_t status)

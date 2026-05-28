@@ -34,6 +34,7 @@
 #define XDAINTERFACE_H
 
 #include <rclcpp/rclcpp.hpp>
+#include <diagnostic_msgs/msg/diagnostic_array.hpp>
 #include <mavros_msgs/msg/rtcm.hpp>
 #include "xdacallback.h"
 #include <xstypes/xsportinfo.h>
@@ -80,7 +81,8 @@ private:
 	XsPortInfo m_port;
 	XdaCallback m_xdaCallback;
 	std::list<PacketCallback *> m_callbacks;
-	rclcpp::Node::SharedPtr m_node; 
+	rclcpp::Node::SharedPtr m_node;
+	rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr m_diag_pub;
 	// Timer for Manual Gyro Bias Estimation
 	rclcpp::TimerBase::SharedPtr m_manualGyroBiasTimer;
 	rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr m_manualGyroBiasSubscriber;
