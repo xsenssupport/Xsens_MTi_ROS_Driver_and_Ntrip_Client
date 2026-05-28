@@ -46,7 +46,8 @@ struct MagneticFieldPublisher : public PacketCallback, PublisherHelperFunctions
 {
     rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr pub;
     rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub;
-    rclcpp::Time last_diag_time_{0, 0, RCL_ROS_TIME};
+    rclcpp::Time last_diag_time_;
+    bool last_diag_initialized_ = false;
     std::string frame_id = DEFAULT_FRAME_ID;
     double magnetic_field_variance[3];
 
@@ -85,9 +86,10 @@ struct MagneticFieldPublisher : public PacketCallback, PublisherHelperFunctions
 
             pub->publish(msg);
 
-            if ((timestamp - last_diag_time_).seconds() >= 1.0)
+            if (!last_diag_initialized_ || (timestamp - last_diag_time_).seconds() >= 1.0)
             {
                 last_diag_time_ = timestamp;
+                last_diag_initialized_ = true;
 
                 double mag_norm = std::sqrt(mag[0] * mag[0] + mag[1] * mag[1] + mag[2] * mag[2]);
 

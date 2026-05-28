@@ -44,7 +44,8 @@ struct TemperaturePublisher : public PacketCallback
 {
     rclcpp::Publisher<sensor_msgs::msg::Temperature>::SharedPtr pub;
     rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub;
-    rclcpp::Time last_diag_time_{0, 0, RCL_ROS_TIME};
+    rclcpp::Time last_diag_time_;
+    bool last_diag_initialized_ = false;
     std::string frame_id = DEFAULT_FRAME_ID;
 
     TemperaturePublisher(rclcpp::Node::SharedPtr node, rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr shared_diag_pub)
@@ -70,9 +71,10 @@ struct TemperaturePublisher : public PacketCallback
 
             pub->publish(msg);
 
-            if ((timestamp - last_diag_time_).seconds() >= 1.0)
+            if (!last_diag_initialized_ || (timestamp - last_diag_time_).seconds() >= 1.0)
             {
                 last_diag_time_ = timestamp;
+                last_diag_initialized_ = true;
 
                 diagnostic_msgs::msg::DiagnosticArray diag_msg;
                 diag_msg.header.stamp = timestamp;
