@@ -388,8 +388,8 @@ namespace ntrip_client
       {
         std::string nmea_msg = msg->sentence + "\r\n";
 
-        RCLCPP_INFO(this->get_logger(), "Sending GGA message: %s",
-                    msg->sentence.c_str());
+        RCLCPP_DEBUG(this->get_logger(), "Sending GGA message: %s",
+                     msg->sentence.c_str());
 
         boost::system::error_code error;
         boost::asio::write(socket_, boost::asio::buffer(nmea_msg), error);
