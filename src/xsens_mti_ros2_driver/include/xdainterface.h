@@ -44,6 +44,7 @@
 #include "rclcpp/qos.hpp"
 
 #include <chrono>
+#include <optional>
 
 struct XsControl;
 struct XsDevice;
@@ -73,6 +74,8 @@ private:
 	bool handleError(std::string error);
 	void declareCommonParameters();
 	bool configureSensorSettings();
+	bool resetFilter();
+	void applyHeadingHold(XsDataPacket &packet);
 	bool manualGyroBiasEstimation(uint16_t sleep, uint16_t duration);
 
 	XsControl *m_control;
@@ -83,6 +86,12 @@ private:
 	std::list<PacketCallback *> m_callbacks;
 	rclcpp::Node::SharedPtr m_node;
 	rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr m_diag_pub;
+	bool m_enableMgbeFilterReset = false;
+	// Software heading hold across a filter reset: the MTi-320 (VRU) restarts yaw at zero on reinit and cannot restore it on-device, so we keep an output yaw offset
+	double m_headingOffsetDeg = 0.0;
+	double m_lastPublishedYawDeg = 0.0;
+	bool m_haveHeading = false;
+	std::optional<double> m_pendingYawRealign; // pre-reset yaw awaiting realignment on the next oriented packet; empty when no reset is pending
 	// Timer for Manual Gyro Bias Estimation
 	rclcpp::TimerBase::SharedPtr m_manualGyroBiasTimer;
 	rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr m_manualGyroBiasSubscriber;

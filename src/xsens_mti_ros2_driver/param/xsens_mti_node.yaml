@@ -230,6 +230,9 @@
         #   The minimum value for 'event_interval' is 10 seconds, for 'duration' is 2 seconds.
         manual_gyro_bias_param: [15, 5] # [event_interval, duration]
 
+        # Reset the filter immediately before each MGBE attempt.
+        enable_mgbe_filter_reset: false
+
         # Monitoring MGBE Success:
         # To verify if MGBE was successful, use 'rostopic echo /status'.
         # If the 'no_rotation_update_status' changes from 3 to 0, MGBE was successful.
