@@ -147,6 +147,8 @@ pub_temperature: true
 pub_pressure: false
 pub_accelerationhr: false #High Rate Data Acceleration, when this is true, set enable_high_rate to true as well
 pub_angular_velocity_hr: false #High Rate Data Angular Velocity,  when this is true, set enable_high_rate to true as well
+pub_triggerin_time: false  #Publish imu/triggerin_time (sensor_msgs/TimeReference) on a hardware SyncIn trigger. Requires SyncIn configured on the device.
+triggerin_lines: [1]    #Which SyncIn lines to enable trigger indication for: 1=TriggerIn1, 2=TriggerIn2
 pub_transform: true
 pub_status: true
 pub_twist: true         # For GNSS/INS Version of MTI only

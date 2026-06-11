@@ -56,6 +56,7 @@
 #include "messagepublishers/pressurepublisher.h"
 #include "messagepublishers/temperaturepublisher.h"
 #include "messagepublishers/timereferencepublisher.h"
+#include "messagepublishers/triggerintimepublisher.h"
 #include "messagepublishers/transformpublisher.h"
 #include "messagepublishers/twistpublisher.h"
 #include "messagepublishers/velocityincrementpublisher.h"
@@ -160,6 +161,10 @@ void XdaInterface::registerPublishers()
 	if (ros::param::get("~pub_angular_velocity_hr", should_publish) && should_publish)
 	{
 		registerCallback(new AngularVelocityHRPublisher(m_node));
+	}
+	if (ros::param::get("~pub_triggerin_time", should_publish) && should_publish)
+	{
+		registerCallback(new TriggerInTimePublisher(m_node));
 	}
 
 	if(isDeviceVruAhrs || isDeviceGnss)
@@ -730,6 +735,29 @@ bool XdaInterface::configureSensorSettings()
 			{
 				configArray.push_back(XsOutputConfiguration(XDI_Temperature, ODRoption));
 				ROS_INFO("XDI_Temperature, %dHz", ODRoption);
+			}
+		}
+
+		// Trigger indication is event-driven (a separate MTData2 packet is emitted on a
+		// hardware trigger), so it is configured at frequency 0. Which SyncIn lines to
+		// enable is read from the ~triggerin_lines param (defaults to lines 1 and 2).
+		if (ros::param::get("~pub_triggerin_time", should_config) && should_config)
+		{
+			std::vector<int> triggerin_lines = {1, 2};
+			ros::param::get("~triggerin_lines", triggerin_lines);
+			for (int line : triggerin_lines)
+			{
+				XsDataIdentifier triggerId;
+				switch (line)
+				{
+					case 1: triggerId = XDI_TriggerIn1; break;
+					case 2: triggerId = XDI_TriggerIn2; break;
+					default:
+						ROS_WARN("Invalid triggerin_lines value %d, expected 1 or 2. Skipping.", line);
+						continue;
+				}
+				configArray.push_back(XsOutputConfiguration(triggerId, 0));
+				ROS_INFO("XDI_TriggerIn%d", line);
 			}
 		}
 
