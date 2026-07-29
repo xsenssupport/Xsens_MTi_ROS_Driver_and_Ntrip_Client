@@ -38,9 +38,9 @@
 
 struct UTCTimePublisher : public PacketCallback
 {
-    rclcpp::Publisher<sensor_msgs::msg::TimeReference>::SharedPtr pub;
+    DriverPublisher<sensor_msgs::msg::TimeReference> pub;
 
-    UTCTimePublisher(rclcpp::Node::SharedPtr node)
+    UTCTimePublisher(DriverNode::SharedPtr node)
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);

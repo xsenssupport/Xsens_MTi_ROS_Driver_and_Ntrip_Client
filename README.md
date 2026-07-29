@@ -103,6 +103,45 @@ and then open another terminal
 ros2 launch ntrip ntrip_launch.py
 ```
 
+## Lifecycle and Diagnostics
+
+The node is a managed (lifecycle) node. By default `autostart` is true, so it
+configures and activates itself on startup and behaves exactly as before.
+
+To drive it yourself, start it with `autostart:=false` and use the lifecycle
+services:
+```
+ros2 run xsens_mti_ros2_driver xsens_mti_node --ros-args -p autostart:=false
+ros2 lifecycle set /xsens_driver configure
+ros2 lifecycle set /xsens_driver activate
+```
+
+| transition | effect on the device |
+| ---------- | -------------------- |
+| configure | opens the port, creates the publishers, writes the device configuration |
+| activate | puts the device into measurement mode and starts publishing |
+| deactivate | puts the device back into config mode, stops publishing |
+| cleanup | closes the port and destroys the publishers |
+
+While the node is inactive the device is not measuring and no messages are
+published, so `deactivate` is a clean way to pause the sensor without
+restarting the node.
+
+The node publishes `diagnostic_msgs/DiagnosticArray` on `/diagnostics` while it
+is active, with three statuses:
+
+* **Device** - connection state, product code, device ID, firmware version, port
+  and baudrate, plus a count of the errors reported by the device.
+* **Data stream** - packets received, measured rate and the time since the last
+  packet. Warns when the rate drops below `diagnostics_min_rate` and reports the
+  stream as stale after `diagnostics_stale_timeout` seconds without data.
+* **Filter status** - the MTi status word decoded into orientation validity,
+  GNSS fix, RTK status, clipping flags, no-rotation-update state and filter mode.
+
+Diagnostics are configured with `diagnostics_enabled`, `diagnostics_period`,
+`diagnostics_min_rate` and `diagnostics_stale_timeout` in
+`param/xsens_mti_node.yaml`.
+
 ## How to confirm your RTK Status
 
 you could check ``ros2 topic echo /rtcm``, there should be HEX RTCM data coming,
@@ -135,6 +174,7 @@ or ``ros2 topic echo /status`` to check the RTK Fix type, it should be 1(RTK Flo
 | status                   | xsens_mti_driver/XsStatusWord | statusWord, 32bit                                                                                                                             | depending on packet                                                             |
 | temperature              | sensor_msgs/Temperature         | temperature from device                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | tf                       | geometry_msgs/TransformStamped  | transformed orientation                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
+| diagnostics              | diagnostic_msgs/DiagnosticArray | device connection, data stream health and decoded status word                                                                                 | diagnostics_period (default 1Hz)                                                |
 | imu/acceleration_hr         | geometry_msgs/Vector3Stamped    | high rate acceleration                                                                                                                       | see xsens_mti_node.yaml                      |
 | imu/angular_velocity_hr     | geometry_msgs/Vector3Stamped    | high rate angular velocity                                                                                                                   | see xsens_mti_node.yaml                      |
 
