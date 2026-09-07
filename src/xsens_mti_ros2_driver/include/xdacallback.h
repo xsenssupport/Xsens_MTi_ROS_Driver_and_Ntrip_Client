@@ -34,25 +34,32 @@
 #define XDACALLBACK_H
 
 #include <rclcpp/rclcpp.hpp>
+#include "xsens_driver_types.h"
 #include <xscontroller/xscallback.h>
 #include <mutex>
 #include <condition_variable>
 #include <list>
+#include <memory>
 #include "xsens_time_handler.h"
 #include "high_rate_interpolator.h"
 
 struct XsDataPacket;
 struct XsDevice;
 
+class XsensDiagnostics;
+
 typedef std::pair<rclcpp::Time, XsDataPacket> RosXsDataPacket;
 
 class XdaCallback : public XsCallback
 {
 public:
-	XdaCallback(rclcpp::Node::SharedPtr node, size_t maxBufferSize = 5);
+	XdaCallback(DriverNode::SharedPtr node, size_t maxBufferSize = 5);
 	virtual ~XdaCallback() throw();
 
 	RosXsDataPacket next(const std::chrono::milliseconds &timeout);
+
+	//! \brief Attach the diagnostics collector that device errors are reported to.
+	void setDiagnostics(std::shared_ptr<XsensDiagnostics> diagnostics);
 
 protected:
 	void onLiveDataAvailable(XsDevice *, const XsDataPacket *packet) override;
@@ -66,11 +73,12 @@ private:
 	std::condition_variable m_condition;
 	std::list<RosXsDataPacket> m_buffer;
 	size_t m_maxBufferSize;
-	rclcpp::Node::SharedPtr parent_node;
+	DriverNode::SharedPtr parent_node;
 
 	XsensTimeHandler m_timeHandler;
 	HighRateInterpolator m_interpolator;
 	bool m_interpolationEnabled;
+	std::shared_ptr<XsensDiagnostics> m_diagnostics;
 };
 
 #endif

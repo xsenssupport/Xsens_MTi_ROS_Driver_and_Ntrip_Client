@@ -42,6 +42,8 @@ git clone --branch ros2 https://github.com/xsenssupport/Xsens_MTi_ROS_Driver_and
     - 周期性地估计陀螺仪偏差(Manual Gyro Bias Estimation)；
     - 添加 ``filter/euler`` 和HR高速率话题，如 ``imu/acceleration_hr``、``imu/angular_velocity_hr``；
     - 添加报错信息。
+    - 支持生命周期节点（configure/activate/deactivate/cleanup），并提供 ``autostart`` 参数；
+    - 在 ``/diagnostics`` 话题上发布诊断信息。
 
 - 修改了以下代码：
     - ``lib/xspublic/xscontroller/iointerface.h``，第 138 行，将 `PO_XsensDefaults` 改为 ``PO_OneStopBit``；
@@ -105,6 +107,80 @@ ros2 launch xsens_mti_ros2_driver display.launch.py
 ros2 launch ntrip ntrip_launch.py
 ```
 
+## 生命周期与诊断信息
+
+### 生命周期（Lifecycle）
+
+本驱动是一个受管理的生命周期节点（managed/lifecycle node），因此可以按需启动、暂停和释放
+MTi 设备，而不再只能在进程启动和退出时进行。
+
+默认行为与以往完全一致：参数 `autostart` 默认为 `true`，节点在启动时会自动完成配置并激活，
+像以前一样直接输出数据。
+
+若要自行控制状态切换，请将 `autostart` 设为 `false`：
+
+```
+ros2 run xsens_mti_ros2_driver xsens_mti_node --ros-args -p autostart:=false
+
+ros2 lifecycle get /xsens_driver             # unconfigured [1]
+ros2 lifecycle set /xsens_driver configure   # -> inactive [2]
+ros2 lifecycle set /xsens_driver activate    # -> active [3]
+```
+
+请注意：使用 `ros2 run` 启动时节点名为 `xsens_driver`，而通过
+`xsens_mti_node.launch.py` 启动时节点名为 `xsens_mti_node`。
+
+| 状态切换 | 对设备的操作 |
+| -------- | ------------ |
+| configure | 打开串口，读取设备信息，创建各个话题发布者，并写入设备配置 |
+| activate | 让设备进入测量模式（measurement mode），按需启动录制与周期性陀螺仪零偏估计（MGBE），并开始发布数据 |
+| deactivate | 停止录制并让设备回到配置模式（config mode），停止发布数据 |
+| cleanup | 关闭串口并销毁发布者，串口随之释放给其他程序使用 |
+| shutdown | 退出测量模式并释放全部资源 |
+
+所有消息发布者都是生命周期发布者（lifecycle publisher），因此在节点未激活时不会有任何消息
+发送到网络上。同时设备也会退出测量模式，所以 `deactivate` 可以干净地暂停传感器，`cleanup`
+可以释放串口，两者都无需重启进程。再次执行 `configure` 会重新打开串口并从头开始。
+
+### 诊断信息（Diagnostics）
+
+节点处于激活状态时，会在 `/diagnostics` 话题上发布 `diagnostic_msgs/DiagnosticArray`，这是
+`rqt_robot_monitor` 和 `diagnostic_aggregator` 所读取的标准话题：
+
+```
+ros2 topic echo /diagnostics
+```
+
+共发布三条状态信息：
+
+| 状态 | 内容 | 报警级别 |
+| ---- | ---- | -------- |
+| Device | 产品型号、设备 ID、固件版本、串口、波特率，以及设备报告的错误次数 | 未连接设备时为 ERROR；自上次发布以来设备报告过错误时为 WARN |
+| Data stream | 已接收的数据包数量、实测频率（Hz）以及距离上一个数据包的时间 | 处于测量模式却收不到数据时为 ERROR；超过 `diagnostics_stale_timeout` 秒没有数据时为 STALE；频率低于 `diagnostics_min_rate` 时为 WARN |
+| Filter status | 将 MTi 状态字（status word）解析为姿态是否有效、GNSS 定位、RTK 状态、削波（clipping）标志、无旋转更新状态、滤波模式和时钟同步等 | 姿态无效或传感器数据出现削波时为 WARN |
+
+其中 Data stream 是确认 MTi 是否仍按设定频率输出数据最快捷的方式。例如 MTi-680G 以 400 Hz
+运行时：
+
+```
+  name: 'xsens_driver: Data stream'
+  message: Streaming at 401.8 Hz
+  values:
+  - key: Packets received
+    value: '19394'
+  - key: Rate (Hz)
+    value: '401.8'
+```
+
+诊断相关参数在 `param/xsens_mti_node.yaml` 中配置：
+
+| 参数 | 默认值 | 含义 |
+| ---- | ------ | ---- |
+| `diagnostics_enabled` | `true` | 是否发布诊断信息 |
+| `diagnostics_period` | `1.0` | 发布周期，单位为秒 |
+| `diagnostics_min_rate` | `0.0` | 实测数据包频率低于该值（Hz）时报 WARN，设为 `0.0` 则不检查。建议取略低于 `output_data_rate` 的值 |
+| `diagnostics_stale_timeout` | `1.0` | 超过该秒数没有收到数据包时，将数据流标记为 STALE |
+
 ## 如何确认您的RTK状态
 
 您可以检查``ros2 topic echo /rtcm``，应该有HEX RTCM数据出现，
@@ -137,6 +213,7 @@ ros2 launch ntrip ntrip_launch.py
 | status                   | xsens_mti_driver/XsStatusWord | statusWord, 32bit                                                                                                                             | depending on packet                                                             |
 | temperature              | sensor_msgs/Temperature         | temperature from device                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | tf                       | geometry_msgs/TransformStamped  | transformed orientation                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
+| diagnostics              | diagnostic_msgs/DiagnosticArray | 设备连接状态、数据流健康状况与解析后的状态字                                                                                 | diagnostics_period（默认 1Hz）                                                |
 | imu/acceleration_hr         | geometry_msgs/Vector3Stamped    | high rate acceleration                                                                                                                       | see xsens_mti_node.yaml                      |
 | imu/angular_velocity_hr     | geometry_msgs/Vector3Stamped    | high rate angular velocity                                                                                                                   | see xsens_mti_node.yaml                      |
 

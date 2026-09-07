@@ -39,10 +39,10 @@
 
 struct StatusPublisher : public PacketCallback
 {
-    rclcpp::Publisher<xsens_mti_ros2_driver::msg::XsStatusWord>::SharedPtr pub;
+    DriverPublisher<xsens_mti_ros2_driver::msg::XsStatusWord> pub;
     //std::string frame_id = DEFAULT_FRAME_ID;
 
-    StatusPublisher(rclcpp::Node::SharedPtr node)
+    StatusPublisher(DriverNode::SharedPtr node)
     {
         int pub_queue_size = 5;
 

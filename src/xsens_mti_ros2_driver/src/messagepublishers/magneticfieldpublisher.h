@@ -39,14 +39,16 @@
 
 struct MagneticFieldPublisher : public PacketCallback, PublisherHelperFunctions
 {
-    rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr pub;
+    DriverPublisher<sensor_msgs::msg::MagneticField> pub;
     std::string frame_id = DEFAULT_FRAME_ID;
     double magnetic_field_variance[3];
 
-    MagneticFieldPublisher(rclcpp::Node::SharedPtr node)
+    MagneticFieldPublisher(DriverNode::SharedPtr node)
     {
         std::vector<double> variance = {0, 0, 0};
-        node->declare_parameter("magnetic_field_stddev", variance);
+        // Guarded, because publishers are re-created on every lifecycle configure.
+        if (!node->has_parameter("magnetic_field_stddev"))
+            node->declare_parameter("magnetic_field_stddev", variance);
 
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);
