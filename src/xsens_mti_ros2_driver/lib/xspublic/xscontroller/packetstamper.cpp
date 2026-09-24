@@ -106,7 +106,7 @@ int64_t PacketStamper::stampPacket(XsDataPacket& pack, XsDataPacket const& highe
 	pack.setTimeOfArrival(XsTimeStamp::now());
 	int64_t newCounter, lastCounter = -1;
 
-	if (!highestPacket.empty())
+	if (highestPacket.packetId() >= 0)
 		lastCounter = highestPacket.packetId();
 
 	if (pack.packetId() > 0)
