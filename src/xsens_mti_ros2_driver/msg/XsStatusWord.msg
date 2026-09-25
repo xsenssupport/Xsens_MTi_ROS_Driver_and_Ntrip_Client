@@ -1,4 +1,5 @@
 # Define the custom XsStatusWord message
+std_msgs/Header header
 bool selftest
 bool filter_valid
 bool gnss_fix
