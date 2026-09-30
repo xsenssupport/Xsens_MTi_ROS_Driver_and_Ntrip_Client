@@ -1067,13 +1067,12 @@ bool XdaInterface::configureSensorSettings()
 					// Normalize the quaternion
 					rotsensor_quat.normalize();
 
-					// Apply the alignment rotation quaternion to the device
+					// Apply the alignment rotation quaternion to the device.
+					// Don't return here: the option flags, filter profile and baudrate below still need to be applied.
 					if (!m_device->setAlignmentRotationQuaternion(XAF_Sensor, rotsensor_quat)) {
 						RCLCPP_WARN(m_node->get_logger(), "Failed to set alignment rotation quaternion");
-						return false;
 					} else {
 						RCLCPP_INFO(m_node->get_logger(), "Successfully set alignment rotation from Euler angles");
-						return true;
 					}
 				}
 			}
