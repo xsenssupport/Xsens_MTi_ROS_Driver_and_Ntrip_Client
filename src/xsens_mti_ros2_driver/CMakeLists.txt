@@ -254,4 +254,11 @@ ament_export_include_directories(
 )
 
 
+if(BUILD_TESTING)
+  enable_testing()
+  add_executable(test_local_enu test/test_local_enu.cpp)
+  target_include_directories(test_local_enu PRIVATE include ${EIGEN3_INCLUDE_DIRS})
+  add_test(NAME local_enu_regression COMMAND test_local_enu)
+endif()
+
 ament_package()
