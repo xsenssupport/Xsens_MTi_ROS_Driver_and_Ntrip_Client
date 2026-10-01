@@ -34,14 +34,19 @@
 #include "packetcallback.h"
 #include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
+// The .h spelling was removed on newer ROS releases.
+#if __has_include(<tf2/LinearMath/Quaternion.hpp>)
+#include <tf2/LinearMath/Quaternion.hpp>
+#else
 #include <tf2/LinearMath/Quaternion.h>
+#endif
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <cmath>
 
 struct ODOMETRYPublisher : public PacketCallback
 {
-    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub;
+    DriverPublisher<nav_msgs::msg::Odometry> pub;
     std::string frame_id = DEFAULT_FRAME_ID;
     std::string odom_init_frame_id = "odom_init";
     std::string base_frame_id = "base_link"; 
@@ -62,7 +67,7 @@ struct ODOMETRYPublisher : public PacketCallback
     double m_latitude = 0.0;
     double m_longitude = 0.0;
 
-    ODOMETRYPublisher(rclcpp::Node::SharedPtr node)
+    ODOMETRYPublisher(DriverNode::SharedPtr node)
     {
         int pub_queue_size = 5;
 

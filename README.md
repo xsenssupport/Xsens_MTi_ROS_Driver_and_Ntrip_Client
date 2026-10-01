@@ -39,6 +39,8 @@ Here are the recommended Output Configurations and Device Settings:
     - +Manual Gyro Bias Estimation Periodically
     - +Add ``filter/euler`` and high rate topics for ``imu/acceleration_hr``, ``imu/angular_velocity_hr``
     - +Add error messages.
+    - +Lifecycle node support (configure/activate/deactivate/cleanup) with an ``autostart`` parameter.
+    - +Diagnostics publishing on ``/diagnostics``.
 
 - change:
     - ``lib/xspublic/xscontroller/iointerface.h``, line 138, change to ``PO_OneStopBIt`` for PO_XsensDefaults.
@@ -103,6 +105,84 @@ and then open another terminal
 ros2 launch ntrip ntrip_launch.py
 ```
 
+## Lifecycle and Diagnostics
+
+### Lifecycle
+
+The driver is a managed (lifecycle) node, so the MTi can be brought up, paused and
+released on demand instead of only at process start and exit.
+
+By default nothing changes for existing users: the `autostart` parameter is `true`,
+so the node configures and activates itself on startup and streams data exactly as
+it always has.
+
+Set `autostart` to `false` to drive the transitions yourself:
+
+```
+ros2 run xsens_mti_ros2_driver xsens_mti_node --ros-args -p autostart:=false
+
+ros2 lifecycle get /xsens_driver             # unconfigured [1]
+ros2 lifecycle set /xsens_driver configure   # -> inactive [2]
+ros2 lifecycle set /xsens_driver activate    # -> active [3]
+```
+
+Note the node is called `xsens_driver` when started with `ros2 run`, and
+`xsens_mti_node` when started from `xsens_mti_node.launch.py`.
+
+| transition | what happens on the device |
+| ---------- | -------------------------- |
+| configure | opens the serial port, reads the device information, creates the publishers and applies the device configuration |
+| activate | puts the device into measurement mode, starts logging and periodic gyro bias estimation when enabled, and starts publishing |
+| deactivate | stops recording and puts the device back into config mode, publishing stops |
+| cleanup | closes the serial port and destroys the publishers, so the port becomes available to other processes |
+| shutdown | leaves measurement mode and releases everything |
+
+Every message publisher is a lifecycle publisher, so no messages are put on the
+wire while the node is inactive. Because the device is taken out of measurement
+mode as well, `deactivate` is a clean way to pause the sensor, and `cleanup`
+releases the serial port, both without restarting the process. Configuring again
+re-opens the port and starts over.
+
+### Diagnostics
+
+While the node is active it publishes `diagnostic_msgs/DiagnosticArray` on
+`/diagnostics`, the standard topic that `rqt_robot_monitor` and the
+`diagnostic_aggregator` read:
+
+```
+ros2 topic echo /diagnostics
+```
+
+Three statuses are reported:
+
+| status | contents | level |
+| ------ | -------- | ----- |
+| Device | product code, device ID, firmware version, port, baudrate and the number of errors reported by the device | ERROR when no device is connected, WARN when the device reported an error since the last report |
+| Data stream | packets received, the measured rate in Hz and the time since the last packet | ERROR when measuring without any data, STALE after `diagnostics_stale_timeout` seconds without a packet, WARN when the rate is below `diagnostics_min_rate` |
+| Filter status | the MTi status word decoded into orientation validity, GNSS fix, RTK status, clipping flags, no-rotation-update state, filter mode and clock sync | WARN when the orientation is not valid or the sensor data is clipping |
+
+The Data stream status is the quickest way to see that the MTi is still streaming
+at the rate you configured. For example, on an MTi-680G running at 400 Hz:
+
+```
+  name: 'xsens_driver: Data stream'
+  message: Streaming at 401.8 Hz
+  values:
+  - key: Packets received
+    value: '19394'
+  - key: Rate (Hz)
+    value: '401.8'
+```
+
+Diagnostics are configured in `param/xsens_mti_node.yaml`:
+
+| parameter | default | meaning |
+| --------- | ------- | ------- |
+| `diagnostics_enabled` | `true` | publish diagnostics at all |
+| `diagnostics_period` | `1.0` | publishing period in seconds |
+| `diagnostics_min_rate` | `0.0` | warn when the measured packet rate drops below this value in Hz, `0.0` disables the check. Pick a value somewhat below your `output_data_rate` |
+| `diagnostics_stale_timeout` | `1.0` | report the stream as stale after this many seconds without a packet |
+
 ## How to confirm your RTK Status
 
 you could check ``ros2 topic echo /rtcm``, there should be HEX RTCM data coming,
@@ -135,6 +215,7 @@ or ``ros2 topic echo /status`` to check the RTK Fix type, it should be 1(RTK Flo
 | status                   | xsens_mti_driver/XsStatusWord | statusWord, 32bit                                                                                                                             | depending on packet                                                             |
 | temperature              | sensor_msgs/Temperature         | temperature from device                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | tf                       | geometry_msgs/TransformStamped  | transformed orientation                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
+| diagnostics              | diagnostic_msgs/DiagnosticArray | device connection, data stream health and decoded status word                                                                                 | diagnostics_period (default 1Hz)                                                |
 | imu/acceleration_hr         | geometry_msgs/Vector3Stamped    | high rate acceleration                                                                                                                       | see xsens_mti_node.yaml                      |
 | imu/angular_velocity_hr     | geometry_msgs/Vector3Stamped    | high rate angular velocity                                                                                                                   | see xsens_mti_node.yaml                      |
 

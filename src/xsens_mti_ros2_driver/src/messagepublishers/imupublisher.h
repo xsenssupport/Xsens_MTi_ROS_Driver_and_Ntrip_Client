@@ -40,20 +40,24 @@
 
 struct ImuPublisher : public PacketCallback, PublisherHelperFunctions
 {
-    rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr pub;
+    DriverPublisher<sensor_msgs::msg::Imu> pub;
     double orientation_variance[3];
     double linear_acceleration_variance[3];
     double angular_velocity_variance[3];
-    rclcpp::Node::SharedPtr node_handle;
+    DriverNode::SharedPtr node_handle;
     XsDevice *m_device;
 
-    ImuPublisher(rclcpp::Node::SharedPtr node, XsDevice *device = nullptr)
+    ImuPublisher(DriverNode::SharedPtr node, XsDevice *device = nullptr)
         : node_handle(node), m_device(device)
     {
         std::vector<double> variance = {0, 0, 0};
-        node->declare_parameter("orientation_stddev", variance);
-        node->declare_parameter("angular_velocity_stddev", variance);
-        node->declare_parameter("linear_acceleration_stddev", variance);
+        // Guarded, because publishers are re-created on every lifecycle configure.
+        if (!node->has_parameter("orientation_stddev"))
+            node->declare_parameter("orientation_stddev", variance);
+        if (!node->has_parameter("angular_velocity_stddev"))
+            node->declare_parameter("angular_velocity_stddev", variance);
+        if (!node->has_parameter("linear_acceleration_stddev"))
+            node->declare_parameter("linear_acceleration_stddev", variance);
 
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);

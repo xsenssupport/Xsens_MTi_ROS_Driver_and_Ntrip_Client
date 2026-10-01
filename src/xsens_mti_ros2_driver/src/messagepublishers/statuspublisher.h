@@ -39,15 +39,15 @@
 
 struct StatusPublisher : public PacketCallback
 {
-    rclcpp::Publisher<xsens_mti_ros2_driver::msg::XsStatusWord>::SharedPtr pub;
-    //std::string frame_id = DEFAULT_FRAME_ID;
+    DriverPublisher<xsens_mti_ros2_driver::msg::XsStatusWord> pub;
+    std::string frame_id = DEFAULT_FRAME_ID;
 
-    StatusPublisher(rclcpp::Node::SharedPtr node)
+    StatusPublisher(DriverNode::SharedPtr node)
     {
         int pub_queue_size = 5;
 
         node->get_parameter("publisher_queue_size", pub_queue_size);
-        //node->get_parameter("frame_id", frame_id);
+        node->get_parameter("frame_id", frame_id);
 
         pub = node->create_publisher<xsens_mti_ros2_driver::msg::XsStatusWord>("/status", pub_queue_size);
     }
@@ -122,6 +122,9 @@ struct StatusPublisher : public PacketCallback
         if (packet.containsStatus())
         {
             xsens_mti_ros2_driver::msg::XsStatusWord msg;
+
+            msg.header.stamp = timestamp;
+            msg.header.frame_id = frame_id;
 
             uint32_t status = packet.status();
             parseToMessage(msg, status);

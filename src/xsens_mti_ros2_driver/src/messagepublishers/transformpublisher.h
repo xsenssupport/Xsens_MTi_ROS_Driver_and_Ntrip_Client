@@ -43,7 +43,7 @@ struct TransformPublisher : public PacketCallback
     tf2_ros::TransformBroadcaster tf_broadcaster;
     std::string frame_id = DEFAULT_FRAME_ID;
 
-    TransformPublisher(rclcpp::Node::SharedPtr node) : tf_broadcaster(node)
+    TransformPublisher(DriverNode::SharedPtr node) : tf_broadcaster(node)
     {
         node->get_parameter("frame_id", frame_id);
     }

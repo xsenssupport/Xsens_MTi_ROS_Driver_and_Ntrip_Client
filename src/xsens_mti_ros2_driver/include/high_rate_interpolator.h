@@ -2,6 +2,7 @@
 #define HIGH_RATE_INTERPOLATOR_H
 
 #include <rclcpp/rclcpp.hpp>
+#include "xsens_driver_types.h"
 #include <xstypes/xsdatapacket.h>
 #include <xstypes/xsquaternion.h>
 #include <xstypes/xsvector.h>
@@ -30,7 +31,7 @@ struct TimedAcceleration
 class HighRateInterpolator
 {
 public:
-    HighRateInterpolator(rclcpp::Node::SharedPtr node, size_t bufferSize = 10);
+    HighRateInterpolator(DriverNode::SharedPtr node, size_t bufferSize = 10);
     ~HighRateInterpolator();
 
     // Process incoming packet and return interpolated packet if ready
@@ -56,7 +57,7 @@ private:
     void cleanOldData(uint32_t currentTime);
 
 private:
-    rclcpp::Node::SharedPtr m_node;
+    DriverNode::SharedPtr m_node;
     size_t m_bufferSize;
     
     std::mutex m_mutex;

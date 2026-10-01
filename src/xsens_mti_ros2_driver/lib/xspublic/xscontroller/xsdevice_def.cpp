@@ -1588,6 +1588,13 @@ void XsDevice::handleDataPacket(const XsDataPacket& packet)
 	if (m_terminationPrepared)
 		return;	// we're being destroyed, abort handling of datapacket, state may be invalid
 
+	if (packet.empty())
+	{
+		JLALERTG("Device " << deviceId() << " sent a data message without data items, ignoring it");
+		onError(this, XRV_DATACORRUPT);
+		return;
+	}
+
 	m_lastDataOkStamp = XsTimeStamp::now();
 	int64_t fastest = latestLivePacketConst().packetId();
 	int64_t slowest = latestBufferedPacketConst().packetId();

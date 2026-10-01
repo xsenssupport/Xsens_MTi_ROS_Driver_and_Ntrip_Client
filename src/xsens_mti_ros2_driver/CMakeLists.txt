@@ -11,6 +11,9 @@ endif()
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -87,6 +90,8 @@ add_executable(
 	src/ntrip_util.cpp
 	src/xsens_time_handler.cpp
   src/high_rate_interpolator.cpp
+	src/xsens_diagnostics.cpp
+	src/xsens_mti_lifecycle_node.cpp
 )
 
 # Make sure xsens_mti_node depends on the xspublic build
@@ -98,18 +103,40 @@ add_dependencies(xsens_mti_node xspublic ${PROJECT_NAME})
 #   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp> 
 #   $<INSTALL_INTERFACE:include>)
 
-ament_target_dependencies(xsens_mti_node 
-	rclcpp
-	tf2
-	tf2_ros
-	std_msgs
-	geometry_msgs
-	sensor_msgs
-	nav_msgs
-	nmea_msgs
-	mavros_msgs
-	rosidl_default_runtime
-)
+if(COMMAND ament_target_dependencies)
+	ament_target_dependencies(xsens_mti_node
+		rclcpp
+		rclcpp_lifecycle
+		lifecycle_msgs
+		diagnostic_msgs
+		tf2
+		tf2_ros
+		std_msgs
+		geometry_msgs
+		sensor_msgs
+		nav_msgs
+		nmea_msgs
+		mavros_msgs
+		rosidl_default_runtime
+	)
+else()
+	# ament_target_dependencies() was removed on newer ROS releases in favour of
+	# linking the exported CMake targets directly.
+	target_link_libraries(xsens_mti_node
+		rclcpp::rclcpp
+		rclcpp_lifecycle::rclcpp_lifecycle
+		tf2::tf2
+		tf2_ros::tf2_ros
+		${lifecycle_msgs_TARGETS}
+		${diagnostic_msgs_TARGETS}
+		${std_msgs_TARGETS}
+		${geometry_msgs_TARGETS}
+		${sensor_msgs_TARGETS}
+		${nav_msgs_TARGETS}
+		${nmea_msgs_TARGETS}
+		${mavros_msgs_TARGETS}
+	)
+endif()
 
 # Handle typesupport linking differently based on ROS distro
 if(${ROS_DISTRO} STREQUAL "foxy")
@@ -178,6 +205,9 @@ install(DIRECTORY headers/
 #the dependencies listed inside ament_export_dependencies will be made available to that dependent package.
 ament_export_dependencies(
 	rclcpp
+	rclcpp_lifecycle
+	lifecycle_msgs
+	diagnostic_msgs
 	tf2
 	tf2_ros
 	std_msgs

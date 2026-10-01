@@ -38,10 +38,10 @@
 
 struct TwistPublisher : public PacketCallback
 {
-    rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr pub;
+    DriverPublisher<geometry_msgs::msg::TwistStamped> pub;
     std::string frame_id = DEFAULT_FRAME_ID;
 
-    TwistPublisher(rclcpp::Node::SharedPtr node)
+    TwistPublisher(DriverNode::SharedPtr node)
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);

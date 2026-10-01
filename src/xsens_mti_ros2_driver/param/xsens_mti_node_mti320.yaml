@@ -34,6 +34,32 @@
         # Example: device_id: '00800210C2'
         #device_id: '00800210C2'
 
+        # Lifecycle Configuration
+        # -----------------------
+        # The driver is a managed (lifecycle) node. With 'autostart' set to true it
+        # configures and activates itself on startup, which is how the node has
+        # always behaved. Set it to false to drive the transitions yourself, e.g.:
+        #   ros2 lifecycle set /xsens_driver configure
+        #   ros2 lifecycle set /xsens_driver activate
+        # While the node is inactive the device is kept out of measurement mode and
+        # no messages are published.
+        autostart: true
+
+        # Diagnostics Configuration
+        # -------------------------
+        # Publishes diagnostic_msgs/DiagnosticArray on /diagnostics while the node
+        # is active, with the device connection state, the health of the measurement
+        # stream and a decoded view of the MTi status word.
+        diagnostics_enabled: true
+        # Publishing period in seconds.
+        diagnostics_period: 1.0
+        # Warn when the measured packet rate drops below this value, in Hz.
+        # Set to 0.0 to disable the check. A sensible value is somewhat below the
+        # configured output_data_rate.
+        diagnostics_min_rate: 0.0
+        # Report the stream as stale when no packet arrived for this many seconds.
+        diagnostics_stale_timeout: 1.0
+
         # Publisher Configuration
         publisher_queue_size: 5
 

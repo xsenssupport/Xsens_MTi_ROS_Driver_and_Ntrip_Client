@@ -34,6 +34,7 @@
 #define XDAINTERFACE_H
 
 #include <rclcpp/rclcpp.hpp>
+#include "xsens_driver_types.h"
 #include <mavros_msgs/msg/rtcm.hpp>
 #include "xdacallback.h"
 #include <xstypes/xsportinfo.h>
@@ -41,6 +42,7 @@
 #include "std_msgs/msg/empty.hpp"
 
 #include <chrono>
+#include <memory>
 
 struct XsControl;
 struct XsDevice;
@@ -48,11 +50,12 @@ struct XsString;
 struct XsPortInfo;
 
 class PacketCallback;
+class XsensDiagnostics;
 
 class XdaInterface
 {
 public:
-	explicit XdaInterface(rclcpp::Node::SharedPtr node);
+	explicit XdaInterface(DriverNode::SharedPtr node);
 	~XdaInterface();
 
 	void spinFor(std::chrono::milliseconds timeout);
@@ -60,13 +63,26 @@ public:
 	void rtcmCallback(const mavros_msgs::msg::RTCM::SharedPtr msg);
 
 	bool connectDevice();
+
+	//! \brief Apply the device configuration. Maps onto the 'configuring' transition.
+	bool configureDevice();
+	//! \brief Put the device into measurement mode. Maps onto the 'activating' transition.
+	bool startMeasurement();
+	//! \brief Take the device out of measurement mode. Maps onto the 'deactivating' transition.
+	void stopMeasurement();
+
+	//! \brief Convenience wrapper around configureDevice() and startMeasurement().
 	bool prepare();
 	void close();
 
 	void setupManualGyroBiasEstimation();
 
+	//! \brief Attach the diagnostics collector that is fed with every received packet.
+	void setDiagnostics(std::shared_ptr<XsensDiagnostics> diagnostics);
+
 private:
 	void registerCallback(PacketCallback *cb);
+	void clearCallbacks();
 	bool handleError(std::string error);
 	void declareCommonParameters();
 	bool configureSensorSettings();
@@ -78,11 +94,12 @@ private:
 	XsPortInfo m_port;
 	XdaCallback m_xdaCallback;
 	std::list<PacketCallback *> m_callbacks;
-	rclcpp::Node::SharedPtr m_node; 
+	DriverNode::SharedPtr m_node; 
 	// Timer for Manual Gyro Bias Estimation
 	rclcpp::TimerBase::SharedPtr m_manualGyroBiasTimer;
 	rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr m_manualGyroBiasSubscriber;
 	rclcpp::Subscription<mavros_msgs::msg::RTCM>::SharedPtr m_rtcmSubscription;
+	std::shared_ptr<XsensDiagnostics> m_diagnostics;
 };
 
 #endif
