@@ -134,7 +134,15 @@
         pub_imu: true
         pub_quaternion: true
         pub_euler: true
+        # Body-frame Euler angles (orientation of the world frame as seen
+        # from the sensor; conjugate of the body->world rotation), tagged
+        # with the sensor frame_id. Use when downstream code wants
+        # rotations referred to the sensor body axes.
+        pub_euler_body: false
         pub_free_acceleration: true
+        # Free acceleration rotated from the fixed (ENU/NED) frame into
+        # the sensor body frame, tagged with the sensor frame_id.
+        pub_free_acceleration_body: false
         pub_angular_velocity: true
         pub_acceleration: true
         pub_dq: false
@@ -150,6 +158,10 @@
         pub_gnss: true          # For GNSS/INS Version of MTI only
         pub_positionLLA: true   # For GNSS/INS Version of MTI only
         pub_velocity: true      # For GNSS/INS Version of MTI only
+        # Velocity rotated from the fixed (ENU/NED) frame into the sensor
+        # body frame, tagged with the sensor frame_id. Requires both
+        # velocity and orientation to be present in the data packet.
+        pub_velocity_body: false # For GNSS/INS Version of MTI only
         pub_nmea: true          # For GNSS/INS Version of MTI only
         pub_gnsspose: true      # For GNSS/INS Version of MTI only
         pub_odometry: false     # For GNSS/INS Version of MTI only
