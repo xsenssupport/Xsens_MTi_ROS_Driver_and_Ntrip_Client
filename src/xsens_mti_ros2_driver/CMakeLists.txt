@@ -46,6 +46,8 @@ message(STATUS "Detected ROS_DISTRO: ${ROS_DISTRO}")
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/XsStatusWord.msg"
   "msg/ShipMotion.msg"
+  "msg/GnssPvt.msg"
+  "msg/GnssSatInfo.msg"
   DEPENDENCIES std_msgs
 )
 
@@ -66,7 +68,7 @@ ExternalProject_Add(
   PREFIX ${CMAKE_BINARY_DIR}/xspublic
   SOURCE_DIR ${CMAKE_SOURCE_DIR}/lib/xspublic
   CONFIGURE_COMMAND ""  # No configure step
-  BUILD_COMMAND make
+  BUILD_COMMAND env --unset=MAKEFLAGS make
   BUILD_IN_SOURCE 1  # Build in the source directory
   INSTALL_COMMAND ""  # No install step
 )
@@ -172,6 +174,41 @@ target_link_libraries(
 
 
 #############
+## Testing ##
+#############
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_imu_publisher
+    test/test_imu_publisher.cpp
+  )
+  add_dependencies(test_imu_publisher xspublic ${PROJECT_NAME})
+  target_include_directories(test_imu_publisher PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/xspublic
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/
+    ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
+  )
+  if(COMMAND ament_target_dependencies)
+    ament_target_dependencies(test_imu_publisher
+      rclcpp rclcpp_lifecycle sensor_msgs geometry_msgs
+    )
+  else()
+    target_link_libraries(test_imu_publisher
+      rclcpp::rclcpp rclcpp_lifecycle::rclcpp_lifecycle
+      ${geometry_msgs_TARGETS} ${sensor_msgs_TARGETS}
+    )
+  endif()
+  rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
+  target_link_libraries(test_imu_publisher
+    "${cpp_typesupport_target}"
+    xstypes
+    pthread
+    dl
+  )
+endif()
+
+#############
 ## Install ##
 #############
 
@@ -224,5 +261,12 @@ ament_export_include_directories(
 	include
 )
 
+
+if(BUILD_TESTING)
+  enable_testing()
+  add_executable(test_local_enu test/test_local_enu.cpp)
+  target_include_directories(test_local_enu PRIVATE include ${EIGEN3_INCLUDE_DIRS})
+  add_test(NAME local_enu_regression COMMAND test_local_enu)
+endif()
 
 ament_package()
