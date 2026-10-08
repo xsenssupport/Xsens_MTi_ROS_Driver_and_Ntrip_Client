@@ -53,7 +53,7 @@ typedef std::pair<rclcpp::Time, XsDataPacket> RosXsDataPacket;
 class XdaCallback : public XsCallback
 {
 public:
-	XdaCallback(DriverNode::SharedPtr node, size_t maxBufferSize = 5);
+    XdaCallback(DriverNode::SharedPtr node, size_t maxBufferSize = 32);
 	virtual ~XdaCallback() throw();
 
 	RosXsDataPacket next(const std::chrono::milliseconds &timeout);
