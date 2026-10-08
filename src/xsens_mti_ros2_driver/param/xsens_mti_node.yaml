@@ -27,6 +27,19 @@
         # port: '/dev/ttyUSB0' # Uncomment and set your device's port.
         # baudrate: 921600     # Uncomment and set your device's baudrate.
 
+        # Serial Port Low Latency (optional)
+        # ----------------
+        # When true, the driver requests ASYNC_LOW_LATENCY on the serial port before
+        # opening it. On FTDI-based adapters (ftdi_sio), which is how most MTi
+        # development boards and USB cables enumerate, this lowers the kernel driver's
+        # latency timer from its 16 ms default to 1 ms. The 16 ms default makes data
+        # arrive in bursts, which adds latency and can overflow the publisher buffer
+        # at high output rates.
+        # Linux only. Needs read/write access to the port, which the 'dialout' group
+        # provides; root is not required. If the port's driver does not support it,
+        # a warning is logged and the driver continues at the default latency.
+        enable_low_latency: false
+
         # Device Scanning Selection
         # ----------------
         # Specify the device ID when operating multiple devices to select a specific one.

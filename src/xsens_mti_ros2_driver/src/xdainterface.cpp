@@ -71,6 +71,7 @@
 #include "messagepublishers/shipmotionpublisher.h"
 #include "xsens_log_handler.h"
 #include "xsens_diagnostics.h"
+#include "serial_low_latency.h"
 
 #include <chrono>
 
@@ -356,6 +357,12 @@ bool XdaInterface::connectDevice()
 		return handleError("No MTi device found.");
 
 	RCLCPP_INFO(m_node->get_logger(), "Found a device with ID: %s @ port: %s, baudrate: %d", mtPort.deviceId().toString().toStdString().c_str(), mtPort.portName().toStdString().c_str(), XsBaud::rateToNumeric(mtPort.baudrate()));
+
+	// Best-effort latency reduction, applied before XDA opens the port. A failure
+	// here is not fatal: the driver works at the port's default latency.
+	bool enableLowLatency = false;
+	if (m_node->get_parameter("enable_low_latency", enableLowLatency) && enableLowLatency)
+		xsens::setSerialLowLatency(mtPort.portName().toStdString(), m_node->get_logger());
 
 	RCLCPP_INFO(m_node->get_logger(), "Opening port %s ...", mtPort.portName().toStdString().c_str());
 	if (!m_control->openPort(mtPort))
@@ -1552,6 +1559,8 @@ void XdaInterface::declareCommonParameters()
 		m_node->declare_parameter("port", "/dev/ttyUSB0");
 	if (!m_node->has_parameter("baudrate"))
 		m_node->declare_parameter("baudrate", 115200);
+	if (!m_node->has_parameter("enable_low_latency"))
+		m_node->declare_parameter("enable_low_latency", false);
 	if (!m_node->has_parameter("device_id"))
 		m_node->declare_parameter("device_id", "");
 	if (!m_node->has_parameter("publisher_queue_size"))
