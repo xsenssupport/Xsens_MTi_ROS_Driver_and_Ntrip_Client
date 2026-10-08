@@ -270,6 +270,31 @@ Additional behaviour:
 - Covariance is unspecified, so configure measurement uncertainty and GNSS quality gating in the consumer. The driver's finite and range checks are not a substitute for application-specific quality gating.
 - This publisher alone does not implement a complete [REP 105](https://ros.org/reps/rep-0105.html) localization stack.
 
+## Serial Port Low Latency (optional)
+
+Set `enable_low_latency: true` to have the driver request `ASYNC_LOW_LATENCY` on the serial port just before opening it.
+
+On FTDI-based adapters (`ftdi_sio`), which is how most MTi development boards and USB cables enumerate, this lowers the kernel driver's latency timer from its 16 ms default to 1 ms:
+
+```sh
+cat /sys/bus/usb-serial/devices/ttyUSB0/latency_timer   # 16 by default, 1 once enabled
+```
+
+The 16 ms default makes the kernel hand over data in bursts. That adds latency and, at high output rates, can overflow the publisher buffer. How much this helps depends on your configuration: with large payloads at high rates the USB packets fill before the timer expires, so the timer rarely applies. The benefit is largest for small or infrequent packets, and for latency-sensitive control loops.
+
+### Requirements and behaviour
+
+- **Linux only.** The setting uses the `TIOCGSERIAL`/`TIOCSSERIAL` ioctls. On other platforms the parameter is ignored with a warning.
+- **Root is not required.** Read/write access to the port is enough, which membership of the `dialout` group provides:
+  ```sh
+  sudo usermod -aG dialout $USER   # log out and back in afterwards
+  ```
+- **Best effort.** If the port's driver does not implement these ioctls, the driver logs a warning and continues at the default latency. It is never fatal.
+- **Scope.** The flag belongs to the port rather than to the driver's file handle, so it stays in effect until the device is unplugged. Re-plugging resets it to the default.
+- **Architecture independent.** The ioctl numbers come from `asm-generic`, and `ftdi_sio` is a USB driver, so this works the same on x86_64 and on arm64 boards such as NVIDIA Jetson. On a Jetson's on-board UART (`/dev/ttyTHS*`) the ioctl is accepted by the generic serial core, but there is no FTDI latency timer to lower, so expect no change there.
+
+The equivalent one-off command, for comparison, is `setserial /dev/ttyUSB0 low_latency`. Using the parameter means the driver applies it on every start, including after a replug.
+
 ## Troubleshooting
 
 - Refer to the [README.txt](./src/xsens_mti_ros2_driver/README.txt)

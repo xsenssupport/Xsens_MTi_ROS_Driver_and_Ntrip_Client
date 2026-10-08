@@ -267,6 +267,31 @@ ros2 topic echo /diagnostics
 - 协方差未指定，因此请在使用端配置测量不确定度和 GNSS 质量门限。驱动中的有限性与范围检查不能替代针对具体应用的质量门限。
 - 仅凭该发布器并不构成完整的 [REP 105](https://ros.org/reps/rep-0105.html) 定位方案。
 
+## 串口低延迟模式（可选）
+
+设置 `enable_low_latency: true`，驱动会在打开串口之前请求 `ASYNC_LOW_LATENCY`。
+
+对于基于 FTDI 的转换芯片（`ftdi_sio`，大多数 MTi 开发板和 USB 线都以这种方式枚举），该设置会把内核驱动的延迟定时器从默认的 16 ms 降到 1 ms：
+
+```sh
+cat /sys/bus/usb-serial/devices/ttyUSB0/latency_timer   # 默认为 16，启用后为 1
+```
+
+16 ms 的默认值会让内核成批地提交数据，这既增加延迟，也可能在高输出频率下造成发布缓冲区溢出。实际收益取决于您的配置：当数据量大、频率高时，USB 数据包会在定时器到期之前就被填满，因此该定时器很少生效。收益最明显的场景是数据包较小或较稀疏，以及对延迟敏感的控制回路。
+
+### 使用条件与行为
+
+- **仅支持 Linux。** 该设置使用 `TIOCGSERIAL`/`TIOCSSERIAL` ioctl。在其他平台上该参数会被忽略，并打印一条警告。
+- **不需要 root 权限。** 只需拥有该串口的读写权限即可，加入 `dialout` 组就能满足：
+  ```sh
+  sudo usermod -aG dialout $USER   # 之后需要注销并重新登录
+  ```
+- **尽力而为。** 如果该串口的驱动没有实现这些 ioctl，驱动会打印一条警告并继续以默认延迟运行，不会导致启动失败。
+- **作用范围。** 该标志属于串口本身，而不属于驱动打开的文件描述符，因此在设备被拔出之前一直有效；重新插拔后会恢复默认值。
+- **与架构无关。** ioctl 编号来自 `asm-generic`，而 `ftdi_sio` 是 USB 驱动，因此在 x86_64 和 arm64 平台（例如 NVIDIA Jetson）上行为一致。在 Jetson 的板载 UART（`/dev/ttyTHS*`）上，通用串口框架会接受该 ioctl，但那里并不存在 FTDI 延迟定时器，因此不会有变化。
+
+作为对比，等效的一次性命令是 `setserial /dev/ttyUSB0 low_latency`。使用参数的好处是驱动每次启动时都会自动应用，包括重新插拔之后。
+
 ## 故障排查
 
 - 设备连不上问题， 请参考 [README.txt](./src/xsens_mti_ros2_driver/README.txt)。
