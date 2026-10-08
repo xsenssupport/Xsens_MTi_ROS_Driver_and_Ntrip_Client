@@ -46,6 +46,8 @@
 #include "messagepublishers/angularvelocitypublisher.h"
 #include "messagepublishers/freeaccelerationpublisher.h"
 #include "messagepublishers/gnsspublisher.h"
+#include "messagepublishers/gnsspvtpublisher.h"
+#include "messagepublishers/gnssatinfopublisher.h"
 #include "messagepublishers/imupublisher.h"
 #include "messagepublishers/magneticfieldpublisher.h"
 #include "messagepublishers/orientationincrementspublisher.h"
@@ -116,7 +118,8 @@ void XdaInterface::registerPublishers()
 {
 	bool should_publish;
 	bool isDeviceVruAhrs = m_device->deviceId().isAhrs() || m_device->deviceId().isVru();
-	bool isDeviceGnss = m_device->deviceId().isGnss();
+	// Sirius/Avior RTK IDs match isRtk(), not isGnss().
+	bool isDeviceGnss = m_device->deviceId().isGnss() || m_device->deviceId().isRtk();
 	bool isDeviceGnssRtk = m_device->deviceId().isRtk();
 	bool isDeviceSiriusAvior = m_device->deviceId().isSirius() || m_device->deviceId().isAvior();
 
@@ -171,12 +174,13 @@ void XdaInterface::registerPublishers()
 		registerCallback(new AngularVelocityHRPublisher(m_node));
 	}
 
+	if (m_node->get_parameter("pub_imu", should_publish) && should_publish)
+	{
+		registerCallback(new ImuPublisher(m_node, m_device->deviceId(), true));
+	}
+
 	if(isDeviceVruAhrs || isDeviceGnss)
 	{
-		if (m_node->get_parameter("pub_imu", should_publish) && should_publish)
-		{
-			registerCallback(new ImuPublisher(m_node, m_device));
-		}
 		if (m_node->get_parameter("pub_quaternion", should_publish) && should_publish)
 		{
 			registerCallback(new OrientationPublisher(m_node));
@@ -191,7 +195,12 @@ void XdaInterface::registerPublishers()
 		}
 		if (m_node->get_parameter("pub_transform", should_publish) && should_publish)
 		{
-			registerCallback(new TransformPublisher(m_node));
+			bool odometry_enabled = false;
+			m_node->get_parameter("pub_odometry", odometry_enabled);
+			if (isDeviceGnss && odometry_enabled)
+				RCLCPP_WARN(m_node->get_logger(), "pub_transform suppressed while pub_odometry is enabled; use pub_odometry_tf for standalone sensor TF");
+			else
+				registerCallback(new TransformPublisher(m_node));
 		}
 		//device is sirius or avior
 		if(isDeviceSiriusAvior)
@@ -237,6 +246,16 @@ void XdaInterface::registerPublishers()
 		{
 			//RCLCPP_INFO(m_node->get_logger(), "registerCallback ODOMETRYPublisher....");
 			registerCallback(new ODOMETRYPublisher(m_node));
+		}
+		if (m_node->get_parameter("pub_gnsspvt", should_publish) && should_publish)
+		{
+			registerCallback(new GnssPvtPublisher(m_node));
+		}
+		// Satellite info is only available on MTi-670(G), MTi-680(G), and MTi-G-710
+		if ((m_device->deviceId().isMti6X0() || m_device->deviceId().isMtig()) &&
+			m_node->get_parameter("pub_gnssatinfo", should_publish) && should_publish)
+		{
+			registerCallback(new GnssSatInfoPublisher(m_node));
 		}
 	}
 
@@ -710,7 +729,7 @@ bool XdaInterface::configureSensorSettings()
 
 		XsVersion firmwareVersion = m_device->firmwareVersion();
 		XsDeviceId xsens_device_id = m_device->deviceId();
-		bool isDeviceGnssIns = xsens_device_id.isGnss();
+		bool isDeviceGnssIns = xsens_device_id.isGnss() || xsens_device_id.isRtk();
 		bool isDeviceVruAhrs = xsens_device_id.isAhrs() || xsens_device_id.isVru();
 		bool isMTiX = xsens_device_id.isMtiX(); // check if it is MTi-1/2/3/7/8
 
@@ -1223,7 +1242,7 @@ bool XdaInterface::configureSensorSettings()
 
 
 		}
-		if (xsens_device_id.isGnss())
+		if (xsens_device_id.isGnss() || xsens_device_id.isRtk())
 		{
 			RCLCPP_INFO(m_node->get_logger(), "Configuring GNSS relevant Prameters...");
 		}
@@ -1255,6 +1274,8 @@ bool XdaInterface::configureSensorSettings()
 		}
 
 
+		// Preserve the original receiver-specific configuration scope. RTK-only
+		// Sirius/Avior devices still receive GNSS/INS output configuration above.
 		if (xsens_device_id.isGnss())
 		{
 			// Set the GNSS platform
@@ -1537,6 +1558,10 @@ void XdaInterface::declareCommonParameters()
 		m_node->declare_parameter("publisher_queue_size", 5);
 	if (!m_node->has_parameter("enable_logging"))
 		m_node->declare_parameter("enable_logging", false);
+	if (!m_node->has_parameter("odometry_frame_id"))
+		m_node->declare_parameter("odometry_frame_id", "local_enu");
+	if (!m_node->has_parameter("pub_odometry_tf"))
+		m_node->declare_parameter("pub_odometry_tf", false);
 	std::string frame_id = DEFAULT_FRAME_ID;
 	if (!m_node->has_parameter("frame_id"))
 		m_node->declare_parameter("frame_id", frame_id);
@@ -1631,6 +1656,10 @@ void XdaInterface::declareCommonParameters()
 		m_node->declare_parameter("pub_gnsspose", should_publish);
 	if (!m_node->has_parameter("pub_odometry"))
 		m_node->declare_parameter("pub_odometry", should_publish);
+	if (!m_node->has_parameter("pub_gnsspvt"))
+		m_node->declare_parameter("pub_gnsspvt", should_publish);
+	if (!m_node->has_parameter("pub_gnssatinfo"))
+		m_node->declare_parameter("pub_gnssatinfo", should_publish);
 	if (!m_node->has_parameter("pub_euler_stddev"))
 		m_node->declare_parameter("pub_euler_stddev", should_publish);
 	if (!m_node->has_parameter("port_config_hardware_flow_control"))

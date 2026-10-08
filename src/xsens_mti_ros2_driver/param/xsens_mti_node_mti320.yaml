@@ -179,6 +179,10 @@
         pub_nmea: false          # For GNSS/INS Version of MTI only
         pub_gnsspose: false      # For GNSS/INS Version of MTI only
         pub_odometry: false      # For GNSS/INS Version of MTI only
+        # Fixed local ENU sensor measurement; GNSS corrections may jump.
+        odometry_frame_id: "local_enu"
+        # Standalone sensor visualization only; keep false with a robot TF tree.
+        pub_odometry_tf: false
         pub_euler_stddev: false  # For Sirius and Avior AHRS/VRU only, this is for setouput config, and value will be published at /imu/data topic.
         pub_ship_motion: false   # For Sirius and Avior AHRS/VRU Only
 
