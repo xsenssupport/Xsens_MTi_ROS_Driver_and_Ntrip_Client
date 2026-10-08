@@ -214,6 +214,7 @@ or ``ros2 topic echo /status`` to check the RTK Fix type, it should be 1(RTK Flo
 | imu/time_ref             | sensor_msgs/TimeReference       | SampleTimeFine timestamp from device                                                                                                          | depending on packet                                                             |
 | imu/utctime              | sensor_msgs/TimeReference       | UTC Time from the device                                                                                                                      | depending on packet                                                             |
 | nmea                     | nmea_msgs/Sentence              | 4Hz GPGGA data from GNSS receiver PVTData(if available) and StatusWord                             | 4Hz                                                                             |
+| odometry                 | nav_msgs/Odometry               | GNSS/INS position and attitude in a fixed local ENU frame, with twist in sensor axes. For GNSS/INS models only, opt-in via pub_odometry. See [Odometry and TF Frames](#odometry-and-tf-frames)                | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | pressure                 | sensor_msgs/FluidPressure       | barometric pressure from device                                                                                                               | 1-100Hz                                                                         |
 | status                   | xsens_mti_driver/XsStatusWord | statusWord, 32bit                                                                                                                             | depending on packet                                                             |
 | temperature              | sensor_msgs/Temperature         | temperature from device                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
@@ -225,6 +226,49 @@ or ``ros2 topic echo /status`` to check the RTK Fix type, it should be 1(RTK Flo
 Please refer to [MTi Family Reference Manual](https://mtidocs.movella.com/mti-system-overview) for detailed definition of data. 
 
 
+
+## Odometry and TF Frames
+
+`/odometry` is a **GNSS/INS sensor measurement**, not a continuous vehicle odometry source. It is opt-in via `pub_odometry: true` and is only registered for GNSS/INS devices.
+
+> **Breaking change.** Earlier versions published relative UTM coordinates and implied an `imu_link` -> `base_link` relationship. `/odometry` now publishes position and attitude in a fixed local ENU frame captured at the first valid sample, and the odometry publisher emits no `base_link`, `odom_init` or static transform.
+
+### Message contract
+
+| Field | Value |
+| ----- | ----- |
+| `header.frame_id` | `odometry_frame_id` (default `local_enu`) |
+| `child_frame_id` | `frame_id` (default `imu_link`) |
+| `pose.pose.position` | WGS84 position converted to a fixed ENU frame whose origin is the first valid sample |
+| `pose.pose.orientation` | Sensor attitude expressed in that same fixed ENU frame |
+| `twist.twist.linear` | Velocity in sensor/body axes, as `nav_msgs/Odometry` requires |
+| `twist.twist.angular` | Calibrated angular velocity in sensor axes |
+| covariances | Zero-filled and unspecified - this does **not** mean zero uncertainty |
+
+Additional behaviour:
+
+- A sample is published only when position (LLA), orientation, calibrated gyroscope and velocity are all present in the packet; otherwise it is skipped. If `/odometry` stays silent, check the output configuration in MT Manager or enable `enable_deviceConfig`.
+- ENU is requested explicitly, so devices configured for NED or NWU output are converted.
+- Altitude is WGS84 ellipsoidal height.
+- The ENU origin is captured on the first valid sample and resets whenever the publisher is recreated, for example on a lifecycle reconfigure. Do not combine data recorded against different startup origins under one frame name without aligning them.
+- `odometry_frame_id` and `frame_id` must be non-empty and different from each other. Otherwise the publisher throws `Odometry parent and sensor frame IDs must be nonempty and distinct` and configuration fails.
+- GNSS corrections can jump, so this topic does not provide the continuity normally expected of an `odom` frame.
+
+### TF ownership
+
+`pub_odometry_tf` defaults to `false`.
+
+- **Standalone sensor visualization:** set `pub_odometry_tf: true` to broadcast exactly one `local_enu` -> `imu_link` transform per published sample. Do not enable it when `imu_link` already has a parent in your TF tree.
+- **On a robot:** keep both `pub_odometry_tf` and `pub_transform` set to `false`. Provide the measured `base_link` -> `imu_link` extrinsics through URDF / `robot_state_publisher` or a static broadcaster. Your localization system owns `map` -> `odom`, and your continuous odometry source owns `odom` -> `base_link`.
+- Enabling `pub_odometry` on a GNSS/INS device **suppresses** the legacy `pub_transform` publisher, even when that parameter is still `true` in an older YAML. A warning is logged when this happens. With `pub_odometry: false`, the legacy orientation-only behaviour is unchanged.
+- Align the startup `local_enu` frame with `map` inside your localization system. Do not simply rename `local_enu` to `map` unless their origins and axes already agree. An `earth` -> `map` transform requires a real ECEF georeference, not a UTM translation.
+- Account for any device-configured alignment and lever-arm compensation when deciding which physical point the measurement refers to, so that it is not compensated twice.
+
+### Limitations
+
+- Initialization does not wait for GNSS convergence. The first finite, complete sample defines the origin.
+- Covariance is unspecified, so configure measurement uncertainty and GNSS quality gating in the consumer. The driver's finite and range checks are not a substitute for application-specific quality gating.
+- This publisher alone does not implement a complete [REP 105](https://ros.org/reps/rep-0105.html) localization stack.
 
 ## Troubleshooting
 
