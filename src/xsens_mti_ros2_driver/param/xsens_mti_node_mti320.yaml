@@ -155,6 +155,12 @@
         # Message Publishers, Also the output configurations if enable_deviceConfig is set to true
         # ------------------
         # Enable or disable publication of various sensor data:
+        # Note: with 'enable_deviceConfig: true', 'pub_utctime' also controls whether
+        # UTC Time is written to the device's output configuration. Set it to false
+        # to drop UTC Time and save bandwidth, which can resolve 'Data overflow' at
+        # high output rates. This requires 'time_option' to be 1 or 2; with
+        # time_option 0 the stamps come from the device UTC clock, so UTC Time is
+        # kept regardless and a warning is logged.
         pub_utctime: false
         pub_sampletime: true
         pub_imu: true
