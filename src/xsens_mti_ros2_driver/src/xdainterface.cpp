@@ -781,10 +781,26 @@ bool XdaInterface::configureSensorSettings()
 		//for theses output, always output.
 		configArray.push_back(XsOutputConfiguration(XDI_PacketCounter, 0));
 		configArray.push_back(XsOutputConfiguration(XDI_SampleTimeFine, 0));
-		configArray.push_back(XsOutputConfiguration(XDI_UtcTime, 0));
+		// UTC Time is configured when 'pub_utctime' asks for it, and also whenever
+		// 'time_option' is 0, because that option derives message stamps from the
+		// device's UTC clock and breaks without this output. Dropping UTC Time
+		// matters on bandwidth-limited setups: on an MTi-630 at 2 Mbps, acc_hr
+		// 2000 Hz + gyro_hr 1600 Hz + 400 Hz primary outputs overflows with it and
+		// is overflow-free without it.
+		bool configUtcTime = true;
+		m_node->get_parameter("pub_utctime", configUtcTime);
+		int timeOption = 0;
+		m_node->get_parameter("time_option", timeOption);
+		if (!configUtcTime && timeOption == 0)
+		{
+			RCLCPP_WARN(m_node->get_logger(), "pub_utctime is false but time_option is 0, which needs UTC Time from the device. Keeping UTC Time in the output configuration; set time_option to 1 or 2 to drop it.");
+			configUtcTime = true;
+		}
+		if (configUtcTime)
+			configArray.push_back(XsOutputConfiguration(XDI_UtcTime, 0));
 		//ROS_INFO print the config names and frequencies
-		RCLCPP_INFO(m_node->get_logger(), "XDI_PacketCounter, XDI_SampleTimeFine, XDI_UtcTime");
-		//use ros param to check pub_utctime, if yes, then push back it
+		RCLCPP_INFO(m_node->get_logger(), "XDI_PacketCounter, XDI_SampleTimeFine%s",
+			configUtcTime ? ", XDI_UtcTime" : " (UTC Time omitted, pub_utctime is false)");
 		bool should_config = false;
 		//for these data, all mti series have them.
 		if(m_node->get_parameter("pub_acceleration", should_config) && should_config)
