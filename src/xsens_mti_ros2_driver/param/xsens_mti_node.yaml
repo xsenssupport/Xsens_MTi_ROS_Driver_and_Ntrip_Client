@@ -221,6 +221,20 @@
         #options for MTi-1 v3: 1000, 500, 250, 200, 125
         #options for MTi-600/Sirius/Avior: 2000, 1000, 500
         #option for MTi-100/200/300: 1000
+        # Sustained-rate note, measured on an MTi-630 over USB/FTDI at 2 Mbps,
+        # one high rate topic at a time (mean, peak-to-peak spread over ~3 min):
+        #   acc_hr   1000 Hz -> 1007.3 Hz, 0.9 Hz spread   : stable
+        #   acc_hr   2000 Hz -> 1984.7 Hz, 72.2 Hz spread  : NOT sustained, drifts
+        #   gyro_hr   800 Hz ->  803.7 Hz, 0.9 Hz spread   : stable
+        #   gyro_hr  1600 Hz -> 1599.1 Hz, 14.4 Hz spread  : usable, near the limit
+        # The device accepts 2000 Hz, but on this link it does not hold: the rate
+        # drifts downward and the inter-arrival maximum grows steadily, which
+        # indicates a growing backlog rather than jitter. Prefer 1000 Hz unless you
+        # have verified 2000 Hz on your own hardware and host.
+        # Running both high rate outputs together costs more than either alone:
+        # acc_hr 2000 + gyro_hr 1600 + 400 Hz primary outputs reached only about
+        # 1863 Hz on the acceleration topic, and overflowed outright while UTC Time
+        # was also configured (see 'pub_utctime' above).
         output_data_rate_acchr: 1000
         #options for MTi-1 v2: 800, 400, 200, 160
         #options for MTi-1 v3: 1000, 500, 250, 200, 125
