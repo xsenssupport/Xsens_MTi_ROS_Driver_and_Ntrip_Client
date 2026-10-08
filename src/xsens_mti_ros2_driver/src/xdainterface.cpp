@@ -929,6 +929,15 @@ bool XdaInterface::configureSensorSettings()
 					RCLCPP_INFO(m_node->get_logger(), "XDI_HeavePosition and XDI_HeavePeriod, %dHz", ODRoptionLower);
 				}
 			}
+			//baro for Sirius/Avior/MTi-600 AHRS/VRU models, max 100Hz (GNSS/INS models are handled in the block below)
+			if (!isDeviceGnssIns && (xsens_device_id.isAvior() || xsens_device_id.isSirius() || xsens_device_id.isMti6X0()))
+			{
+				if (m_node->get_parameter("pub_pressure", should_config) && should_config)
+				{
+					configArray.push_back(XsOutputConfiguration(XDI_BaroPressure, ODRoptionLower));
+					RCLCPP_INFO(m_node->get_logger(), "XDI_BaroPressure, %dHz", ODRoptionLower);
+				}
+			}
 		}
 
 		if(isDeviceGnssIns)
