@@ -212,6 +212,7 @@ ros2 topic echo /diagnostics
 | imu/time_ref             | sensor_msgs/TimeReference       | SampleTimeFine timestamp from device                                                                                                          | depending on packet                                                             |
 | imu/utctime              | sensor_msgs/TimeReference       | UTC Time from the device                                                                                                                      | depending on packet                                                             |
 | nmea                     | nmea_msgs/Sentence              | 4Hz GPGGA data from GNSS receiver PVTData(if available) and StatusWord                             | 4Hz                                                                             |
+| odometry                 | nav_msgs/Odometry               | 固定局部 ENU 坐标系下的 GNSS/INS 位置与姿态，twist 使用传感器坐标轴。仅适用于 GNSS/INS 型号，通过 pub_odometry 选择开启。参见[里程计（Odometry）与 TF 坐标系](#里程计odometry与-tf-坐标系)                | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
 | pressure                 | sensor_msgs/FluidPressure       | barometric pressure from device                                                                                                               | 1-100Hz                                                                         |
 | status                   | xsens_mti_driver/XsStatusWord | statusWord, 32bit                                                                                                                             | depending on packet                                                             |
 | temperature              | sensor_msgs/Temperature         | temperature from device                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
@@ -222,6 +223,49 @@ ros2 topic echo /diagnostics
 
 
 请参考 [MTi 系列参考手册](https://mtidocs.movella.com/mti-system-overview) 获取详细数据定义。
+
+## 里程计（Odometry）与 TF 坐标系
+
+`/odometry` 是一个 **GNSS/INS 传感器测量值**，而不是连续的车辆里程计数据源。该话题通过 `pub_odometry: true` 选择开启，并且仅在 GNSS/INS 设备上注册。
+
+> **不兼容变更。** 早期版本发布的是相对 UTM 坐标，并隐含了 `imu_link` -> `base_link` 的关系。现在 `/odometry` 在一个固定的局部 ENU 坐标系中发布位置和姿态，该坐标系的原点取自第一个有效样本；里程计发布器不再发布任何 `base_link`、`odom_init` 或静态变换。
+
+### 消息内容约定
+
+| 字段 | 取值 |
+| ---- | ---- |
+| `header.frame_id` | `odometry_frame_id`（默认 `local_enu`） |
+| `child_frame_id` | `frame_id`（默认 `imu_link`） |
+| `pose.pose.position` | WGS84 位置，转换到以第一个有效样本为原点的固定 ENU 坐标系 |
+| `pose.pose.orientation` | 传感器姿态，表达在同一个固定 ENU 坐标系中 |
+| `twist.twist.linear` | 传感器（机体）坐标轴下的速度，符合 `nav_msgs/Odometry` 的要求 |
+| `twist.twist.angular` | 传感器坐标轴下的标定角速度 |
+| 协方差 | 全部填零且未指定 - 这**不代表**不确定度为零 |
+
+其他行为说明：
+
+- 只有当数据包中同时包含位置（LLA）、姿态、标定陀螺仪和速度时才会发布样本，否则跳过。如果 `/odometry` 一直没有数据，请检查 MT Manager 中的输出配置，或启用 `enable_deviceConfig`。
+- 代码中显式请求 ENU，因此配置为 NED 或 NWU 输出的设备也会被转换。
+- 高度为 WGS84 椭球高。
+- ENU 原点在第一个有效样本时确定，并且在发布器被重新创建时（例如生命周期重新配置）会重置。不要在未对齐的情况下，把基于不同启动原点记录的数据放在同一个坐标系名称下混用。
+- `odometry_frame_id` 与 `frame_id` 必须非空且互不相同，否则发布器会抛出 `Odometry parent and sensor frame IDs must be nonempty and distinct`，配置将失败。
+- GNSS 改正量可能发生跳变，因此该话题不具备通常对 `odom` 坐标系所期望的连续性。
+
+### TF 归属
+
+`pub_odometry_tf` 默认为 `false`。
+
+- **仅用于单独的传感器可视化：** 设置 `pub_odometry_tf: true`，每发布一个有效样本就广播一个 `local_enu` -> `imu_link` 变换。如果 `imu_link` 在您的 TF 树中已经有父坐标系，请不要启用该选项。
+- **在机器人上使用：** 请将 `pub_odometry_tf` 和 `pub_transform` 都设为 `false`，并通过 URDF / `robot_state_publisher` 或静态广播器提供实测的 `base_link` -> `imu_link` 外参。`map` -> `odom` 由您的定位系统负责，`odom` -> `base_link` 由您的连续里程计数据源负责。
+- 在 GNSS/INS 设备上启用 `pub_odometry` 会**抑制**旧的 `pub_transform` 发布器，即使旧的 YAML 中该参数仍为 `true`；此时会打印一条警告。当 `pub_odometry: false` 时，旧的仅姿态行为保持不变。
+- 请在定位系统中把启动时的 `local_enu` 坐标系与 `map` 对齐。除非两者的原点和坐标轴本来就一致，否则不要简单地把 `local_enu` 改名为 `map`。`earth` -> `map` 变换需要真实的 ECEF 地理参考，而不是 UTM 平移。
+- 在判断测量值对应哪个物理参考点时，请考虑设备中已配置的对齐（alignment）和杆臂（lever arm）补偿，避免重复补偿。
+
+### 已知限制
+
+- 初始化不会等待 GNSS 收敛，第一个有限且完整的样本即确定原点。
+- 协方差未指定，因此请在使用端配置测量不确定度和 GNSS 质量门限。驱动中的有限性与范围检查不能替代针对具体应用的质量门限。
+- 仅凭该发布器并不构成完整的 [REP 105](https://ros.org/reps/rep-0105.html) 定位方案。
 
 ## 故障排查
 
