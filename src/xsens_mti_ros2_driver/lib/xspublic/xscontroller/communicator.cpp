@@ -166,6 +166,8 @@ void Communicator::handleMessage(const XsMessage& message)
 	{
 		char buffer[256];
 		XsSize sz = message.getTotalMessageSize();
+		if (sz > (sizeof(buffer) - 1) / 2)
+			sz = (sizeof(buffer) - 1) / 2;
 		const uint8_t* m = message.getMessageStart();
 		for (XsSize i = 0; i < sz; ++i)
 			sprintf(buffer + 2 * i, "%02X", (unsigned int) m[i]);
