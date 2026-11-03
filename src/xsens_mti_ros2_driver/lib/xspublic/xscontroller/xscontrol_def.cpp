@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -83,14 +83,14 @@ using namespace XsMath;
 	\brief Add a callback handler to the list
 	\param cb The handler to add to the list.
 	\param chain When set to true (default) the callback is added to connected devices as well
-	\note NULL and duplicate handlers are ignored, but chaining is still done.
+	\note nullptr and duplicate handlers are ignored, but chaining is still done.
 */
 
 /*! \fn XsControl::removeCallbackHandler(XsCallbackPlainC* cb, bool chain = true)
 	\brief Remove a handler from the list
 	\param cb The handler to remove from the list.
 	\param chain When set to true (default) the callback is added to connected devices as well
-	\note If \a cb is not found in the list or if \a cb is NULL, the list is not changed, but
+	\note If \a cb is not found in the list or if \a cb is nullptr, the list is not changed, but
 			chaining is still done.
 */
 
@@ -954,14 +954,14 @@ void XsControl::updateRecordingState()
 
 	\param deviceId the device ID to look for
 
-	\returns the device matching \a deviceId, NULL otherwise. On failure lastResult() is set.
+	\returns the device matching \a deviceId, nullptr otherwise. On failure lastResult() is set.
 */
 XsDevice* XsControl::findDevice(const XsDeviceId& deviceId) const
 {
 	if (m_deviceList.empty())
 	{
 		m_lastResult = XRV_NOFILEORPORTOPEN;
-		return NULL;
+		return nullptr;
 	}
 
 	m_lastResult = XRV_OK;
@@ -985,7 +985,7 @@ XsDevice* XsControl::findDevice(const XsDeviceId& deviceId) const
 	}
 
 	m_lastResult = XRV_INVALIDID;
-	return NULL;
+	return nullptr;
 }
 
 /*! \brief Close an existing device. Because it was detected somewhere else.
@@ -1009,7 +1009,7 @@ Communicator* XsControl::findXbusInterface(const XsDeviceId& deviceId) const
 {
 	XsDevice* dev = findDevice(deviceId);
 	if (!dev)
-		return NULL;
+		return nullptr;
 
 	return dev->communicator();
 }
@@ -1035,7 +1035,7 @@ Communicator* XsControl::findXbusInterface(const XsString& portName) const
 		if (portName == m_deviceList[i]->communicator()->portInfo().portName())
 			return m_deviceList[i]->communicator();
 	}
-	return NULL;
+	return nullptr;
 }
 /*! \endcond */
 

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -48,6 +48,7 @@
 #include "xsmatrix3x3.h"
 #include "xsrange.h"
 #include "xstimeinfo.h"
+#include "xsrawgnssheading.h"
 #include "xsrawgnsspvtdata.h"
 #include "xsrawgnsssatinfo.h"
 #include "xsbytearray.h"
@@ -65,7 +66,7 @@ class Variant
 public:
 	/*! \brief Constructor, sets the dataId to \a id */
 	Variant(XsDataIdentifier id) : m_id(id) {}
-	virtual ~Variant() {}
+	virtual ~Variant() = default;
 	/*! \brief Read the data from message \a msg at \a offset and optionally using \a dSize */
 	virtual XsSize readFromMessage(XsMessage const& msg, XsSize offset, XsSize dSize) = 0;
 	/*! \brief Write the data to message \a msg at \a offset */
@@ -295,7 +296,7 @@ struct XsFloatVector3Variant : public ComplexVariant<XsFloatVector3, float, 3>
 struct XsVector2Variant : public ComplexVariant<XsVector, XsReal, 2>
 {
 	/*! \brief Constructor, sets the dataId to \a id */
-	XsVector2Variant(XsDataIdentifier id) : ComplexVariant<XsVector, XsReal, 2>(id, XsVector(2, 0)) {}
+	XsVector2Variant(XsDataIdentifier id) : ComplexVariant<XsVector, XsReal, 2>(id, XsVector(2, nullptr)) {}
 	/*! \brief Constructor, sets the dataId to \a id and data value to \a val */
 	XsVector2Variant(XsDataIdentifier id, XsVector const& val) : ComplexVariant<XsVector, XsReal, 2>(id, val)
 	{
@@ -311,7 +312,7 @@ struct XsVector2Variant : public ComplexVariant<XsVector, XsReal, 2>
 struct XsScrDataVariant : public Variant
 {
 	/*! \brief Constructor, sets the dataId to \a id */
-	XsScrDataVariant(XsDataIdentifier id) : Variant(id) {}
+	XsScrDataVariant(XsDataIdentifier id) : Variant(id), m_data() {}
 	/*! \brief Constructor, sets the dataId to \a id and data value to \a val */
 	XsScrDataVariant(XsDataIdentifier id, XsScrData const& val) : Variant(id), m_data(val) {}
 	Variant* clone() const override
@@ -352,7 +353,7 @@ struct XsScrDataVariant : public Variant
 struct XsScrDataFloatVariant : public Variant
 {
 	/*! \brief Constructor, sets the dataId to \a id */
-	XsScrDataFloatVariant(XsDataIdentifier id) : Variant(id) {}
+	XsScrDataFloatVariant(XsDataIdentifier id) : Variant(id), m_data() {}
 	/*! \brief Constructor, sets the dataId to \a id and data value to \a val */
 	XsScrDataFloatVariant(XsDataIdentifier id, XsScrDataFloat const& val) : Variant(id), m_data(val) {}
 	Variant* clone() const override
@@ -484,8 +485,8 @@ struct XsRangeVariant : public Variant
 	XsSize readFromMessage(XsMessage const& msg, XsSize offset, XsSize sz) override
 	{
 		// unwrap
-		uint16_t first = (uint16_t) XsMessage_getDataShort(&msg, offset + 0);
-		uint16_t last = (uint16_t) XsMessage_getDataShort(&msg, offset + 2);
+		uint16_t first = XsMessage_getDataShort(&msg, offset + 0);
+		uint16_t last = XsMessage_getDataShort(&msg, offset + 2);
 		m_data.setRange(first, (int)((uint16_t)(last - first)) + (int)first);
 		return sz;
 	}
@@ -520,9 +521,11 @@ struct XsTimeInfoVariant : public Variant
 		m_data.m_year = XsMessage_getDataShort(&msg, offset + 4);
 
 		// month, day, hour, minute, second and valid
-		uint8_t* bareByte = (uint8_t*) &m_data.m_month;
+		static_assert(offsetof(XsTimeInfo, m_valid) == offsetof(XsTimeInfo, m_month) + 5,
+			"XsTimeInfo m_month..m_valid must remain 6 contiguous bytes for the byte-run read below");
+		uint8_t* bareByte = &m_data.m_month;
 		for (XsSize i = 0; i < 6; ++i)
-			bareByte[i] = XsMessage_getDataByte(&msg, offset + 6 + i);
+			bareByte[i] = XsMessage_getDataByte(&msg, offset + 6 + i);	// NOSONAR(cpp:S3519) m_month..m_valid are 6 contiguous uint8_t fields (no padding); the byte-run is in-bounds within XsTimeInfo
 
 		m_data.m_utcOffset = 0;
 		return sz;
@@ -534,7 +537,7 @@ struct XsTimeInfoVariant : public Variant
 		XsMessage_setDataShort(&msg, m_data.m_year, offset + 4);
 
 		// month, day, hour, minute, second and valid
-		uint8_t const* bareByte = (uint8_t const*) &m_data.m_month;
+		uint8_t const* bareByte = &m_data.m_month;
 		for (XsSize i = 0; i < 6; ++i)
 			XsMessage_setDataByte(&msg, bareByte[i], offset + 6 + i);
 
@@ -701,11 +704,63 @@ struct XsRawGnssSatInfoVariant : public Variant
 	}
 };
 
+
+/*! \brief Variant containing an XsRawGnssHeading value */
+struct XsRawGnssHeadingVariant : public Variant
+{
+	/*! \brief Constructor, sets the dataId to \a id */
+	explicit XsRawGnssHeadingVariant(XsDataIdentifier id) : Variant(id), m_data() {}
+	/*! \brief Constructor, sets the dataId to \a id and data value to \a val */
+	XsRawGnssHeadingVariant(XsDataIdentifier id, XsRawGnssHeading const& val) : Variant(id), m_data(val) {}
+	Variant* clone() const override
+	{
+		return new XsRawGnssHeadingVariant(dataId(), m_data);
+	}
+
+	XsRawGnssHeading m_data;			//!< The contained data
+	XsSize readFromMessage(XsMessage const& msg, XsSize offset, XsSize sz) override
+	{
+		m_data.m_itow = XsMessage_getDataLong(&msg, offset + 0);
+		m_data.m_relPosN = XsMessage_getDataLong(&msg, offset + 4);
+		m_data.m_relPosE = XsMessage_getDataLong(&msg, offset + 8);
+		m_data.m_relPosD = XsMessage_getDataLong(&msg, offset + 12);
+		m_data.m_relPosLength = XsMessage_getDataLong(&msg, offset + 16);
+		m_data.m_relPosHeading = XsMessage_getDataLong(&msg, offset + 20);
+		m_data.m_accN = XsMessage_getDataLong(&msg, offset + 24);
+		m_data.m_accE = XsMessage_getDataLong(&msg, offset + 28);
+		m_data.m_accD = XsMessage_getDataLong(&msg, offset + 32);
+		m_data.m_accLength = XsMessage_getDataLong(&msg, offset + 36);
+		m_data.m_accHeading = XsMessage_getDataLong(&msg, offset + 40);
+		m_data.m_flags = XsMessage_getDataLong(&msg, offset + 44);
+		return sz;
+	}
+	void writeToMessage(XsMessage& msg, XsSize offset) const override
+	{
+		XsMessage_setDataLong(&msg, m_data.m_itow, offset + 0);
+		XsMessage_setDataLong(&msg, m_data.m_relPosN, offset + 4);
+		XsMessage_setDataLong(&msg, m_data.m_relPosE, offset + 8);
+		XsMessage_setDataLong(&msg, m_data.m_relPosD, offset + 12);
+		XsMessage_setDataLong(&msg, m_data.m_relPosLength, offset + 16);
+		XsMessage_setDataLong(&msg, m_data.m_relPosHeading, offset + 20);
+		XsMessage_setDataLong(&msg, m_data.m_accN, offset + 24);
+		XsMessage_setDataLong(&msg, m_data.m_accE, offset + 28);
+		XsMessage_setDataLong(&msg, m_data.m_accD, offset + 32);
+		XsMessage_setDataLong(&msg, m_data.m_accLength, offset + 36);
+		XsMessage_setDataLong(&msg, m_data.m_accHeading, offset + 40);
+		XsMessage_setDataLong(&msg, m_data.m_flags, offset + 44);
+	}
+
+	XsSize sizeInMsg() const override
+	{
+		return 48;
+	}
+};
+
 /*! \brief Variant containing an XsFullSnaphsot value */
 struct XsFullSnapshotVariant : public Variant
 {
 	/*! \brief Constructor, sets the dataId to \a id */
-	XsFullSnapshotVariant(XsDataIdentifier id) : Variant(id) {}
+	XsFullSnapshotVariant(XsDataIdentifier id) : Variant(id), m_data() {}
 	/*! \brief Constructor, sets the dataId to \a id and data value to \a val */
 	XsFullSnapshotVariant(XsDataIdentifier id, XsSnapshot const& val) : Variant(id), m_data(val) {}
 
@@ -772,7 +827,7 @@ struct XsFullSnapshotVariant : public Variant
 struct XsAwindaSnapshotVariant : public Variant
 {
 	/*! \brief Constructor, sets the dataId to \a id */
-	XsAwindaSnapshotVariant(XsDataIdentifier id) : Variant(id)
+	XsAwindaSnapshotVariant(XsDataIdentifier id) : Variant(id), m_data()
 	{
 		m_data.m_type = ST_Awinda;
 	}
@@ -878,8 +933,7 @@ struct XsByteArrayVariant : public Variant
 					sOffset += 255;
 					if (sOffset >= msgSize)
 						break;
-					uint16_t nextId = XsMessage_getDataShort(&msg, sOffset);
-					if (nextId != exactId)
+					if (uint16_t nextId = XsMessage_getDataShort(&msg, sOffset); nextId != exactId)
 						break;
 					sSize = XsMessage_getDataByte(&msg, sOffset + 2);
 					sOffset += 3;
@@ -899,8 +953,7 @@ struct XsByteArrayVariant : public Variant
 						dSize = 0;
 						break;
 					}
-					uint16_t nextId = XsMessage_getDataShort(&msg, offset);
-					if (nextId != exactId)
+					if (uint16_t nextId = XsMessage_getDataShort(&msg, offset); nextId != exactId)
 					{
 						dSize = 0;
 						break;
@@ -988,8 +1041,8 @@ struct XsGloveSnapshotVariant : public Variant
 		memcpy(((uint8_t*)&m_data) + 255, XsMessage_getDataBuffer(&msg, offset), 124);
 
 		// loop over finger / struct and swap bytes
-		m_data.m_frameNumber = (uint32_t)swapEndian32(m_data.m_frameNumber);
-		m_data.m_validSampleFlags = (uint16_t)swapEndian16(m_data.m_validSampleFlags);
+		m_data.m_frameNumber = swapEndian32(m_data.m_frameNumber);
+		m_data.m_validSampleFlags = swapEndian16(m_data.m_validSampleFlags);
 
 		for (int i = 0; i < 12; ++i)
 		{
@@ -1056,7 +1109,7 @@ struct XsGloveDataVariant : public Variant
 };
 }
 
-typedef std::map<XsDataIdentifier, XsDataPacket_Private::Variant*> MapType;
+using MapType = std::map<XsDataIdentifier, XsDataPacket_Private::Variant*>;
 
 struct DataPacketPrivate : private MapType
 {

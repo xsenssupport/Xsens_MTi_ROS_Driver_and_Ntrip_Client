@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -58,8 +58,13 @@ enum Result XbusParser_insertByte(XbusParser* obj, unsigned char byte, int* mess
 	enum Result result = RES_Ok;
 	bool incrementIdxWrite = true;
 
-	if (obj->m_state != haveNothing)	// if we have at least a preamble,
-		obj->m_rxBuffer[obj->m_idxWrite] = byte;	// store the received byte in the buffer.
+	// Store the received byte in the buffer, but never outside it. The overflow guard at the
+	// bottom of this function sets haveError while leaving m_idxWrite == m_rxBufferSize, so the
+	// next call would land exactly one byte past the end here -- before the switch below ever
+	// reaches "case haveError". A parser left in the error state keeps being fed bytes until the
+	// caller reinitializes it, so that write happens for every one of them.
+	if (obj->m_state != haveNothing && obj->m_idxWrite < obj->m_rxBufferSize)
+		obj->m_rxBuffer[obj->m_idxWrite] = byte;
 
 	switch (obj->m_state)
 	{

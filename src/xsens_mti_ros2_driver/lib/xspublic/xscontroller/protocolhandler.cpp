@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -109,6 +109,7 @@ MessageLocation ProtocolHandler::findMessage(const XsByteArray& raw) const
 		return rv;
 
 	const unsigned char* buffer = raw.data();
+	bool firstMsgChecksumFailed = false;
 
 	// loop through the buffer to find a preamble
 	for (int pre = 0; pre < bufferSize; ++pre)
@@ -149,7 +150,7 @@ MessageLocation ProtocolHandler::findMessage(const XsByteArray& raw) const
 			if (!m_ignoreMaxMsgSize && target > (XS_LEN_MSGEXTHEADERCS + XS_MAXDATALEN))
 			{
 				// skip current preamble
-				JLALERTG("Invalid message length: " << target);
+				JLTRACEG("Skipping because of invalid message length: " << target);
 				continue;
 			}
 
@@ -170,6 +171,22 @@ MessageLocation ProtocolHandler::findMessage(const XsByteArray& raw) const
 			// and check the checksum
 			if (rcv.loadFromString(msgStart, (uint16_t)target))
 			{
+				if (pre > 0 && buffer[0] == XS_PREAMBLE && !firstMsgChecksumFailed)
+				{
+					if (pre + target + 1 >= bufferSize)
+					{
+						// We can't do a sanity check if this is a valid message, so do NOT skip anything yet
+						// Also, we're now at the end of the buffer so we can return
+						break;
+					}
+					if (msgStart[target] != XS_PREAMBLE)
+					{
+						// The symbol following the message is not a valid message start, we don't skip anything until we find a sequence of valid messages
+						// or if we know that the first found message can't be valid
+						continue;
+					}
+				}
+
 				JLTRACEG("OK, size = " << (int) rcv.getTotalMessageSize() << " buffer: " << dumpBuffer(msgStart, target));
 				rv.m_size = (int) rcv.getTotalMessageSize();
 				rv.m_startPos = pre;
@@ -182,6 +199,8 @@ MessageLocation ProtocolHandler::findMessage(const XsByteArray& raw) const
 #endif
 				break;
 			}
+			if (pre == 0)
+				firstMsgChecksumFailed = true;
 
 			// Only alert the checksum error if this is not an embedded message
 			if (rv.m_incompletePos == -1)

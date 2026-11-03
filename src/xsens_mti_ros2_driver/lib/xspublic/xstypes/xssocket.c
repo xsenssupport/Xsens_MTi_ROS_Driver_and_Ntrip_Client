@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -112,7 +112,7 @@ static int socketIsUsable(SOCKET s)
 */
 static void getRemoteHostAddress(const struct sockaddr_storage* remote, XsString* address)
 {
-	void* src;
+	const void* src;
 	socklen_t length;
 
 	switch (remote->ss_family)
@@ -543,7 +543,7 @@ int XsSocket_readFrom(XsSocket* thisPtr, void* dest, XsSize size, XsString* host
 {
 	int rv;
 	int canRead;
-	struct sockaddr_storage sender;
+	struct sockaddr_storage sender = {0};	// zero-init: recvfrom may leave 'sender' untouched on a connected-socket 0-length / shutdown read
 	socklen_t l = sizeof(sender);
 
 	rv = XsSocket_select(thisPtr, timeout, &canRead, NULL);
@@ -555,6 +555,11 @@ int XsSocket_readFrom(XsSocket* thisPtr, void* dest, XsSize size, XsString* host
 		return peekPendingDataSize(thisPtr);
 
 	rv = recvfrom(thisPtr->d->m_sd, dest, (int)size, 0, (struct sockaddr*)&sender, &l);
+	if (rv < 0)
+	{
+		translateSocketError(thisPtr, rv);
+		return -1;
+	}
 
 	if (hostname)
 		getRemoteHostAddress(&sender, hostname);
@@ -593,7 +598,7 @@ int XsSocket_readFrom2ByteArray(XsSocket* thisPtr, XsByteArray* dest, XsString* 
 {
 	int rv;
 	int canRead;
-	struct sockaddr_storage sender;
+	struct sockaddr_storage sender = {0};	// zero-init: recvfrom may leave 'sender' untouched on a connected-socket 0-length / shutdown read
 	socklen_t l = sizeof(sender);
 
 	rv = XsSocket_select(thisPtr, timeout, &canRead, NULL);
@@ -605,7 +610,7 @@ int XsSocket_readFrom2ByteArray(XsSocket* thisPtr, XsByteArray* dest, XsString* 
 		return peekPendingDataSize(thisPtr);
 
 	rv = recvfrom(thisPtr->d->m_sd, thisPtr->d->m_peekBuf, PEEKBUFSIZE, 0, (struct sockaddr*)&sender, &l);
-	if (rv <= 0)
+	if (rv < 0)
 	{
 		translateSocketError(thisPtr, rv);
 		return -1;
@@ -644,7 +649,6 @@ int XsSocket_write(XsSocket* thisPtr, const void* data, XsSize size)
 /* Return non-zero if the hostname is actually an IPv4 address */
 int isIPv4Address(XsString const* hostname)
 {
-	char* c;
 	int expectNum = 1;
 	int expectDot = 0;
 	int numbersFound = 0;
@@ -652,7 +656,7 @@ int isIPv4Address(XsString const* hostname)
 	if (!hostname || !hostname->m_data)
 		return 0;
 
-	for (c = hostname->m_data; *c != '\0'; c++)
+	for (const char* c = hostname->m_data; *c != '\0'; c++)
 	{
 		if (*c == '.')
 		{
@@ -713,7 +717,7 @@ static XsResultValue XsSocket_internalLookup(XsSocket* thisPtr, const XsString* 
 	int hints_flags, lookupTestFunction tester,
 	struct sockaddr* info, socklen_t* addrlen)
 {
-	struct addrinfo* lookupInfo, *p;
+	struct addrinfo* lookupInfo;
 	SOCKET s;
 	char gaport[7];
 	struct addrinfo hints;
@@ -735,7 +739,7 @@ static XsResultValue XsSocket_internalLookup(XsSocket* thisPtr, const XsString* 
 	hints.ai_socktype = (thisPtr->d->m_ipProtocol == IP_UDP) ? SOCK_DGRAM : SOCK_STREAM;
 	hints.ai_flags = hints_flags;
 
-	sprintf(gaport, "%u", (unsigned int) port);
+	snprintf(gaport, sizeof(gaport), "%u", (unsigned int) port);
 	if (hostname)
 	{
 		XsString host;
@@ -779,7 +783,7 @@ static XsResultValue XsSocket_internalLookup(XsSocket* thisPtr, const XsString* 
 	}
 
 	setLastResult(thisPtr, XRV_NOTFOUND, -1);
-	for (p = lookupInfo; p != NULL; p = p->ai_next)
+	for (struct addrinfo* p = lookupInfo; p != NULL; p = p->ai_next)
 	{
 		s = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
 		if (!socketIsUsable(s))
@@ -964,7 +968,7 @@ int XsSocket_broadcast(XsSocket* thisPtr, const void* data, XsSize size, uint16_
 					const MIB_IPADDRROW* row = &ipTable->table[i];
 					uint32_t ad = ntohl(row->dwAddr) | ~ntohl(row->dwMask);
 					char bcastAddr[32];
-					sprintf(bcastAddr, "%u.%u.%u.%u", (ad >> 24) & 0xFF, (ad >> 16) & 0xFF, (ad >> 8) & 0xFF, ad & 0xFF);
+					snprintf(bcastAddr, sizeof(bcastAddr), "%u.%u.%u.%u", (ad >> 24) & 0xFF, (ad >> 16) & 0xFF, (ad >> 8) & 0xFF, ad & 0xFF);
 					inet_pton(AF_INET, bcastAddr, &addr.sin_addr);
 					sent = sendto(thisPtr->d->m_sd, data, (int)size, MSG_NOSIGNAL, (struct sockaddr const*) &addr, sizeof(addr));
 					if (sent < 0)
@@ -992,7 +996,7 @@ int XsSocket_broadcast(XsSocket* thisPtr, const void* data, XsSize size, uint16_
 				if (bcastAddr > 0)
 				{
 					char bcastAddrStr[32];
-					sprintf(bcastAddrStr, "%u.%u.%u.%u", (bcastAddr >> 24) & 0xFF, (bcastAddr >> 16) & 0xFF, (bcastAddr >> 8) & 0xFF, bcastAddr & 0xFF);
+					snprintf(bcastAddrStr, sizeof(bcastAddrStr), "%u.%u.%u.%u", (bcastAddr >> 24) & 0xFF, (bcastAddr >> 16) & 0xFF, (bcastAddr >> 8) & 0xFF, bcastAddr & 0xFF);
 					inet_pton(AF_INET, bcastAddrStr, &addr.sin_addr);
 					sent = (int)sendto(thisPtr->d->m_sd, data, size, MSG_NOSIGNAL, (struct sockaddr const*) &addr, sizeof(addr));
 					if (sent < 0)

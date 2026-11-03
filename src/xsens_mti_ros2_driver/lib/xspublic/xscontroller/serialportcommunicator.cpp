@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -47,11 +47,20 @@ Communicator* SerialPortCommunicator::construct()
 /*! Default constructor
 */
 SerialPortCommunicator::SerialPortCommunicator()
+	: m_useTwoStopBits(false)
 {
 }
 
 SerialPortCommunicator::~SerialPortCommunicator()
 {
+}
+
+/*! \brief Force serial ports to be opened with 2 stop bits
+	\param useTwoStopBits When true, the next port opened by this communicator uses 2 stop bits instead of the default 1
+*/
+void SerialPortCommunicator::setUseTwoStopBits(bool useTwoStopBits)
+{
+	m_useTwoStopBits = useTwoStopBits;
 }
 
 /*! \brief Creates a stream interface
@@ -66,6 +75,11 @@ std::shared_ptr<StreamInterface> SerialPortCommunicator::createStreamInterface(c
 	SerialInterface::PortOptions options = SerialInterface::PO_XsensDefaults;
 	if (pi.deviceId() == XS_DID_ABMCLOCKMASTER)
 		options = SerialInterface::PO_RtsCtsFlowControl | SerialInterface::PO_OneStopBit;
+	// The Awinda Station needs 2 stop bits. During scanning its device id is not yet
+	// known, so the scanner sets m_useTwoStopBits explicitly; once detected, the
+	// device id identifies it on every subsequent open.
+	else if (m_useTwoStopBits || pi.deviceId().isAwindaX())
+		options = (SerialInterface::PortOptions)(options | SerialInterface::PO_TwoStopBits);
 	setLastResult(stream->open(pi, 65536, 65536, options));
 
 	return stream;

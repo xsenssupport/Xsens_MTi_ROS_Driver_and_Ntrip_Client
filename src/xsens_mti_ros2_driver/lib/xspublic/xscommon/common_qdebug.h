@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -56,7 +56,12 @@
 
 	#define QWARNING(msg) qWarning() << EXT_DEBUG_BODY(msg)
 	#define QCRITICAL(msg) qCritical() << EXT_DEBUG_BODY(msg)
-	#define QFATAL(msg) do not use this macro! qFatal has weird side-effects!
+	/*! \brief Deliberately unavailable: qFatal() aborts the process and has surprising side-effects.
+		\details Expanding to a failing static_assert gives one clear diagnostic naming the alternative,
+		instead of the parse-error cascade a prose macro body produces. The do/while makes the expansion
+		a statement, so it also fails cleanly as the body of an unbraced if.
+	*/
+	#define QFATAL(msg) do { static_assert(false, "QFATAL is not available: qFatal() aborts and has surprising side-effects. Use JLFATALG (journaller) instead."); } while (false)
 #endif
 
 #endif

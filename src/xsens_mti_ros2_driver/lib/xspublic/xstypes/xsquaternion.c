@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -245,8 +245,7 @@ void XsQuaternion_multiply(const XsQuaternion* left, const XsQuaternion* right, 
 void XsQuaternion_swap(XsQuaternion* a, XsQuaternion* b)
 {
 	XsReal t;
-	int i;
-	for (i = 0; i < 4; ++i)
+	for (int i = 0; i < 4; ++i)
 	{
 		t = a->m_data[i];
 		a->m_data[i] = b->m_data[i];

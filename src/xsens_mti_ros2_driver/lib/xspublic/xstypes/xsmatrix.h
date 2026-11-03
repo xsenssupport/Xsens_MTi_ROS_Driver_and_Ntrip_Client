@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -94,8 +94,8 @@ struct XsMatrix
 	}
 public:
 	/*! \brief Initialize an XsMatrix object with the specified number of \a rows and \a cols */
-	inline explicit XsMatrix(XsSize rows = 0, XsSize cols = 0, XsSize strde = 0, const XsReal* dat = 0)
-		: m_data(0)
+	inline explicit XsMatrix(XsSize rows = 0, XsSize cols = 0, XsSize strde = 0, const XsReal* dat = nullptr)
+		: m_data(nullptr)
 		, m_rows(0)
 		, m_cols(0)
 		, m_stride(0)
@@ -107,7 +107,7 @@ public:
 
 	/*! \brief Initialize an XsMatrix object from the \a other XsMatrix */
 	inline XsMatrix(const XsMatrix& other)
-		: m_data(0)
+		: m_data(nullptr)
 		, m_rows(0)
 		, m_cols(0)
 		, m_stride(0)
@@ -118,8 +118,8 @@ public:
 
 #if !defined(SWIG) && !defined(__ADSP21000__) && !defined(__AVR32__)
 	/*! \brief Move-construct an XsMatrix object from the \a other XsMatrix */
-	inline XsMatrix(XsMatrix&& other)
-		: m_data(0)
+	inline XsMatrix(XsMatrix&& other) noexcept
+		: m_data(nullptr)
 		, m_rows(0)
 		, m_cols(0)
 		, m_stride(0)
@@ -155,7 +155,7 @@ public:
 
 	//! \brief \copybrief XsMatrix_fromQuaternion
 	inline explicit XsMatrix(const XsQuaternion& quat)
-		: m_data(0)
+		: m_data(nullptr)
 		, m_rows(0)
 		, m_cols(0)
 		, m_stride(0)
@@ -173,7 +173,7 @@ public:
 	/*! \brief Resize the matrix to the specified number of \a rows and \a cols, destroying its current contents */
 	inline void setSize(XsSize rows, XsSize cols, XsSize stride = 0)
 	{
-		XsMatrix_assign(this, rows, cols, stride, 0, 0);
+		XsMatrix_assign(this, rows, cols, stride, nullptr, 0);
 	}
 
 	/*! \brief \copybrief XsMatrix_copy */
@@ -311,13 +311,13 @@ public:
 		data an elementwise swap is done, but only if the matrices are the same size.
 		\param b Object whose contents will be swapped with this
 	*/
-	inline void swap(XsMatrix& b)
+	inline void swap(XsMatrix& b) noexcept
 	{
 		XsMatrix_swap(this, &b);
 	}
 
 	/*! \brief swaps the contents \a first with that of \a second */
-	friend void swap(XsMatrix& first, XsMatrix& second)
+	friend void swap(XsMatrix& first, XsMatrix& second) noexcept
 	{
 		first.swap(second);
 	}

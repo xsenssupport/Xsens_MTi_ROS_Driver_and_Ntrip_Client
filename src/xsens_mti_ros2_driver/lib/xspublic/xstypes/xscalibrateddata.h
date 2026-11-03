@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -68,16 +68,10 @@ struct XsCalibratedData
 	}
 
 	//! \brief Copy constructor, copies the values from \a other to this
-	inline XsCalibratedData(const XsCalibratedData& other)
-		: m_acc(other.m_acc)
-		, m_gyr(other.m_gyr)
-		, m_mag(other.m_mag)
-	{
-	}
+	inline XsCalibratedData(const XsCalibratedData& other) = default;
 
 	//! \brief Destructor
-	inline ~XsCalibratedData()
-	{}
+	inline ~XsCalibratedData() = default;
 
 	//! \brief Assignment operator, copies the values from \a other to this
 	inline XsCalibratedData& operator = (const XsCalibratedData& other)

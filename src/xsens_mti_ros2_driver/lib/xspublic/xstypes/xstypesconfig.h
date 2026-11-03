@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -31,7 +31,6 @@
 //  
 
 #define XSTYPES_DLL_API
-#define XSNOEXPORT
 #define XSENS_NO_AUTOLIB
 // include this file in Visual Studio using C/C++->Advanced->Force Includes (the /FI option)
 #ifndef XSTYPES_CONFIG_H
@@ -98,6 +97,11 @@
 		#define XSENS_PFSHARED ".so"
 		#define XSENS_PFPRE	  "lib"
 	#endif
+	#ifdef __AVR32__
+		#define noexcept			/* noexcept not yet defined in this old compiler */
+		#define nullptr		NULL	/* nullptr not yet defined in this old compiler */
+		#define XSENS_NO_PACK	1	/* this target does not support pragma pack */
+	#endif
 #else
 	#ifndef XSENS_PFSHARED
 		#define XSENS_PFSHARED ".dll"
@@ -126,14 +130,18 @@
 		#endif
 	#endif
 #else
-	#ifndef XSENS_32BIT
+	#if !defined(XSENS_64BIT) && !defined(XSENS_32BIT)
 		#define XSENS_32BIT
 	#endif
 	#ifndef XSENS_PFBITS
 		#ifdef __GNUC__
 			#define XSENS_PFBITS ""
 		#else
-			#define XSENS_PFBITS	"32"
+			#ifdef XSENS_32BIT
+				#define XSENS_PFBITS	"32"
+			#else
+				#define XSENS_PFBITS	"64"
+			#endif
 		#endif
 	#endif
 #endif
@@ -231,14 +239,14 @@
 	#define __stdcall
 #elif defined(__GNUC__) && !defined(HAVE_CDECL)
 	#if !defined(__cdecl)
-		#if defined(__x86_64__)
+		#if defined(__x86_64__) || defined(__aarch64__)
 			#define __cdecl
 		#else
 			#define __cdecl __attribute__((cdecl))
 		#endif
 	#endif
 	#if !defined(__stdcall)
-		#if defined(__x86_64__)
+		#if defined(__x86_64__) || defined(__aarch64__)
 			#define __stdcall
 		#else
 			#define __stdcall __attribute__((stdcall))
@@ -284,10 +292,6 @@
 // since this is (almost) always required and it does not conflict with pstdint, include the file here
 //#define XSENS_SINGLE_PRECISION // enable for single precision
 #include "xstypedefs.h"
-
-#ifndef XSNOCOMEXPORT
-	#define XSNOCOMEXPORT
-#endif
 
 #ifdef XSENS_DEBUG
 	#define XSDEBUGLINE(a)	a

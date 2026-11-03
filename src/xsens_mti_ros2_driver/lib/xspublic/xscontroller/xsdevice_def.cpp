@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -100,14 +100,14 @@ using namespace XsTime;
 	\brief Add a callback handler to the list
 	\param cb The handler to add to the list.
 	\param chain When set to true (default) the callback is added to child devices as well
-	\note NULL and duplicate handlers are ignored, but chaining is still done.
+	\note nullptr and duplicate handlers are ignored, but chaining is still done.
 */
 
 /*! \fn XsDevice::removeCallbackHandler(XsCallbackPlainC* cb, bool chain = true)
 	\brief Remove a handler from the list
 	\param cb The handler to remove from the list.
 	\param chain When set to true (default) the callback is added to child devices as well
-	\note If \a cb is not found in the list or if \a cb is NULL, the list is not changed, but
+	\note If \a cb is not found in the list or if \a cb is nullptr, the list is not changed, but
 			chaining is still done.
 */
 
@@ -1724,8 +1724,7 @@ void XsDevice::handleDataPacket(const XsDataPacket& packet)
 */
 bool XsDevice::isMeasuring() const
 {
-	switch (deviceState()) //lint !e788
-	{
+	switch (deviceState())	{
 		case XDS_Measurement:
 		case XDS_WaitingForRecordingStart:
 		case XDS_Recording:
@@ -1745,8 +1744,7 @@ bool XsDevice::isMeasuring() const
 */
 bool XsDevice::isRecording() const
 {
-	switch (deviceState()) //lint !e788
-	{
+	switch (deviceState())	{
 		case XDS_WaitingForRecordingStart:
 		case XDS_Recording:
 		case XDS_FlushingData:
@@ -2138,7 +2136,7 @@ bool XsDevice::closeLogFile()
 		JLDEBUGG(m_logFileInterface);
 		m_logFileInterface->close();
 		delete m_logFileInterface;
-		m_logFileInterface = NULL;
+		m_logFileInterface = nullptr;
 	}
 	return true;
 }
@@ -2460,6 +2458,18 @@ bool XsDevice::setErrorMode(XsErrorMode errormode)
 
 // MT Device functions
 
+/*!	\brief Set the initial heading of the device
+	\details The initial heading is used by devices that output heading data
+	as an aiding to the filter, to improve convergence on the solution.
+	\param heading The initial Yaw of the device in degrees
+	\returns true if the device was successfully updated
+*/
+bool XsDevice::setInitialHeading(double heading)
+{
+	(void)heading;
+	return false;
+}
+
 /*! \brief Set the 'heading offset' setting of the device
 	\param offset The desired heading offset of the device in degrees
 	\returns true if the device was successfully updated
@@ -2778,6 +2788,14 @@ XsIccRepMotionResult XsDevice::stopRepresentativeMotion()
 	return XsIccRepMotionResult();
 }
 
+/*! \brief Query the status of the In-Run Compass Calibration while it is running
+	\returns A struct containing the state of the current In-Run Compass Calibration
+*/
+XsIccRepMotionResult XsDevice::getIccState()
+{
+	return XsIccRepMotionResult();
+}
+
 /*! \brief Store the onboard ICC results for use by the device
 	\returns true if the store was successful
 */
@@ -2894,6 +2912,39 @@ bool XsDevice::storeFilterState()
 	return false;
 }
 
+/*!	\brief Request the duration that the filter will attempt deadreckoning before giving up.
+	\details Note that deadreckoning duration only applies to devices that support GNSS.
+	\returns Duration in seconds or 0 when using default / not available.
+*/
+uint16_t XsDevice::deadReckoningDuration() const
+{
+	return 0;
+}
+
+/*!	\brief Set the duration that the filter will attempt deadreckoning before giving up.
+	\details The device may reject values that are deemed excessive and it may
+	not strictly honour the requested duration based on filtering circumstances.
+	\param seconds Desired duration in seconds.
+	\returns true if the duration was accepted and saved, false otherwise
+*/
+bool XsDevice::setDeadReckoningDuration(uint16_t seconds)
+{
+	(void)seconds;
+	return false;
+}
+
+/*!	\brief Request the modeling parameters for a sensing element
+	\details The available sensing elements and resulting modeling parameters
+	are not guaranteed to be stable across sensing elements and device families.
+	\param sensingElement index of the sensing element
+	\returns a vector with various sensing element-specific modeling parameters
+*/
+XsVector XsDevice::modelingParameters(uint8_t sensingElement) const
+{
+	(void)sensingElement;
+	return XsVector();
+}
+
 // MTix device
 /*! \brief Returns if the device does gyroscope bias estimation when switching to measurement mode
 	\details When this option is enabled, the device will automatically run the 'no rotation'
@@ -2985,6 +3036,36 @@ XsVector XsDevice::leverArm(XsLeverArmType type) const
 {
 	(void)type;
 	return XsVector();
+}
+
+/*! \brief Configures the dual antenna settings of the device
+	\details The dual antenna settings determine whether the device runs in single or
+	dual antenna mode and defines how the heading baseline is configured.
+	\param mode The dual antenna mode to configure
+	\param angle The baseline angle in the case that the baseline is defined by the primary leverarm + angle
+	\returns true if the dual antenna mode was successfully set
+	\sa dualAntennaSettings
+*/
+bool XsDevice::setDualAntennaSettings(XsDualAntennaMode mode, float angle)
+{
+	(void)mode;
+	(void)angle;
+	return false;
+}
+
+/*! \brief Returns the dual antenna settings of the device
+	\details The dual antenna settings determine whether the device runs in single or
+	dual antenna mode and defines how the heading baseline is configured.
+	\param angle Optional pointer to a float to be filled in with the baseline angle.
+	Only valid if the dual antenna mode is defined by the baseline angle.
+	\returns The dual antenna mode the device is configured with
+	\sa setDualAntennaSettings
+*/
+XsDualAntennaMode XsDevice::dualAntennaSettings(float* angle) const
+{
+	if (angle)
+		*angle = 0.0f;
+	return XsDualAntennaMode::XDAM_None;
 }
 
 /*! \cond XS_INTERNAL */

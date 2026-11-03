@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -30,10 +30,18 @@
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
 //  
 
+#ifdef _WIN32
+	#ifndef WIN32_LEAN_AND_MEAN
+	#define WIN32_LEAN_AND_MEAN
+	#endif
+	#include <Windows.h>
+#endif
+
 #include "threading.h"
 #include <signal.h>
 #include <time.h>
 #include <xstypes/xstime.h>
+#include <cassert>
 
 #ifdef __GNUC__
 	#include <sys/time.h>
@@ -55,19 +63,17 @@ pthread_t xsStartThread(void* (func)(void*), void* param, void* pid)
 /*! Constructor, creates the necessary signals. Does NOT start the thread.
 */
 StandardThread::StandardThread()
-	: m_thread(XSENS_INVALID_THREAD)
-	, m_priority(XS_THREAD_PRIORITY_NORMAL)
-	, m_stop(false)
+	: m_stop(false)
 	, m_yieldOnZeroSleep(true)
 #ifdef _WIN32
-	, m_stopHandle(::CreateEvent(NULL, TRUE, FALSE, NULL))
-	, m_running(::CreateEvent(NULL, TRUE, FALSE, NULL))
-	, m_threadId(0)
-#else
-	, m_running(false)
-	, m_finished(false)
+	, m_stopHandle(::CreateEvent(nullptr, TRUE, FALSE, nullptr))
 #endif
-	, m_name(NULL)
+	, m_thread(XSENS_INVALID_THREAD)
+	, m_threadId{}
+	, m_priority(XS_THREAD_PRIORITY_NORMAL)
+	, m_finished(true)
+	, m_killRequested(false)
+	, m_name(nullptr)
 {
 #ifndef _WIN32
 	pthread_attr_init(&m_attr);
@@ -78,72 +84,100 @@ StandardThread::StandardThread()
 */
 StandardThread::~StandardThread()
 {
-	stopThread();
+	stopThread(); // NOSONAR cpp:S1699 - stopThread is non-virtual; the virtual signalStopThread it reaches cannot dispatch to a subclass during base destruction, which is the correct semantic here
 
 	if (m_name)
 	{
-		free(m_name);
-		m_name = NULL;
+		free(m_name); // NOSONAR cpp:S1231 - pairs with _strdup; replacing char* m_name with std::string is an ABI change in the public threading.h
+		m_name = nullptr;
 	}
 
 #ifdef _WIN32
-	::CloseHandle(m_running);
 	::CloseHandle(m_stopHandle);
 #else
 	pthread_attr_destroy(&m_attr);
 #endif
 }
 
-#ifdef _WIN32
-/*! \brief Kill the thread now */
+/*! \brief Kill the thread now.
+ *
+ * Use as a last resort, resources will leak.
+ * Call will block until thread is killed and cleaned up to avoid race conditions when restarting or destructing.
+ *
+ * Warnings:
+ * - Thread termination is not immediate on linux as it depends on cancellation points.
+ * - Glibc implements this as an exception. Any active noexcept functions may crash the program.
+ */
 void StandardThread::terminateThread()
 {
+	// cannot kill self as that would leave everything in a big mess
+	if (isCurrentThread())
+	{
+		assert(false && "attempted to terminate thread from self");
+		return;
+	}
+
+	// If stopThread() is blocking us while holding m_mux then they will perform the kill for us
+	m_killRequested = true;
+
+	// Prevent multiple threads from doing this at the same time
+	xsens::Lock locky(&m_mux);
+
 	if (m_thread != XSENS_INVALID_THREAD)
+	{
+#ifdef _WIN32
 		::TerminateThread(m_thread, DWORD(-1));
-	m_thread = XSENS_INVALID_THREAD;
-}
+		::WaitForSingleObject(m_thread, INFINITE);
+		::CloseHandle(m_thread);
+#elif defined(__ANDROID__)
+		// Bionic has never provided pthread_cancel, so a thread cannot be
+		// force-terminated on Android. Degrade to waiting for it: join without
+		// cancelling. That can block where the other platforms would kill, so this is
+		// a deliberate degradation, not a silent equivalence.
+		//
+		// Nothing reachable changes today: terminateThread() has no callers anywhere in
+		// the XME SDK closure, and the only test exercising it
+		// (xscommon/test/testthread.cpp) is itself #ifdef _WIN32.
+		pthread_join(m_thread, nullptr);
+#else
+		pthread_cancel(m_thread);
+		pthread_join(m_thread, nullptr);
 #endif
+		m_thread = XSENS_INVALID_THREAD;
+		m_threadId = XsThreadId{};
+		m_finished = true;
+	}
+
+	m_killRequested = false;
+}
+
+//! \returns True if the current thread is the thread managed by this StandardThread instance
+bool StandardThread::isCurrentThread() const
+{
+	XsThreadId id = m_threadId;
+#ifdef _WIN32
+	return id != 0 && xsGetCurrentThreadId() == id;
+#else
+	return id != XsThreadId{} && pthread_equal(xsGetCurrentThreadId(), id);
+#endif
+}
 
 /*! \returns True if the thread is alive, false if the thread is already dead or is joinable.
 */
 bool StandardThread::isAlive(void) volatile const noexcept
 {
-	if (m_thread == XSENS_INVALID_THREAD)
-		return false;
-
-#ifdef _WIN32
-	DWORD exitCode;
-	if (::GetExitCodeThread(m_thread, &exitCode))
-	{
-		if (exitCode == STILL_ACTIVE)
-			return true;
-	}
-	return false;
-#else
+	// Do not read m_thread here as there may be a data race on stop/start.
 	return !m_finished;
-#endif
 }
 
 /*! \brief Returns whether the thread is currently running the thread main function.
 */
 bool StandardThread::isRunning(void) volatile const noexcept
 {
-	if (!isAlive())
-		return false;
-#ifdef _WIN32
-	switch (::WaitForSingleObject(m_running, 0))
-	{
-		case WAIT_ABANDONED:
-		case WAIT_TIMEOUT:
-			return false;
-		case WAIT_OBJECT_0:
-			return true;
-		default:
-			return false;
-	}
-#else
-	return m_running;
-#endif
+	// There is no meaningful difference between isAlive and isRunning.
+	// There could have been (isAlive <=> isJoined) but that would
+	// change the public contract of this class and we can't do that.
+	return isAlive();
 }
 
 /*! \brief Returns whether the thread should (have) terminate(d)
@@ -159,21 +193,32 @@ bool StandardThread::isTerminating(void) volatile const noexcept
 */
 bool StandardThread::setPriority(XsThreadPriority pri)
 {
-	m_priority = pri;
+	// There's no data race when calling from self so we skip locking to prevent deadlock risks.
+	xsens::Lock locky(&m_mux, false);
+	if (!isCurrentThread())
+		locky.lock();
 
+	m_priority = pri;
+	return setPriorityLocked(pri);
+}
+
+
+/*! \brief Sets the priority of the thread.
+           Internal version requires lock to be held or to be called from the managed thread.
+	\param pri The thread priority to set
+	\return True if successful
+*/
+bool StandardThread::setPriorityLocked(XsThreadPriority pri)
+{
 	if (!isAlive())
 		return false;
 
 #ifdef _WIN32
 	::SetThreadPriority(m_thread, (int) pri);
-#else
-#ifdef _POSIX_PRIORITY_SCHEDULING
+#elif defined(_POSIX_PRIORITY_SCHEDULING)
 	int32_t rv;
 	int32_t policy;
 	struct sched_param param;
-
-	if (!isAlive())
-		return false;
 
 	rv = pthread_getschedparam(m_thread, &policy, &param);
 	switch (rv)
@@ -192,8 +237,9 @@ bool StandardThread::setPriority(XsThreadPriority pri)
 			break;
 
 		case XS_THREAD_PRIORITY_LOWEST:
-			param.sched_priority = sched_get_priority_max(policy);
-		// Fallthrough.
+			param.sched_priority = sched_get_priority_min(policy);
+			break;
+
 		default:
 			/* we need to map the priority to the values used on this system */
 			int32_t min_prio = sched_get_priority_min(policy);
@@ -205,7 +251,7 @@ bool StandardThread::setPriority(XsThreadPriority pri)
 			/* divide range up in amount of priority levels */
 			float priostep = ((float)(max_prio - min_prio)) / ((int32_t)XS_THREAD_PRIORITY_HIGHEST + 1);
 
-			param.sched_priority = (int32_t)(min_prio + (pri * priostep));
+			param.sched_priority = (int32_t)(min_prio + ((int32_t)pri * priostep));
 			break;
 	}
 
@@ -234,49 +280,51 @@ bool StandardThread::setPriority(XsThreadPriority pri)
 		default:
 			break;
 	}
-
-	return true;
-#else
-	return true;
-#endif
 #endif
 	return true;
 }
 
-/*! \brief Starts the thread
-	\param name The name of the thread as shown in the debugger, may be NULL in which case the system determines the name.
+/*! \brief Starts the thread.
+	\param name The name of the thread as shown in the debugger, may be nullptr in which case the system determines the name.
 	\returns True if successful
 */
 bool StandardThread::startThread(const char* name)
 {
-	if (isAlive())
+	// Prevent multiple threads from starting a new thread at the same time
+	xsens::Lock locky(&m_mux);
+
+	// Do nothing if the old thread is still active
+	if (!m_finished)
 		return false;
 
 	// Join the old thread if it hasn't happened yet
-	stopThread();
+	stopThreadLocked();
 
 	if (m_name)
 	{
-		free(m_name);
-		m_name = NULL;
+		free(m_name); // NOSONAR cpp:S1231 - pairs with _strdup; replacing char* m_name with std::string is an ABI change in the public threading.h
+		m_name = nullptr;
 	}
 	if (name)
 		m_name = _strdup(name);
 
-#ifdef _WIN32
-	m_stop = false;
-	::ResetEvent(m_stopHandle);
-	::SetEvent(m_running);
-	m_thread = xsStartThread(&threadInit, this, &m_threadId);
-	if (m_thread == XSENS_INVALID_THREAD)
-	{
-		::ResetEvent(m_running);
-		return false;
-	}
-#else
 	m_stop = false;
 	m_finished = false;
-	m_running = true;
+	m_killRequested = false;
+
+#ifdef _WIN32
+	::ResetEvent(m_stopHandle);
+	XsThreadId tid = 0;
+	m_thread = xsStartThread(&threadInit, this, &tid);
+	if (!m_thread)
+	{
+		/* something went wrong */
+		m_thread = XSENS_INVALID_THREAD;
+		m_finished = true;
+		return false;
+	}
+	m_threadId = tid;
+#else
 	if (pthread_create(&m_thread, &m_attr, threadInit, this))
 	{
 		/* something went wrong */
@@ -284,9 +332,10 @@ bool StandardThread::startThread(const char* name)
 		m_finished = true;
 		return false;
 	}
+	m_threadId = m_thread;
 #endif
-	xsSetThreadPriority(m_thread, m_priority);
 
+	setPriorityLocked(m_priority);
 	return true;
 }
 
@@ -294,90 +343,94 @@ bool StandardThread::startThread(const char* name)
 */
 void StandardThread::signalStopThread(void)
 {
+	m_stop = true;
 #ifdef _WIN32
-	m_stop = true;
 	::SetEvent(m_stopHandle);
-	::SetThreadPriority(m_thread, THREAD_PRIORITY_ABOVE_NORMAL);
-#else
-	setPriority(XS_THREAD_PRIORITY_HIGHEST);
-	m_stop = true;
 #endif
+
+	// Need a lock before accessing m_thread. Non-critical so best effort attempt.
+	if (xsens::Lock locky(&m_mux, false); locky.tryLock())
+		setPriorityLocked(XS_THREAD_PRIORITY_HIGH);
 }
 
 /*! \brief Tells the thread to stop and waits for it to end.
 */
 void StandardThread::stopThread(void) noexcept
 {
+	// When called by ourselves we can only signal, never block, so we bail out early
+	if (isCurrentThread())
+	{
+		signalStopThread();
+		return;
+	}
+
+	// Prevent m_thread being stopped by multiple callers
+	xsens::Lock locky(&m_mux);
+	stopThreadLocked();
+}
+
+/*! \brief Tells the thread to stop and waits for it to end. Internal version requires lock to be held.
+*/
+void StandardThread::stopThreadLocked(void) noexcept
+{
+	// Only continue if the thread has not been joined yet
 	if (m_thread == XSENS_INVALID_THREAD)
 		return;
 
-#ifdef _WIN32
-	// prevent multiple threads from doing this at the same time on windows, pthreads deals with this in its own special way
-	xsens::Lock locky(&m_mux, false);
-	if (m_threadId == xsGetCurrentThreadId())
-		locky.tryLock();
-	else
-		locky.lock();
-#endif
-
+	// Signal the main loop to terminate
 	signalStopThread();
+
 #ifdef _WIN32
-	// don't wait for my thread to end myself
-	if (m_threadId == xsGetCurrentThreadId())
-		return;
-
-	// in debug mode we ALWAYS want to know if there's some kind of deadlock occurring
-	//#if XSENS_THREAD_KILL_TIMEOUT_MS > 0 && !defined(XSENS_DEBUG)
-	//	XsTimeStamp endOfWait = XsTimeStamp::now() + XSENS_THREAD_KILL_TIMEOUT_MS;
-	//	while(isAlive() && (XsTimeStamp::now() < endOfWait))
-	//		xsYield();
-	//#else
-
-	while (isAlive())
-		xsYield();
-	//#endif
-	if (::CloseHandle(m_thread) == 0)
+	// Wait in slices so an emergency terminateThread request can be honored
+	while (::WaitForSingleObject(m_thread, 10) == WAIT_TIMEOUT)
 	{
-		DWORD lastErr = GetLastError();
-		(void)lastErr;
-		return;
+		if (m_killRequested)
+		{
+			::TerminateThread(m_thread, DWORD(-1));
+			::WaitForSingleObject(m_thread, INFINITE);
+			break;
+		}
 	}
+	::CloseHandle(m_thread);
 #else
-	// don't wait for my thread to end myself
-	if (pthread_equal(m_thread, xsGetCurrentThreadId()))
-		return;
-
-	// in debug mode we ALWAYS want to know if there's some kind of deadlock occurring
-	//#if XSENS_THREAD_KILL_TIMEOUT_MS > 0 && !defined(XSENS_DEBUG)
-	//	XsTimeStamp endOfWait = XsTimeStamp::now() + XSENS_THREAD_KILL_TIMEOUT_MS;
-	//	while(isAlive() && (XsTimeStamp::now() < endOfWait))
-	//		xsYield();
-
-	//	if (isAlive()) {
-	//		if (pthread_kill(m_thread, 9))
-	//			return;
-	//	}
-	//#else
-	while (isAlive())
-		xsYield();
-	//#endif
-
-	pthread_join(m_thread, NULL);
-	m_running = false;
+	// pthread timed join is not portable so instead we wait and poll
+	while (!m_finished)
+	{
+		if (m_killRequested)
+		{
+#ifndef __ANDROID__
+			pthread_cancel(m_thread);
 #endif
+			// On Android there is no pthread_cancel (see terminateThread above), so we
+			// stop polling and fall through to the join, which waits for the thread
+			// instead of killing it. m_killRequested is only ever set by
+			// terminateThread(), which has no callers in the SDK closure.
+			break;
+		}
+		XsTime::msleep(1);
+	}
+
+	// pthread blocks until the thread finishes
+	pthread_join(m_thread, nullptr);
+#endif
+
 	m_thread = XSENS_INVALID_THREAD;
+	m_threadId = XsThreadId{};
+	m_finished = true;
 }
 
 XSENS_THREAD_RETURN StandardThread::threadInit(void* obj)
 {
-	StandardThread* thread = reinterpret_cast<StandardThread*>(obj);
+	StandardThread* thread = static_cast<StandardThread*>(obj);
+	thread->m_threadId = xsGetCurrentThreadId();
 	if (thread->m_name)
 		xsNameThisThread(thread->m_name);
 
 	thread->threadMain();
-#ifndef _WIN32
+
+	// Clear threadId to prevent races with threadid reuse.
+	thread->m_threadId = XsThreadId{};
 	thread->m_finished = true;
-#endif
 	return 0;
 }
 
@@ -388,15 +441,20 @@ void StandardThread::threadMain(void)
 	initFunction();
 	do
 	{
-		int32_t rv = innerFunction();
+		int64_t rv = innerFunction();
 		if (rv > 0)
 		{
 			int64_t sleepStart = XsTimeStamp::nowMs();
 			while (!m_stop)
 			{
-				// sleep max 100ms at a time so we can terminate the thread quickly if necessary
 				int64_t timePassed = XsTimeStamp::nowMs() - sleepStart;
-				int32_t remaining = rv - (int32_t) timePassed;
+				// system clock might be changed (e.g. to a point in time in the past)
+				// then XsTimeStamp::nowMs() would be smaller than the sleepStart
+				if (timePassed < 0)
+					break;
+
+				// sleep max 100ms at a time so we can terminate the thread quickly if necessary
+				int64_t remaining = rv - timePassed;
 				if (remaining > 100)
 					XsTime::msleep(100);
 				else if (remaining <= 0)
@@ -418,9 +476,9 @@ void StandardThread::threadMain(void)
 WatchDogThread::WatchDogThread(WatchDogFunction func, void* param)
 	: m_thread(XSENS_INVALID_THREAD)
 #ifdef _WIN32
-	, m_stop(::CreateEvent(NULL, TRUE, FALSE, NULL))
-	, m_running(::CreateEvent(NULL, TRUE, FALSE, NULL))
-	, m_reset(::CreateEvent(NULL, TRUE, FALSE, NULL))
+	, m_stop(::CreateEvent(nullptr, TRUE, FALSE, nullptr))
+	, m_running(::CreateEvent(nullptr, TRUE, FALSE, nullptr))
+	, m_reset(::CreateEvent(nullptr, TRUE, FALSE, nullptr))
 #else
 	, m_running(false)
 	, m_reset(false)
@@ -430,7 +488,7 @@ WatchDogThread::WatchDogThread(WatchDogFunction func, void* param)
 	, m_timeout(10000)
 	, m_func(func)
 	, m_param(param)
-	, m_name(NULL)
+	, m_name(nullptr)
 	, m_threadId(0)
 {
 #ifndef _WIN32
@@ -444,8 +502,8 @@ WatchDogThread::~WatchDogThread()
 
 	if (m_name)
 	{
-		free(m_name);
-		m_name = NULL;
+		free(m_name); // NOSONAR cpp:S1231 - pairs with _strdup; replacing char* m_name with std::string is an ABI change in the public threading.h
+		m_name = nullptr;
 	}
 
 #ifdef _WIN32
@@ -463,8 +521,7 @@ bool WatchDogThread::isAlive(void) volatile const noexcept
 		return false;
 
 #ifdef _WIN32
-	DWORD exitCode;
-	if (::GetExitCodeThread(m_thread, &exitCode))
+	if (DWORD exitCode; ::GetExitCodeThread(m_thread, &exitCode))
 		return (exitCode == STILL_ACTIVE);
 
 	return false;
@@ -516,19 +573,20 @@ bool WatchDogThread::startTimer(uint32_t timeout, const char* name)
 		m_timeout = timeout;
 
 	if (m_name)
-		free(m_name);
+		free(m_name); // NOSONAR cpp:S1231 - pairs with _strdup; replacing char* m_name with std::string is an ABI change in the public threading.h
 	if (name)
 		m_name = _strdup(name);
 	else
-		m_name = NULL;
+		m_name = nullptr;
 
 #ifdef _WIN32
 	::ResetEvent(m_stop);
 	::SetEvent(m_running);
 	::ResetEvent(m_reset);
 	m_thread = xsStartThread(&threadInit, this, &m_threadId);
-	if (m_thread == XSENS_INVALID_THREAD)
+	if (!m_thread)
 	{
+		m_thread = XSENS_INVALID_THREAD;
 		::ResetEvent(m_running);
 		return false;
 	}
@@ -603,7 +661,7 @@ bool WatchDogThread::stopTimer(void) noexcept
 		}
 	}
 
-	rv = pthread_join(m_thread, NULL);
+	rv = pthread_join(m_thread, nullptr);
 	if (rv)
 	{
 		switch (errno)
@@ -623,7 +681,7 @@ bool WatchDogThread::stopTimer(void) noexcept
 
 XSENS_THREAD_RETURN WatchDogThread::threadInit(void* obj)
 {
-	WatchDogThread* thread = reinterpret_cast<WatchDogThread*>(obj);
+	WatchDogThread* thread = static_cast<WatchDogThread*>(obj);
 	if (thread->m_name)
 		xsNameThisThread(thread->m_name);
 
@@ -636,7 +694,7 @@ XSENS_THREAD_RETURN WatchDogThread::threadInit(void* obj)
 
 void WatchDogThread::threadMain(void)
 {
-	XsTimeStamp toTime((int64_t)(XsTimeStamp::now().msTime() + m_timeout));
+	XsTimeStamp toTime(XsTimeStamp::now().msTime() + m_timeout);
 
 #ifdef _WIN32
 	HANDLE hlist[2];
@@ -659,13 +717,13 @@ void WatchDogThread::threadMain(void)
 				::ResetEvent(m_reset);
 				continue;
 
+			case WAIT_TIMEOUT:
+				break;
+
 			case WAIT_OBJECT_0+1:	// m_stop
 			case WAIT_ABANDONED:
 			default:
 				go = false;
-				break;
-
-			case WAIT_TIMEOUT:
 				break;
 		}
 #else
@@ -727,7 +785,7 @@ Semaphore::Semaphore(int32_t initVal, uint32_t nofOtherHandles, HANDLE* otherHan
 	m_handleList = new HANDLE[m_nofHandles];
 	for (uint32_t i = 0; i < m_nofHandles - 1; i++)
 		m_handleList[i] = otherHandles[i];
-	m_handleList[m_nofHandles - 1] = CreateSemaphore(NULL, initVal, 0x7fffffff, NULL);
+	m_handleList[m_nofHandles - 1] = CreateSemaphore(nullptr, initVal, 0x7fffffff, nullptr);
 }
 
 Semaphore::~Semaphore(void)
@@ -880,7 +938,7 @@ static int clock_gettime(int clk_id, struct timespec* tp)
 	(void)clk_id;
 	struct timeval now;
 
-	int rv = gettimeofday(&now, NULL);
+	int rv = gettimeofday(&now, nullptr);
 	if (rv != 0)
 		return rv;
 
@@ -924,8 +982,9 @@ WaitCondition::~WaitCondition()
 		pthread_condattr_destroy(&m_condattr);
 #endif
 	}
-	catch (...)
+	catch (...) // NOSONAR cpp:S2486 - destructor; an escaping exception would terminate the process
 	{
+		// Deliberately swallowed: a destructor must not let an exception escape.
 	}
 }
 
@@ -959,11 +1018,15 @@ void WaitCondition::broadcast()
 */
 bool WaitCondition::wait()
 {
+	// The native lock is held exactly once per ownership, so the wait can release it; the owner bookkeeping is ours to park
+	Mutex::Ownership const parked = m_mutex.suspendOwnership();
 #ifdef _WIN32
-	return SleepConditionVariableCS(&m_cond, &m_mutex.m_mutex, INFINITE) != 0;
+	bool const rv = SleepConditionVariableCS(&m_cond, &m_mutex.m_mutex, INFINITE) != 0;
 #else
-	return pthread_cond_wait(&m_cond, &m_mutex.m_mutex) == 0;
+	bool const rv = pthread_cond_wait(&m_cond, &m_mutex.m_mutex) == 0;
 #endif
+	m_mutex.resumeOwnership(parked);
+	return rv;
 }
 
 /*! \brief Wait until we're signalled to continue, or until timeout [ms] has passed
@@ -978,8 +1041,9 @@ bool WaitCondition::wait()
 */
 bool WaitCondition::wait(uint32_t timeout)
 {
+	Mutex::Ownership const parked = m_mutex.suspendOwnership();
 #ifdef _WIN32
-	return SleepConditionVariableCS(&m_cond, &m_mutex.m_mutex, timeout) != 0;
+	bool const rv = SleepConditionVariableCS(&m_cond, &m_mutex.m_mutex, timeout) != 0;
 #else
 	static const int64_t NANOS_PER_MILLI = 1000000;
 	static const int64_t NANOS_PER_ONE = NANOS_PER_MILLI * 1000;
@@ -993,8 +1057,10 @@ bool WaitCondition::wait(uint32_t timeout)
 	time.tv_nsec = nsec % NANOS_PER_ONE;
 	time.tv_sec += nsec / NANOS_PER_ONE;
 
-	return pthread_cond_timedwait(&m_cond, &m_mutex.m_mutex, &time) == 0;
+	bool const rv = pthread_cond_timedwait(&m_cond, &m_mutex.m_mutex, &time) == 0;
 #endif
+	m_mutex.resumeOwnership(parked);
+	return rv;
 }
 
 #if defined(_WIN32)
@@ -1003,7 +1069,7 @@ WaitEvent::WaitEvent()
 	: m_waiterCount(0)
 	, m_terminating(false)
 {
-	m_event = ::CreateEventA(NULL, TRUE, FALSE, NULL);
+	m_event = ::CreateEventA(nullptr, TRUE, FALSE, nullptr);
 }
 
 /*! \brief Destructor, terminates the event and waits for waiting threads to be notified before finishing */
@@ -1013,8 +1079,10 @@ WaitEvent::~WaitEvent()
 	{
 		terminate();
 	}
-	catch (...)
-	{}
+	catch (...) // NOSONAR cpp:S2486 - destructor; an escaping exception would terminate the process
+	{
+		// Deliberately swallowed: a destructor must not let an exception escape.
+	}
 	assert(m_waiterCount == 0);
 	::CloseHandle(m_event);
 	m_event = INVALID_HANDLE_VALUE;
@@ -1030,19 +1098,11 @@ bool WaitEvent::wait()
 
 	++m_waiterCount;
 
-	switch (::WaitForSingleObject(m_event, INFINITE))
-	{
-		case WAIT_ABANDONED:
-		case WAIT_TIMEOUT:
-			--m_waiterCount;
-			return false;
-		case WAIT_OBJECT_0:
-			--m_waiterCount;
-			return !m_terminating;
-		default:
-			--m_waiterCount;
-			return false;
-	}
+	const auto result = ::WaitForSingleObject(m_event, INFINITE);
+	--m_waiterCount;
+
+	// Any outcome other than a normal signal (abandoned, timeout, failure) means the wait did not succeed
+	return result == WAIT_OBJECT_0 && !m_terminating;
 }
 
 /*! \brief Set the event.

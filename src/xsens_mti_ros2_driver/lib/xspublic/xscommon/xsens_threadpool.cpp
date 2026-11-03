@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -39,10 +39,13 @@
 	#include <typeinfo>
 #endif
 
+#include <atomic>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
 #include <vector>
 #include <xstypes/xsexception.h>
 #include "threading.h"
-#include <atomic>
 
 // Enable this if you want to disable multithreading
 //#define ADD_TASK_EXECUTE_NOW
@@ -53,9 +56,9 @@ namespace xsens
 /////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
-typedef std::map<unsigned int, std::shared_ptr<PooledTask>> TaskSet;
-typedef std::set<PooledThread*> ThreadSet;
-typedef std::vector<std::shared_ptr<PooledTask>> TaskList;
+using TaskSet = std::map<unsigned int, std::shared_ptr<PooledTask>>;
+using ThreadSet = std::set<PooledThread*>;
+using TaskList = std::vector<std::shared_ptr<PooledTask>>;
 
 /*! \brief Returns the number of processor cores in the current system
 */
@@ -95,14 +98,14 @@ unsigned int ThreadPoolTask::needToWaitFor()
 
 /*! \brief A class that contains a task and some administrative stuff
 */
-class PooledTask
+class PooledTask // NOSONAR cpp:S5414 - file-local implementation class; privatising the data members would mean accessors across 60+ use sites for no external benefit
 {
 public:
 	ThreadPoolTask* m_task;		//!< The task that is to be executed
 	unsigned int m_id;			//!< The id that was assigned to the task by the ThreadPool
 	std::vector<std::shared_ptr<PooledTask>> m_dependentTasks;	//!< A list of tasks that are waiting for this task to complete
-	XsThreadId m_threadId;
-	volatile std::atomic<bool> m_canceling;
+	std::atomic<XsThreadId> m_threadId;	//!< Written by the executing pooled thread, read by taskThreadId() from any thread
+	std::atomic_bool m_canceling;
 
 	PooledTask()
 		: m_task(nullptr)
@@ -147,7 +150,7 @@ public:
 	}
 
 private:
-	volatile std::atomic_bool m_completed;
+	std::atomic_bool m_completed;
 	Mutex m_completedMutex;
 	WaitCondition m_completedCondition;
 };
@@ -188,10 +191,11 @@ public:
 
 protected:
 	ThreadPool* m_pool;			//!< The pool that contains this thread
-	std::shared_ptr<PooledTask> m_task;			//!< The task that is currently being executed or NULL if the thread is idle
-	unsigned int m_executed;	//!< The number of tasks that this thread has executed s o far, including incomplete tasks
-	unsigned int m_completed;	//!< The number of tasks that this thread has completed so far, excluding incomplete tasks
-	unsigned int m_failed;		//!< The number of tasks that this thread has failed to complete so far due to an exception
+	std::shared_ptr<PooledTask> m_task;			//!< The task that is currently being executed or nullptr if the thread is idle. Only touched by this thread.
+	std::atomic_bool m_busy;	//!< Cross-thread view of m_task != nullptr, read by ThreadPool::suspend()
+	std::atomic_uint m_executed;	//!< The number of tasks that this thread has executed so far, including incomplete tasks
+	std::atomic_uint m_completed;	//!< The number of tasks that this thread has completed so far, excluding incomplete tasks
+	std::atomic_uint m_failed;		//!< The number of tasks that this thread has failed to complete so far due to an exception
 
 	int32_t innerFunction(void) override;
 };
@@ -201,6 +205,7 @@ PooledThread::PooledThread(ThreadPool* pool)
 	: StandardThread()
 	, m_pool(pool)
 	, m_task(nullptr)
+	, m_busy(false)
 	, m_executed(0)
 	, m_completed(0)
 	, m_failed(0)
@@ -222,7 +227,11 @@ PooledThread::~PooledThread()
 int32_t PooledThread::innerFunction(void)
 {
 	if (!m_task)
+	{
+		// Mark busy before taking a task: suspend(true) must never see this thread idle while it holds one
+		m_busy = true;
 		m_task = m_pool->getNextTask();
+	}
 
 	while (m_task && !isTerminating())
 	{
@@ -230,14 +239,14 @@ int32_t PooledThread::innerFunction(void)
 		bool complete = false;
 		try
 		{
-			if (m_task->m_task->exec())
-			{
-				++m_completed;
-				complete = true;
-			}
-			else if (m_task->m_canceling)
+			if (m_task->m_canceling)
 			{
 				++m_failed;
+				complete = true;
+			}
+			else if (m_task->m_task->exec())
+			{
+				++m_completed;
 				complete = true;
 			}
 		}
@@ -277,6 +286,7 @@ int32_t PooledThread::innerFunction(void)
 
 		m_task = m_pool->getNextTask();
 	}
+	m_busy = (m_task != nullptr);
 	return 1;
 }
 
@@ -284,7 +294,7 @@ int32_t PooledThread::innerFunction(void)
 */
 bool PooledThread::isIdle() const
 {
-	return (m_task == nullptr);
+	return !m_busy;
 }
 
 /*! \brief Return whether the thread is currently executing a task (true) or not (false)
@@ -335,10 +345,34 @@ ThreadPool::ThreadPool()
 }
 
 /*! \brief Destructor, clears any pending tasks and destroys the threads
+	\details Like std::jthread, it first asks every running task to stop (isCanceling() and the
+	std::stop_token of a submit() task), then waits for them to return.
 */
 ThreadPool::~ThreadPool()
 {
 	m_terminating = true;
+	suspend(false);
+
+	// Without this, suspend(true) waits forever on a task that only returns when asked to stop
+	try
+	{
+		TaskList running;
+		{
+			Lock safety(&m_safe);
+			for ([[maybe_unused]] auto const& [id, task] : m_executing)
+			{
+				task->m_canceling = true;
+				running.push_back(task);
+			}
+		}
+		for (auto const& task : running)
+			task->m_task->onCancel();
+	}
+	catch (...) // NOSONAR cpp:S2486 - destructor; an escaping exception would terminate the process
+	{
+		// allocation failed: fall through to the plain wait, as if no stop had been requested
+	}
+
 	suspend(true);
 
 	// all threads should now be idle
@@ -352,7 +386,7 @@ ThreadPool::~ThreadPool()
 		for (ThreadSet::iterator it = m_threads.begin(); it != m_threads.end(); ++it)
 			delete *it;
 	}
-	catch (...)
+	catch (...) // NOSONAR cpp:S2486 - destructor; an escaping exception would terminate the process
 	{
 		// nothing much we can do about this...
 	}
@@ -464,6 +498,7 @@ void ThreadPool::setPoolSize(unsigned int poolsize)
 /*! \brief Return the number of threads in the pool */
 unsigned int ThreadPool::poolSize() const
 {
+	Lock safety(&m_safe);
 	return (unsigned int) m_threads.size();
 }
 
@@ -496,8 +531,7 @@ std::shared_ptr<PooledTask> ThreadPool::findTask(ThreadPool::TaskId id)
 XsThreadId ThreadPool::taskThreadId(TaskId id)
 {
 	Lock safety(&m_safe);
-	TaskSet::iterator it = m_executing.find(id);
-	if (it != m_executing.end())
+	if (TaskSet::iterator it = m_executing.find(id); it != m_executing.end())
 		return it->second->m_threadId;
 	return 0;
 }
@@ -509,44 +543,23 @@ bool ThreadPool::doesTaskExist(ThreadPool::TaskId id)
 	return findTask(id) != nullptr;
 }
 
-/*! \brief Remove the task with the supplied \a id if it exists, waits for the task to be finished
+/*! \brief Cancels the task with the supplied \a id if it exists, waits for the task to be finished (if it was executing)
 */
 void ThreadPool::cancelTask(ThreadPool::TaskId id, bool wait) noexcept
 {
 	Lock safety(&m_safe);
-	TaskSet::iterator it = m_executing.find(id);
-	if (it != m_executing.end())
-	{
-		it->second->m_canceling = true;
-		safety.unlock();
-		if (wait)
-			waitForCompletion(id);
+	const bool executing = (m_executing.find(id) != m_executing.end());	// NOSONAR cpp:S6171 - map::contains is C++20; the published xspublic sources build with -std=c++17
+	std::shared_ptr<PooledTask> task = findTask(id);
+	if (!task)
 		return;
-	}
 
-	it = m_delaying.find(id);
-	if (it != m_delaying.end())
-	{
-		reportTaskComplete(it->second);
-		m_delaying.erase(it);
-	}
+	// Set under m_safe: getNextTask() dequeues under it, so a queued task can't start without seeing the flag
+	task->m_canceling = true;
+	safety.unlock();
 
-	it = m_tasksSearch.find(id);
-	if (it != m_tasksSearch.end())
-	{
-		reportTaskComplete(it->second);
-		m_tasksSearch.erase(it);
-	}
-
-	for (auto tskIt = m_tasks.begin(); tskIt != m_tasks.end(); ++tskIt)
-	{
-		if ((*tskIt)->m_id == id)
-		{
-			reportTaskComplete(*tskIt);
-			m_tasks.erase(tskIt);
-			return;
-		}
-	}
+	task->m_task->onCancel();	// outside the lock: it may run std::stop_callback handlers
+	if (executing && wait)
+		task->waitForCompletion();
 }
 
 /*! \brief Wait for the task with the given ID to complete
@@ -614,13 +627,11 @@ void ThreadPool::reportTaskPaused(std::shared_ptr<PooledTask> task)
 	Lock safety(&m_safe);
 
 	// remove task from 'executing' list
-	TaskSet::iterator it = m_executing.find(task->m_id);
-	if (it != m_executing.end())
+	if (TaskSet::iterator it = m_executing.find(task->m_id); it != m_executing.end())
 		m_executing.erase(it);
 
 	// add task back into either the delaying list if it should wait for something
-	unsigned int waitForId = task->m_task->needToWaitFor();
-	if (waitForId)
+	if (unsigned int waitForId = task->m_task->needToWaitFor(); waitForId != 0)
 	{
 		std::shared_ptr<PooledTask> after = findTask(waitForId);
 		if (after)
@@ -648,10 +659,12 @@ void ThreadPool::suspend(bool wait) noexcept
 
 	if (wait)
 	{
+		// Wait on a snapshot: busy threads need m_safe to report completion, so it can't be held while waiting
+		const std::vector<PooledThread*> threads(m_threads.begin(), m_threads.end());
 		safety.unlock();
 
-		for (ThreadSet::const_iterator it = m_threads.begin(); it != m_threads.end(); ++it)
-			while ((*it)->isBusy())
+		for (const PooledThread* thread : threads)
+			while (thread->isBusy())
 				xsYield();
 	}
 }
@@ -669,6 +682,7 @@ void ThreadPool::resume()
 */
 unsigned int ThreadPool::executedCount(unsigned int thread) const
 {
+	Lock safety(&m_safe);
 	unsigned int i = 0;
 	for (ThreadSet::const_iterator it = m_threads.begin(); it != m_threads.end(); ++it, ++i)
 		if (i == thread)
@@ -680,6 +694,7 @@ unsigned int ThreadPool::executedCount(unsigned int thread) const
 */
 unsigned int ThreadPool::completedCount(unsigned int thread) const
 {
+	Lock safety(&m_safe);
 	unsigned int i = 0;
 	for (ThreadSet::const_iterator it = m_threads.begin(); it != m_threads.end(); ++it, ++i)
 		if (i == thread)
@@ -691,6 +706,7 @@ unsigned int ThreadPool::completedCount(unsigned int thread) const
 */
 unsigned int ThreadPool::failedCount(unsigned int thread) const
 {
+	Lock safety(&m_safe);
 	unsigned int i = 0;
 	for (ThreadSet::const_iterator it = m_threads.begin(); it != m_threads.end(); ++it, ++i)
 		if (i == thread)
@@ -698,25 +714,47 @@ unsigned int ThreadPool::failedCount(unsigned int thread) const
 	return 0;
 }
 
-ThreadPool* gPool = NULL;
-bool gManagePool = true;
+namespace
+{
+std::atomic<ThreadPool*> gPool = nullptr;	//!< The pool instance() returns. Atomic so instance() can read it without poolMutex(), which guards every write
+bool gManagePool = true;	//!< Guarded by poolMutex()
+
+/*! \brief Guards creation, replacement and destruction of gPool. Never destroyed, so destroy() stays usable from other static destructors.
+	\details An xsens::Mutex, not a std::mutex: a std::mutex compiled with MSVC 17.10+ crashes on an older
+	msvcp140.dll, such as the VC++ runtime the MVN installer ships.
+*/
+Mutex& poolMutex()
+{
+	union NeverDestroyed
+	{
+		Mutex mutex;
+		NeverDestroyed() : mutex() {}
+		~NeverDestroyed() { /* Intentionally leaves mutex alive: static destruction order across translation units is unspecified. */ }
+	};
+	static NeverDestroyed holder;
+	return holder.mutex;
+}
+}
 
 /*! \brief Return the global thread pool object, it will be created if it did not yet exist */
 ThreadPool* ThreadPool::instance() noexcept
 {
-	if (gPool)
-		return gPool;
+	if (ThreadPool* pool = gPool.load(); pool != nullptr)
+		return pool;
 	try
 	{
-		gPool = new ThreadPool;
-		gManagePool = true;
+		Lock lock(&poolMutex());
+		if (gPool.load() == nullptr)
+		{
+			gPool.store(new ThreadPool);
+			gManagePool = true;
+		}
 	}
 	catch (...)
 	{
-		gPool = nullptr;
-		gManagePool = false;
+		return nullptr;
 	}
-	return gPool;
+	return gPool.load();
 }
 
 /*! \brief Destroy the global thread pool object
@@ -727,31 +765,36 @@ ThreadPool* ThreadPool::instance() noexcept
 */
 void ThreadPool::destroy()
 {
-	if (gPool && gManagePool)
-		delete gPool;
-	gPool = NULL;
+	Lock lock(&poolMutex());
+	// Unpublish before deleting: ~ThreadPool runs onCancel() callbacks, which may call instance() or destroy()
+	ThreadPool* pool = gPool.exchange(nullptr);
+	const bool managed = gManagePool;
 	gManagePool = true;
+	if (pool != nullptr && managed)
+		delete pool;
 }
 
 /*! \brief Set the threadpool to use
 	\details This function allows the user to supply his own ThreadPool object to be used
 	by all subsequent operations. If another pool was created by this library, it will be
 	destroyed.
-	\param pool The new threadpool object to use. If NULL is supplied, it is simply destroyed
+	\param pool The new threadpool object to use. If nullptr is supplied, it is simply destroyed
 	or stopped from being used.
 	\sa destroy
 */
 void ThreadPool::setPool(ThreadPool* pool)
 {
-	if (pool != gPool)
-	{
-		destroy();
-		if (pool)
-		{
-			gPool = pool;
-			gManagePool = false;
-		}
-	}
+	Lock lock(&poolMutex());
+	ThreadPool* current = gPool.load();
+	if (pool == current)
+		return;
+
+	// Same as destroy(), which can't be called here because it takes the same lock; unpublish first for the same reason
+	const bool managed = gManagePool;
+	gPool.store(pool);
+	gManagePool = (pool == nullptr);
+	if (current != nullptr && managed)
+		delete current;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -785,8 +828,7 @@ TaskCompletionWaiter::TaskCompletionWaiter(const std::list<unsigned int>& waitli
 {}
 
 /*! \brief Destructor */
-TaskCompletionWaiter::~TaskCompletionWaiter()
-{}
+TaskCompletionWaiter::~TaskCompletionWaiter() = default;
 
 /*! \brief task function, checks if there are tasks left that we should be waiting for
 	\details The function returns false if at least one of the wait tasks still exists

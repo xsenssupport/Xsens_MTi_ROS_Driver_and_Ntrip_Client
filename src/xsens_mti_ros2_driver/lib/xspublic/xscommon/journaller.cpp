@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -37,6 +37,7 @@
 
 #include <map>
 #include <fstream>
+#include <cstdio>		// std::remove
 #include <xstypes/xstime.h>
 #include <xstypes/pstdint.h>	// for PRINTF_INT64_MODIFIER
 #include <xstypes/xsthread.h>	// for xsGetCurrentThreadId
@@ -49,7 +50,7 @@
 #endif
 
 //! \brief The optional additional logger
-AbstractAdditionalLogger* Journaller::m_additionalLogger = nullptr;
+std::atomic<AbstractAdditionalLogger*> Journaller::m_additionalLogger{nullptr};
 
 inline int threadId()
 {
@@ -71,9 +72,9 @@ inline int threadId()
 */
 
 #if __GNUC__ >= 6
-	// Ignore warning: nonnull argument ‘this’ compared to NULL [-Wnonnull-compare]
+	// Ignore warning: nonnull argument ‘this’ compared to nullptr [-Wnonnull-compare]
 	// This happens for the JL macro's which here have a this argument, which is always nonnull
-	// In the macros we compare this to NULL, which is now a warning in GCC6
+	// In the macros we compare this to nullptr, which is now a warning in GCC6
 	// On other locations, we do not use this for the macro, hence the warning does not show there
 	#pragma GCC diagnostic push
 	#pragma GCC diagnostic ignored "-Wnonnull-compare"
@@ -82,7 +83,7 @@ inline int threadId()
 /*! \brief Constructor
 	\details The constructor configures the object to use the specified file. If it is already open by
 	another Journaller object, the existing file is reused and it will not be purged.
-	\param pathfile The (path+) filename of the logfile to use
+	\param pathfile The (path+) filename of the logfile to use; pass an empty string for a console-only journaller (no file — output goes to the debug channel: stderr on POSIX, OutputDebugString on Windows)
 	\param purge Whether to clear the logfile or append when opening the file (default true)
 	\param initialLogLevel The initial log level to use (default JLL_Alert)
 */
@@ -91,24 +92,30 @@ Journaller::Journaller(const XsString& pathfile, bool purge, JournalLogLevel ini
 	, m_level(initialLogLevel)
 	, m_debugLevel(initialLogLevel)
 	, m_flushLevel(JLL_Alert)
-	, m_threader(new JournalThreader)
+	, m_threader(std::make_shared<JournalThreader>())
 	, m_useDateTime(false)
 {
 	init(pathfile, purge);
 }
 
 /*! \brief Destructor, detaches from the logfile and closes it if this was the last reference */
-Journaller::~Journaller()
-{
-}
+Journaller::~Journaller() = default;
 
-/*! \brief Initialize the Journaller by (re-)creating the internal journal file */
+/*! \brief Initialize the Journaller by (re-)creating the internal journal file
+	\details An empty \a pathfile creates a console-only journaller: no file is
+	opened and m_file stays null, so output goes solely to the debug channel
+	(stderr on POSIX, OutputDebugString on Windows). Useful as an always-available
+	default before a real log file is known.
+*/
 void Journaller::init(XsString const& pathfile, bool purge)
 {
 #ifdef ANDROID
 	setTag(tagFromFilename(pathfile.toStdString()));
 #endif
-	m_file.reset(new JournalFile(pathfile, purge));
+	if (pathfile.empty())
+		m_file.reset();
+	else
+		m_file.reset(new JournalFile(pathfile, purge));
 }
 
 /*! \returns The tag string made from file name
@@ -116,7 +123,7 @@ void Journaller::init(XsString const& pathfile, bool purge)
 	need a tag set.
 	\param fn The file name string
 */
-std::string Journaller::tagFromFilename(const std::string& fn)
+std::string Journaller::tagFromFilename(const std::string& fn) // NOSONAR cpp:S6009 - public signature consumed by sibling repos; xscommon CI cannot verify them
 {
 	const size_t b = fn.find_last_of("/") + 1;
 	const size_t l = fn.find_first_of(".");
@@ -139,7 +146,7 @@ void Journaller::setUseDateTime(bool yes)
 */
 void Journaller::setAdditionalLogger(AbstractAdditionalLogger* additionallogger)
 {
-	m_additionalLogger = additionallogger;
+	m_additionalLogger.store(additionallogger);
 }
 
 /*! \brief A list of strings representing the different log levels, use JournalLogLevel to index */
@@ -150,15 +157,45 @@ static const char* gLogLevelString[] =
 	"[ALERT] ",
 	"[ERROR] ",
 	"[FATAL] ",
-	"[WRITE] "
+	"[WRITE] ",
+	"[OFF]   "	// JLL_Disable (index 6): keeps the table in sync with the enum so set{Log,Debug,Flush}Level(JLL_Disable, true) does not read out of bounds
 };
+
+/*! \brief \returns The display string for \a level
+	\details Never index gLogLevelString with a JournalLogLevel directly. On Android
+	journalloglevel.h defines the levels as Android log priorities — JLL_Trace is
+	ANDROID_LOG_VERBOSE (2) and JLL_Write is ANDROID_LOG_SILENT (8) — so the enum values run
+	past the end of a seven-entry table. Indexing it there is an out-of-bounds read that
+	yields a garbage pointer; the first thing to touch it (std::string, strlen) crashes.
+	Mapping explicitly keeps both platforms correct and the table itself unchanged.
+*/
+static const char* logLevelString(JournalLogLevel level)
+{
+#ifdef ANDROID
+	switch (level)
+	{
+		case JLL_Trace:		return gLogLevelString[0];
+		case JLL_Debug:		return gLogLevelString[1];
+		case JLL_Alert:		return gLogLevelString[2];
+		case JLL_Error:		return gLogLevelString[3];
+		case JLL_Fatal:		return gLogLevelString[4];
+		case JLL_Write:		return gLogLevelString[5];
+		case JLL_Disable:	return gLogLevelString[6];
+		default:			return "[?????] ";
+	}
+#else
+	if (level < JLL_Trace || level > JLL_Disable)
+		return "[?????] ";
+	return gLogLevelString[level];
+#endif
+}
 
 /*! \brief Write a header for the log file including some meta-data about the journaller
 */
 void Journaller::writeFileHeader(const std::string& appName)
 {
 	m_appName = appName;
-	JLWRITE(this, "Journaller logging to " << m_file->filename() << (appName.empty() ? XsString() : XsString(" for ") + appName) << " on " << XsTimeStamp::now().toString());
+	JLWRITE(this, "Journaller logging to " << (m_file ? m_file->filename() : XsString("<console>")) << (appName.empty() ? XsString() : XsString(" for ") + appName) << " on " << XsTimeStamp::now().toString());
 }
 
 /*! \brief Write a log message to the file if \a level is at least equal to the current log level
@@ -168,11 +205,26 @@ void Journaller::writeFileHeader(const std::string& appName)
 */
 void Journaller::log(JournalLogLevel level, const std::string& msg)
 {
-#ifdef ANDROID
-	__android_log_write(level, tag().c_str(), msg.c_str());
-#else
+	// The level filter runs first on EVERY platform, Android included. Android used to
+	// write to logcat above this check and then return, which cost twice:
+	//  - a Journaller constructed with a filename wrote nothing to that file, so -logfile
+	//    produced a zero-byte log. That silently blinded the unit-test harness, which
+	//    routes all captured output through the logger once one is installed (see
+	//    xee_core/test/startlogger.cpp) — no way to see whether the suites had passed.
+	//  - every message reached logcat whatever the configured level, so trace-level
+	//    logging in a hot path was paid for in full even when switched off. On device
+	//    that is a real cost: __android_log_write is a syscall-backed write per line.
+	// Filtering first fixes both and makes the levels mean the same thing everywhere.
 	if (level < m_level && level < m_debugLevel)
 		return;
+
+#ifdef ANDROID
+	// Mirror to logcat, which is where an Android app's diagnostics are normally read,
+	// and then fall through to the normal file write. Writing the file as well costs
+	// nothing when there is no file (m_file null keeps the old console behaviour) and
+	// makes -logfile mean the same thing on Android as everywhere else.
+	__android_log_write(level, tag().c_str(), msg.c_str());
+#endif
 
 	m_threader->setLineLevel(threadId(), level);
 	writeTime();
@@ -185,7 +237,6 @@ void Journaller::log(JournalLogLevel level, const std::string& msg)
 	writeMessage(std::string("\n"));
 	if (level >= m_flushLevel)
 		flush();
-#endif
 }
 
 /*! \brief Write the current time to the file */
@@ -196,7 +247,7 @@ void Journaller::writeTime()
 	{
 		// when using timestamp format we use UTC time!
 		char timebuf[32];
-		sprintf(timebuf, "%10" PRINTF_INT64_MODIFIER "d.%03d ", ts.secondTime(), (int) ts.milliSecondPart());
+		snprintf(timebuf, sizeof(timebuf), "%10" PRINTF_INT64_MODIFIER "d.%03d ", ts.secondTime(), (int) ts.milliSecondPart()); // NOSONAR cpp:S6494 - <format> is unavailable on the gcc-12 AArch64 leg this repo's CI builds
 		writeMessage(timebuf);
 	}
 	else
@@ -211,9 +262,9 @@ void Journaller::writeThread()
 {
 	char buf[32];
 #ifdef __GNUC__
-	sprintf(buf, "<%08X> ", (unsigned int) threadId());
+	snprintf(buf, sizeof(buf), "<%08X> ", (unsigned int) threadId());
 #else
-	sprintf(buf, "<%04X> ", (unsigned int) threadId());
+	snprintf(buf, sizeof(buf), "<%04X> ", (unsigned int) threadId()); // NOSONAR cpp:S6494 - <format> is unavailable on the gcc-12 AArch64 leg this repo's CI builds
 #endif
 	writeMessage(buf);
 }
@@ -232,7 +283,7 @@ void Journaller::writeTag()
 */
 void Journaller::writeLevel(JournalLogLevel level)
 {
-	writeMessage(std::string(gLogLevelString[level]));
+	writeMessage(std::string(logLevelString(level)));
 }
 
 /*! \brief Write \a msg to the file without decoration or added newline
@@ -241,7 +292,7 @@ void Journaller::writeLevel(JournalLogLevel level)
 	outputs when the end of \a msg is a newline character, otherwise it will queue \a msg to be
 	written later. If \a msg is empty, the currently queued data is written immediately
 */
-void Journaller::writeMessage(const std::string& msg)
+void Journaller::writeMessage(const std::string& msg) // NOSONAR cpp:S6009 - msg is queued for later writing, so a string_view parameter would dangle
 {
 	if (msg.empty())
 	{
@@ -264,7 +315,10 @@ void Journaller::flushLine()
 	JournalLogLevel lineLevel = m_threader->lineLevel(thread);
 	if (!line.empty())
 	{
-		if (lineLevel >= m_level)
+		// A console-only journaller (null m_file) writes solely through the debug
+		// channel below; guard the file branch so its line is not emitted to the
+		// debug output twice (writeLine(nullptr) is the debug output).
+		if (m_file && lineLevel >= m_level)
 			m_threader->writeLine(thread, m_file.get());
 		if (lineLevel > m_debugLevel)
 			m_threader->writeLine(thread, nullptr);
@@ -287,7 +341,7 @@ void Journaller::setFlushLevel(JournalLogLevel level, bool writeLogLine)
 {
 	m_flushLevel = level;
 	if (writeLogLine)
-		JLGENERIC(this, JLL_Write, "Flush level switched to " << gLogLevelString[m_flushLevel]);
+		JLGENERIC(this, JLL_Write, "Flush level switched to " << logLevelString(m_flushLevel));
 }
 
 /*! \brief Write the current callstack to the file if \a level is at least equal to the current log level
@@ -312,7 +366,7 @@ void Journaller::setLogLevel(JournalLogLevel level, bool writeLogLine)
 {
 	m_level = level;
 	if (writeLogLine)
-		JLGENERIC(this, JLL_Write, "Log level set to " << gLogLevelString[level]);
+		JLGENERIC(this, JLL_Write, "Log level set to " << logLevelString(level));
 }
 
 /*! \brief Set the log level for logging to debug output
@@ -324,18 +378,18 @@ void Journaller::setDebugLevel(JournalLogLevel level, bool writeLogLine)
 {
 	m_debugLevel = level;
 	if (writeLogLine)
-		JLGENERIC(this, JLL_Write, "Debugger output log level set to " << gLogLevelString[level]);
+		JLGENERIC(this, JLL_Write, "Debugger output log level set to " << logLevelString(level));
 }
 
-/*! \brief Returns the filename of the used journal file */
-const XsString Journaller::filename() const
+/*! \brief Returns the filename of the used journal file, or an empty string for a console-only journaller */
+XsString Journaller::filename() const
 {
-	return m_file->filename();
+	return m_file ? m_file->filename() : XsString();
 }
 
 /*! \brief Set a tag to be added before the log level tag in each log file
 */
-void Journaller::setTag(const std::string& tag)
+void Journaller::setTag(const std::string& tag) // NOSONAR cpp:S6009 - false positive: tag is stored into the std::string member m_tag, so a view buys nothing and risks dangling
 {
 	m_tag = tag;
 }
@@ -353,7 +407,7 @@ std::string Journaller::tag() const
 }
 
 template <>
-std::ostream& operator << (std::ostream& os, JlHexLogger<char> const& hex)
+std::ostream& operator << (std::ostream& os, JlHexLogger<char> const& hex) // NOSONAR cpp:S2807 - explicit template specialisation; a hidden friend would change the public shape of JlHexLogger
 {
 	return os << JlHexLogger<int>((int) hex.m_value);
 }
@@ -404,7 +458,7 @@ void Journaller::moveLogFile(const XsString& pathfile, bool purge, bool eraseOld
 	if (!oldFileName.empty())
 	{
 		if (eraseOld)
-			_unlink(oldFileName.c_str());
+			std::remove(oldFileName.c_str());
 		JLDEBUG(this, "Switched from " << oldFileName << " to " << pathfile);
 	}
 	else
@@ -448,7 +502,7 @@ void Journaller::moveLogs(Journaller* target, bool eraseOld)
 	if (!oldFileName.empty())
 	{
 		if (eraseOld)
-			_unlink(oldFileName.c_str());
+			std::remove(oldFileName.c_str());
 		JLDEBUG(target, "************ Moved logs from " << oldFileName);
 	}
 }

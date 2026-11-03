@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -59,7 +59,7 @@
 /*! Default constructor, initializes all members to their default values.
 */
 IoInterfaceFile::IoInterfaceFile()
-	: m_handle(NULL)
+	: m_handle(nullptr)
 	, m_fileSize(0)
 	, m_readPos(0)
 	, m_writePos(0)
@@ -129,7 +129,7 @@ XsResultValue IoInterfaceFile::closeFile()
 		m_handle->close();
 
 		delete m_handle;
-		m_handle = NULL;
+		m_handle = nullptr;
 	}
 
 	m_readPos = 0;
@@ -157,7 +157,7 @@ XsResultValue IoInterfaceFile::closeAndDelete()
 			m_lastResult = XsFile::erase(m_filename);
 
 		delete m_handle;
-		m_handle = NULL;
+		m_handle = nullptr;
 	}
 	else
 		m_lastResult = XRV_NOFILEOPEN;
@@ -185,7 +185,7 @@ XsResultValue IoInterfaceFile::create(const XsString& filename)
 	if (m_lastResult != XRV_OK)
 	{
 		delete m_handle;
-		m_handle = NULL;
+		m_handle = nullptr;
 		return m_lastResult;
 	}
 
@@ -196,7 +196,7 @@ XsResultValue IoInterfaceFile::create(const XsString& filename)
 		m_handle->close();
 		XsFile::erase(m_filename);
 		delete m_handle;
-		m_handle = NULL;
+		m_handle = nullptr;
 
 		return m_lastResult = XRV_INVALIDPARAM;
 	}
@@ -525,19 +525,19 @@ XsResultValue IoInterfaceFile::open(const XsString& filename, bool createNew, bo
 	if (localResult != XRV_OK)
 	{
 		delete m_handle;
-		m_handle = NULL;
+		m_handle = nullptr;
 		return m_lastResult = XRV_INPUTCANNOTBEOPENED;	// overrides a possible OUTPUTCANNOTBEOPENED
 	}
 
 	bool fail = false;
 #ifdef _WIN32
 	wchar_t fullpath[XS_MAX_FILENAME_LENGTH];
-	if (_wfullpath(fullpath, filename.toStdWString().c_str(), XS_MAX_FILENAME_LENGTH) == NULL)
+	if (_wfullpath(fullpath, filename.toStdWString().c_str(), XS_MAX_FILENAME_LENGTH) == nullptr)
 		fail = true;
 #else
 	// use the same trick again.
 	char fullpath[XS_MAX_FILENAME_LENGTH * 2];
-	if (realpath(filename.c_str(), fullpath) == NULL)
+	if (realpath(filename.c_str(), fullpath) == nullptr)
 		fail = true;
 #endif
 	m_filename = XsString(fullpath);
@@ -546,7 +546,7 @@ XsResultValue IoInterfaceFile::open(const XsString& filename, bool createNew, bo
 	{
 		m_handle->close();
 		delete m_handle;
-		m_handle = NULL;
+		m_handle = nullptr;
 		return m_lastResult = XRV_INVALIDPARAM;
 	}
 
@@ -783,7 +783,7 @@ XsResultValue IoInterfaceFile::getLastResult() const
 */
 bool IoInterfaceFile::isOpen() const
 {
-	return m_handle != NULL;
+	return m_handle != nullptr;
 }
 
 /*! \brief Return whether the file is read-only or not.

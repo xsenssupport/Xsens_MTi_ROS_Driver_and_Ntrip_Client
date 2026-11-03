@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -62,22 +62,13 @@ struct XsPressure
 	/*! \brief Create a new XsPressure as copy from \a other
 		\param other the pressure carrier to copy from
 	*/
-	inline XsPressure(XsPressure const& other) :
-		m_pressure(other.m_pressure),
-		m_pressureAge(other.m_pressureAge)
-	{
-	}
+	inline XsPressure(XsPressure const& other) = default;
 
 	/*! \brief Copy the data from \a other
 		\param other the pressure carrier to copy from
 		\return this
 	*/
-	inline XsPressure const& operator=(XsPressure const& other)
-	{
-		m_pressure = other.m_pressure;
-		m_pressureAge = other.m_pressureAge;
-		return *this;
-	}
+	inline XsPressure& operator=(XsPressure const& other) = default;
 
 	/*! \brief Return true if this is equal to \a other
 		\param other the pressure carrier to compare against

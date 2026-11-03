@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -67,7 +67,6 @@ void XsMatrix_ref(XsMatrix* thisPtr, XsSize rows, XsSize cols, XsSize stride, Xs
 /*! \relates XsMatrix \brief Init the %XsMatrix and copy the data from \a src into the matrix if \a src is not null */
 void XsMatrix_construct(XsMatrix* thisPtr, XsSize rows, XsSize cols, XsSize stride, const XsReal* src, XsSize srcStride)
 {
-	XsSize r;
 	XsSize size = rows * stride;
 
 	if (stride == 0)
@@ -96,7 +95,7 @@ void XsMatrix_construct(XsMatrix* thisPtr, XsSize rows, XsSize cols, XsSize stri
 			memcpy(thisPtr->m_data, src, size * sizeof(XsReal));
 		else
 		{
-			for (r = 0; r < rows; ++r)
+			for (XsSize r = 0; r < rows; ++r)
 			{
 #if XSREAL_ALLOWS_MEMCPY
 				memcpy(thisPtr->m_data + r * stride, src + r * srcStride, cols * sizeof(XsReal));
@@ -113,7 +112,6 @@ void XsMatrix_construct(XsMatrix* thisPtr, XsSize rows, XsSize cols, XsSize stri
 /*! \relates XsMatrix \brief Init the %XsMatrix and copy the data from \a src into the matrix if \a src is not null */
 void XsMatrix_assign(XsMatrix* thisPtr, XsSize rows, XsSize cols, XsSize stride, const XsReal* src, XsSize srcStride)
 {
-	XsSize r;
 	XsSize size = rows * stride;
 
 	if (thisPtr->m_flags & XSDF_FixedSize)
@@ -168,7 +166,7 @@ void XsMatrix_assign(XsMatrix* thisPtr, XsSize rows, XsSize cols, XsSize stride,
 			memcpy(thisPtr->m_data, src, size * sizeof(XsReal));
 		else
 		{
-			for (r = 0; r < rows; ++r)
+			for (XsSize r = 0; r < rows; ++r)
 			{
 #if XSREAL_ALLOWS_MEMCPY
 				memcpy(thisPtr->m_data + r * stride, src + r * srcStride, cols * sizeof(XsReal));
@@ -220,8 +218,7 @@ void XsMatrix_setZero(XsMatrix* thisPtr)
 		memset(thisPtr->m_data, 0, sizeof(XsReal)*thisPtr->m_rows * thisPtr->m_cols);
 	else
 	{
-		XsSize r;
-		for (r = 0; r < thisPtr->m_rows; ++r)
+		for (XsSize r = 0; r < thisPtr->m_rows; ++r)
 			memset(thisPtr->m_data + r * thisPtr->m_stride, 0, sizeof(XsReal) * thisPtr->m_cols);
 	}
 #else
@@ -244,11 +241,11 @@ int XsMatrix_empty(const XsMatrix* thisPtr)
 */
 void XsMatrix_multiplyScalar(const XsMatrix* thisPtr, XsReal scalar, XsMatrix* dest)
 {
-	XsSize r, c, stride = thisPtr->m_stride, stride2;
+	XsSize stride = thisPtr->m_stride, stride2;
 	XsMatrix_assign(dest, thisPtr->m_rows, thisPtr->m_cols, 0, 0, 0);
 	stride2 = dest->m_stride;
-	for (r = 0; r < thisPtr->m_rows; ++r)
-		for (c = 0; c < thisPtr->m_cols; ++c)
+	for (XsSize r = 0; r < thisPtr->m_rows; ++r)
+		for (XsSize c = 0; c < thisPtr->m_cols; ++c)
 			dest->m_data[r * stride2 + c] = thisPtr->m_data[r * stride + c] * scalar;
 }
 
@@ -355,14 +352,13 @@ void XsMatrix_swap(XsMatrix* a, XsMatrix* b)
 	}
 	else
 	{
-		XsSize r, c;
 		XsReal v;
 		assert(a->m_data && b->m_data && a->m_rows == b->m_rows && a->m_cols == b->m_cols);
-		for (r = 0; r < a->m_rows; ++r)
+		for (XsSize r = 0; r < a->m_rows; ++r)
 		{
 			XsReal* aa = a->m_data + r * a->m_stride;
 			XsReal* bb = b->m_data + r * b->m_stride;
-			for (c = 0; c < a->m_cols; ++c, ++aa, ++bb)
+			for (XsSize c = 0; c < a->m_cols; ++c, ++aa, ++bb)
 			{
 				v = *aa;
 				*aa = *bb;

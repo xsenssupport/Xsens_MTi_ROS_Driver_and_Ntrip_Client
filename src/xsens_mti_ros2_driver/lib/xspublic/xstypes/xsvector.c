@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -156,11 +156,10 @@ void XsVector_copy(XsVector* copy, XsVector const* src)
 */
 XsReal XsVector_dotProduct(const XsVector* a, const XsVector* b)
 {
-	XsSize i;
 	XsReal r = XsMath_zero;
 	assert(a->m_size == b->m_size);
 
-	for (i = a->m_size; i--;)
+	for (XsSize i = a->m_size; i--;)
 		r += a->m_data[i] * b->m_data[i];
 	return r;
 }
@@ -205,8 +204,7 @@ void XsVector_setZero(XsVector* thisPtr)
 //! \relates XsVector \brief Sets all elements of the %XsVector to \a value
 void XsVector_fill(struct XsVector* thisPtr, XsReal value)
 {
-	XsSize i;
-	for (i = 0; i < thisPtr->m_size; ++i)
+	for (XsSize i = 0; i < thisPtr->m_size; ++i)
 		thisPtr->m_data[i] = value;
 }
 
@@ -219,9 +217,8 @@ int XsVector_empty(const XsVector* thisPtr)
 //! \relates XsVector \brief Multiplies all values in this XsVector by \a scalar and puts the result in XsVector \a dest
 void XsVector_multiplyScalar(const XsVector* thisPtr, XsReal scalar, XsVector* dest)
 {
-	XsSize i;
 	XsVector_assign(dest, thisPtr->m_size, 0);
-	for (i = 0; i < thisPtr->m_size; ++i)
+	for (XsSize i = 0; i < thisPtr->m_size; ++i)
 		dest->m_data[i] = thisPtr->m_data[i] * scalar;
 }
 
@@ -276,7 +273,9 @@ int XsVector_equal(const struct XsVector* a, const struct XsVector* b)
 		return 0;
 	if (a->m_size != b->m_size)
 		return 0;
-	return memcmp(a->m_data, b->m_data, a->m_size * sizeof(XsReal)) == 0;	//lint !e2499 memcmp is a perfect comparison here
+	// Bitwise comparison is intended here: this is an exact-equality test, not a
+	// tolerance-based one, so memcmp is the right operation on the XsReal array.
+	return memcmp(a->m_data, b->m_data, a->m_size * sizeof(XsReal)) == 0;
 }
 
 /*! \relates XsVector
@@ -288,8 +287,6 @@ int XsVector_equal(const struct XsVector* a, const struct XsVector* b)
 */
 int XsVector_compare(const struct XsVector* thisPtr, const struct XsVector* thatPtr, XsReal epsilon)
 {
-	XsSize i;
-
 	if (thisPtr == thatPtr)
 		return 1;
 	if (!thisPtr || !thatPtr)
@@ -301,7 +298,7 @@ int XsVector_compare(const struct XsVector* thisPtr, const struct XsVector* that
 	if (thisPtr->m_size != thatPtr->m_size)
 		return 0;
 
-	for (i = 0; i < thisPtr->m_size; ++i)
+	for (XsSize i = 0; i < thisPtr->m_size; ++i)
 #ifdef XSENS_SINGLE_PRECISION
 		if (fabsf(thisPtr->m_data[i] - thatPtr->m_data[i]) > epsilon)
 #else

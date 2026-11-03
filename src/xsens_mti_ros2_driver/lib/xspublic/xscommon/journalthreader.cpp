@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -32,28 +32,94 @@
 
 #include "journalthreader.h"
 #include "journalfile.h"
+#include "journaller.h"
 
 #ifndef XSENS_WINDOWS
+#include <atomic>
+#include <cstring>
+#include <unistd.h>
+
+//! Descriptor the debug channel writes to; -1 means the default, stderr. \sa journalSetDebugChannelFd
+static std::atomic<int> g_debugChannelFd{-1};
+
 static void OutputDebugStringA(const char* msg)
 {
+	// write() rather than fprintf() when redirected: no FILE buffering to flush, which also
+	// means a crash handler's last lines still make it out.
+	if (int fd = g_debugChannelFd.load(); fd >= 0)
+	{
+		[[maybe_unused]] auto written = ::write(fd, msg, std::strlen(msg));
+		return;
+	}
 	(void)fprintf(stderr, "%s", msg);
 }
 #endif
+
+void journalSetDebugChannelFd(int fd)
+{
+#ifndef XSENS_WINDOWS
+	g_debugChannelFd.store(fd);
+#else
+	(void)fd;
+#endif
+}
+
+#ifndef XSENS_WINDOWS
+/*! \brief Weak default for xsens_unittest's "stdout/stderr are now captured" hook.
+
+	Every Journaller-backed test library needs the same thing here, and a library that forgets
+	it hangs its Linux and AArch64 test jobs (#4117) - so supply it centrally instead of
+	waiting for each one to be visited.
+
+	Why this is reliable rather than a coin toss on link order. The definition lives in THIS
+	translation unit on purpose: any link that constructs a Journaller pulls journalthreader
+	in, because JournalThreader is a Journaller member - so what decides the outcome is
+	inclusion, not archive order. xsens_unittest's own default sits in an archive member that
+	the linker pulls only to resolve an otherwise-undefined symbol, and this definition has
+	already resolved it, so that member is never pulled. Weak, so a test library that wants
+	different behaviour still wins with a plain definition of its own (mvn's xme_test has one,
+	doing exactly this).
+
+	POSIX only, for two reasons: the Windows debug channel is OutputDebugString, so there is
+	nothing to move, and MSVC has no weak functions - two strong definitions would be a
+	duplicate-symbol error rather than an override.
+
+	A test library that links xscommon but never constructs a Journaller may not pull this TU
+	at all; xsens_unittest's no-op default then applies, which is correct - with no Journaller
+	there is no loop to break.
+*/
+__attribute__((weak)) void xsensUnitTestLogRedirectReady(int consoleStdoutFd, int consoleStderrFd)
+{
+	(void)consoleStdoutFd;
+	journalUseConsoleStderrFd(consoleStderrFd);
+}
+#endif
+
+void journalUseConsoleStderrFd(int consoleStderrFd)
+{
+#ifdef XSENS_WINDOWS
+	(void)consoleStderrFd;
+#else
+	if (consoleStderrFd < 0)
+		return;
+	// dup() so the channel outlives the descriptor the test runner owns: it closes that one
+	// during teardown while other threads may still be logging. One descriptor for the rest
+	// of the process; the OS reclaims it at exit.
+	if (int channelFd = ::dup(consoleStderrFd); channelFd >= 0)
+		journalSetDebugChannelFd(channelFd);
+#endif
+}
 
 /*! \class JournalThreader
 	\brief Manages threaded writes for the Journaller objects
 */
 
 /*! \brief Constructor, sets up the necessary structures for threaded logging */
-JournalThreader::JournalThreader()
-{
-}
+JournalThreader::JournalThreader() = default;
 
 /*! \brief Destructor, flushes all remaining data
 */
-JournalThreader::~JournalThreader()
-{
-}
+JournalThreader::~JournalThreader() = default;
 
 /*! \brief Flush all available non-empty lines to the supplied file, clearing lines as they are flushed
 	\param file The file to write to. Supply nullptr to write to the debug output
@@ -80,7 +146,7 @@ void JournalThreader::flushAll(JournalFile* file)
 */
 void JournalThreader::writeLine(int thread, JournalFile* file)
 {
-	ThreadLine& line = threadLine(thread);
+	const ThreadLine& line = threadLine(thread);
 	if (line.m_line.empty())
 		return;
 
@@ -108,7 +174,7 @@ JournalLogLevel JournalThreader::setLineLevel(int thread, JournalLogLevel level)
 */
 JournalLogLevel JournalThreader::lineLevel(int thread)
 {
-	ThreadLine& line = threadLine(thread);
+	const ThreadLine& line = threadLine(thread);
 	return line.m_level;
 }
 

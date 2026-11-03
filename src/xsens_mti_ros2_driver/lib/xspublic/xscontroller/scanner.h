@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -45,7 +45,7 @@
 struct XsIntArray;
 
 #ifdef _WIN32
-	#include <setupapi.h>
+	#include <SetupAPI.h>
 #endif
 
 class Scanner
@@ -59,7 +59,7 @@ public:
 		Scanner& scanner() const;
 	};
 
-	XsResultValue fetchBasicInfo(XsPortInfo& portInfo, uint32_t singleScanTimeout, bool detectRs485);
+	virtual XsResultValue fetchBasicInfo(XsPortInfo& portInfo, uint32_t singleScanTimeout, bool detectRs485, bool useTwoStopBits = false);
 	bool xsScanPort(XsPortInfo& portInfo, XsBaudRate baud, uint32_t singleScanTimeout, bool detectRs485);
 	virtual bool xsScanPorts(XsPortInfoArray& ports, XsBaudRate baudrate, uint32_t singleScanTimeout, bool ignoreNonXsensDevices, bool detectRs485);
 	bool xsFilterResponsiveDevices(XsPortInfoArray& ports, XsBaudRate baudrate, uint32_t singleScanTimeout, bool detectRs485);

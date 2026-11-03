@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -37,7 +37,6 @@
 	@{
 */
 
-//AUTO namespace xstypes {
 /*! \brief Synchronization line identifiers */
 enum XsSyncLine
 {
@@ -63,6 +62,5 @@ enum XsSyncLine
 };
 /*! @} */
 typedef enum XsSyncLine XsSyncLine;
-//AUTO }
 
 #endif

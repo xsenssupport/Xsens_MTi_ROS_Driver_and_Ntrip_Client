@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -49,7 +49,10 @@
 // so we need not to check the version (because we only support _MSC_VER >= 1100)!
 //#pragma once
 
-#include <windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+	#define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
+#endif
+#include <Windows.h>
 
 // special defines for VC5/6 (if no actual PSDK is installed):
 #if _MSC_VER < 1300
@@ -101,7 +104,7 @@ public:
 	};
 
 	StackWalker(int options = (int) OptionsAll, // 'int' is by design, to combine the enum-flags
-		LPCSTR szSymPath = NULL,
+		LPCSTR szSymPath = nullptr,
 		DWORD dwProcessId = GetCurrentProcessId(),
 		HANDLE hProcess = GetCurrentProcess());
 	StackWalker(DWORD dwProcessId, HANDLE hProcess);
@@ -119,9 +122,9 @@ public:
 	BOOL LoadModules();
 
 	BOOL ShowCallstack(HANDLE hThread = GetCurrentThread(),
-		const CONTEXT* context = NULL,
-		PReadProcessMemoryRoutine readMemoryFunction = NULL,
-		LPVOID pUserData = NULL  // optional to identify some data in the 'readMemoryFunction'-callback
+		const CONTEXT* context = nullptr,
+		PReadProcessMemoryRoutine readMemoryFunction = nullptr,
+		LPVOID pUserData = nullptr  // optional to identify some data in the 'readMemoryFunction'-callback
 	);
 
 protected:

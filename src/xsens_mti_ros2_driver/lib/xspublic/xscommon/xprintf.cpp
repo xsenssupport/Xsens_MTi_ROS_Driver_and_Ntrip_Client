@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -60,7 +60,7 @@ inline std::string _xprintf_ap(char const* fmt_str, va_list ap)
 	else
 	{
 		// fast buffer didn't work, but we now do know the size of our final string
-		std::unique_ptr<char[]> buffer(new char[(size_t)((ptrdiff_t)nResult + 1)]);
+		auto buffer = std::make_unique<char[]>((size_t)((ptrdiff_t)nResult + 1));
 		nResult = vsnprintf(buffer.get(), (size_t)((ptrdiff_t)nResult + 1), fmt_str, apc);
 
 		if (nResult < 0)

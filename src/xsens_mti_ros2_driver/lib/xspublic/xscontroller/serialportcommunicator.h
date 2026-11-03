@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -41,9 +41,13 @@ public:
 	static Communicator* construct();
 	SerialPortCommunicator();
 
+	void setUseTwoStopBits(bool useTwoStopBits);
+
 protected:
 	~SerialPortCommunicator();
 	std::shared_ptr<StreamInterface> createStreamInterface(const XsPortInfo& pi) override;
+
+	bool m_useTwoStopBits;	//!< When true, open serial ports with 2 stop bits (needed to detect the Awinda Station)
 };
 
 #endif

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -56,7 +56,8 @@ enum XsDeviceOptionFlag
 	XDOF_EnablePositionVelocitySmoother	= 0x00000800,	//!< When set to 1, the MTi will have Position/Velocity Smoother enabled. Only applicable to MTi-680
 	XDOF_EnableContinuousZRU			= 0x00001000,	//!< When set to 1, the MTi filter will perform continuous Zero Rotation Updates for gyroscope bias and noise.
 	XDOF_EnableRawGnssInputForwarding	= 0x00002000,	//!< When set to 1, the MTi will forward the raw input coming from the GNSS receiver encapsulated in an Xbus message.
-	XDOF_Reserved						= 0x00004000,	//!< Reserved for future use
+	XDOF_EnableFastInitialization		= 0x00004000,	//!< When set to 1, the MTi will boot without the 500ms timeout.
+	XDOF_Reserved						= 0x00008000,	//!< Reserved for future use
 
 	XDOF_None							= 0x00000000,	//!< When set to 1, disables all option flags.
 	XDOF_All							= 0x7FFFFFFF	//!< When set to 1, enables all option flags.

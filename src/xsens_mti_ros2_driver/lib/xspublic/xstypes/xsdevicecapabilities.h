@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -56,6 +56,7 @@ enum XsDeviceCapability
 	XDC_Ahrs		= 0x00000080,		//!<	Device is an AHRS.
 	XDC_GnssIns		= 0x00000100,		//!<	Device is a GNSS/INS.
 	XDC_Rtk			= 0x00000200,		//!<	Device has RTK features
+	XDC_DualGnss	= 0x00000400,		//!<	Device has dual-antenna GNSS features.
 };
 /*! @} */
 
@@ -74,6 +75,7 @@ XSTYPES_DLL_API int XsDeviceCapabilities_isVru(const struct XsDeviceCapabilities
 XSTYPES_DLL_API int XsDeviceCapabilities_isAhrs(const struct XsDeviceCapabilities* thisPtr);
 XSTYPES_DLL_API int XsDeviceCapabilities_isGnssIns(const struct XsDeviceCapabilities* thisPtr);
 XSTYPES_DLL_API int XsDeviceCapabilities_isRtk(const struct XsDeviceCapabilities* thisPtr);
+XSTYPES_DLL_API int XsDeviceCapabilities_hasDualGnss(const struct XsDeviceCapabilities* thisPtr);
 
 #ifdef __cplusplus
 }
@@ -159,6 +161,11 @@ public:
 	inline bool isRtk() const
 	{
 		return XsDeviceCapabilities_isRtk(this) != 0;
+	}
+	//!	\copydoc XsDeviceCapabilities_hasDualGnss(const struct XsDeviceCapabilities*)
+	inline bool hasDualGnss() const
+	{
+		return XsDeviceCapabilities_hasDualGnss(this) != 0;
 	}
 private:
 #endif
