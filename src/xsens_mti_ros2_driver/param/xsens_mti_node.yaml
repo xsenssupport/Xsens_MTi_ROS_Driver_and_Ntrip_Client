@@ -122,9 +122,11 @@
         mti_filter_option: 0
 
         # For MTi-620(R)/MTi-630(R), and Sirius/Avior VRU/AHRS models:  roll pitch options: "Responsive", "General", "Robust"
+        # For Sirius/Avior (RTK) (Dual-Antenna) GNSS/INS models: roll pitch options: "General-INS"
         filter_label_rollpitch: "Robust"
         # MTI-620(R) and Sirius/Avior VRU models, yaw has 2 options: "VRU", "VRUAHS" 
         # MTI-630(R) and Sirius/Avior AHRS models, yaw has 3 options: "FixedMagRef", "NorthReference", "VRU", "VRUAHS" 
+        # For Sirius/Avior (RTK) (Dual-Antenna) GNSS/INS models, yaw has 2 options: "MagAided", "NoMag"
         filter_label_yaw: "NorthReference"
 
 

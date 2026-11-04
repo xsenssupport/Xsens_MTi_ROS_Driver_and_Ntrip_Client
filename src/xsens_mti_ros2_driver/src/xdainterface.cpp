@@ -1045,12 +1045,15 @@ bool XdaInterface::configureSensorSettings()
 		bool isMTi680 = false;
 		bool isMTiG710 = false;
 		bool isModernSensor = false;
-		bool isModernVruAhrs = false;
+		bool useFilterLabels = false;
 		isMTi670 = m_productCode.toStdString().substr(4, 3) == "670";
 		isMTi680 = m_productCode.toStdString().substr(4, 3) == "680";
 		isMTiG710 = xsens_device_id.isMtig();
 		isModernSensor = xsens_device_id.isAvior() || xsens_device_id.isSirius() || xsens_device_id.isMti6X0();
-		isModernVruAhrs = isModernSensor && isDeviceVruAhrs;
+		// Filter profiles are set by "<roll/pitch>/<yaw>" label on MTi-620/630 and on all Sirius/Avior models
+		// (VRU/AHRS as well as GNSS/INS, RTK and Dual Antenna, e.g. "General-INS/NoMag").
+		// MTi-670/680 select the profile by index (mti_filter_option).
+		useFilterLabels = isModernSensor && !isMTi670 && !isMTi680;
 
 
 		RCLCPP_INFO(m_node->get_logger(), "Configuring Option Flags.....");
@@ -1374,7 +1377,7 @@ bool XdaInterface::configureSensorSettings()
 				std::string rollpitchLabel = "Robust";
 				std::string yawLabel = "VRUAHS";
 				bool isGotFilterParam = false;
-				if(isModernVruAhrs)
+				if(useFilterLabels)
 				{
 					if(m_node->get_parameter("filter_label_rollpitch", rollpitchLabel) && m_node->get_parameter("filter_label_yaw", yawLabel))
 					{
