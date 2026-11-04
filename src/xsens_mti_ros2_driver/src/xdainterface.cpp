@@ -119,7 +119,7 @@ void XdaInterface::registerPublishers()
 {
 	bool should_publish;
 	bool isDeviceVruAhrs = m_device->deviceId().isAhrs() || m_device->deviceId().isVru();
-	// Sirius/Avior RTK IDs match isRtk(), not isGnss().
+	// isRtk() is kept for clarity; since MT SDK 2026.4 isGnss() also matches Sirius/Avior RTK and Dual Antenna IDs.
 	bool isDeviceGnss = m_device->deviceId().isGnss() || m_device->deviceId().isRtk();
 	bool isDeviceGnssRtk = m_device->deviceId().isRtk();
 	bool isDeviceSiriusAvior = m_device->deviceId().isSirius() || m_device->deviceId().isAvior();
@@ -1297,8 +1297,8 @@ bool XdaInterface::configureSensorSettings()
 		}
 
 
-		// Preserve the original receiver-specific configuration scope. RTK-only
-		// Sirius/Avior devices still receive GNSS/INS output configuration above.
+		// u-blox platform and BeiDou settings. Since MT SDK 2026.4, isGnss() also matches
+		// Sirius/Avior RTK and Dual Antenna IDs, so these devices receive these settings as well.
 		if (xsens_device_id.isGnss())
 		{
 			// Set the GNSS platform
@@ -1308,8 +1308,10 @@ bool XdaInterface::configureSensorSettings()
 			{
 				platform = (XsUbloxGnssPlatform)platformParam;
 				RCLCPP_INFO(m_node->get_logger(), "Setting GNSS platform to: %d", platform);
+				// The SDK returns false when the receiver is not a u-blox receiver or the device rejects the
+				// setting. Don't abort: the remaining configuration (BeiDou, filter profile, ...) must still be applied.
 				if (!m_device->setUbloxGnssPlatform(platform))
-					return handleError("Could not set GNSS platform");
+					RCLCPP_WARN(m_node->get_logger(), "GNSS platform was NOT set: the GNSS receiver is not a u-blox receiver or rejected the setting. Continuing with the remaining device configuration.");
 			}
 			else
 			{
