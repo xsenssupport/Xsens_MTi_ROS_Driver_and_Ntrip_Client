@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -36,13 +36,9 @@
 #include "xscontrollerconfig.h"
 #include <xstypes/xsbaud.h>
 
-//AUTO namespace xstypes {
 struct XsPortInfoArray;
-//AUTO }
 
-//AUTO namespace xscontroller {
 struct XsUsbHubInfo;
-//AUTO }
 
 #ifdef __cplusplus
 #include <xstypes/xsportinfoarray.h>
@@ -91,7 +87,7 @@ public:
 	}
 
 	//! \copydoc XsScanner_scanPort
-	static inline bool XSNOCOMEXPORT scanPort(XsPortInfo& port, XsBaudRate baudrate = XBR_Invalid, int singleScanTimeout = 100, bool detectRs485 = false)
+	static inline bool scanPort(XsPortInfo& port, XsBaudRate baudrate = XBR_Invalid, int singleScanTimeout = 100, bool detectRs485 = false)
 	{
 		return 0 != XsScanner_scanPort(&port, baudrate, singleScanTimeout, detectRs485 ? 1 : 0);
 	}
@@ -226,7 +222,7 @@ public:
 		\param cb The callback function to use. When set to NULL, no callbacks will be generated.
 		\sa XsScanner_setScanLogCallback
 	*/
-	static inline void XSNOCOMEXPORT setScanLogCallback(XsScanLogCallbackFunc cb)
+	static inline void setScanLogCallback(XsScanLogCallbackFunc cb)
 	{
 		XsScanner_setScanLogCallback(cb);
 	}

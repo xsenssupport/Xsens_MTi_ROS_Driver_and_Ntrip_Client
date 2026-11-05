@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -50,7 +50,7 @@ enum XsStatusFlag
 	, XSF_OrientationValid			= 0x02		//!< Is set when the computed orientation is valid. The orientation may be invalid during startup or when the sensor data is clipping during violent (for the device) motion
 	, XSF_GpsValid					= 0x04		//!< Is set when the device has a GPS receiver and the receiver says that there is a GPS position fix.
 
-	, XSF_NoRotationMask				= 0x18		//!< If all of these flags are set, the No Rotation algorithm is running
+	, XSF_NoRotationMask			= 0x18		//!< If all of these flags are set, the No Rotation algorithm is running
 	, XSF_NoRotationAborted			= 0x10		//!< If only this flag is set (out of the XSF_NoRotationMask) then the No Rotation algorithm was aborted because of movement of the device
 	, XSF_NoRotationSamplesRejected	= 0x08		//!< If only this flag is set (out of the XSF_NoRotationMask) then the No Rotation algorithm is running but has rejected samples
 	, XSF_NoRotationRunningNormally	= 0x18		//!< If all these flags are set (out of the XSF_NoRotationMask) then the No Rotation algorithm is running normally
@@ -74,13 +74,15 @@ enum XsStatusFlag
 	, XSF_Retransmitted				= 0x00040000	//!< When set Indicates the sample was received as a retransmission
 	, XSF_ClippingDetected			= 0x00080000	//!< When set Indicates clipping has occurred
 	, XSF_Interpolated				= 0x00100000	//!< When set Indicates the sample is an interpolation between other samples
-	, XSF_SyncIn						= 0x00200000	//!< When set indicates a sync-in event has been triggered
+	, XSF_SyncIn					= 0x00200000	//!< When set indicates a sync-in event has been triggered
 	, XSF_SyncOut					= 0x00400000	//!< When set Indicates a sync-out event has been generated
 
-	, XSF_FilterMode					= 0x03800000	//!< Mask for the 3 bit filter mode field
+	, XSF_FilterMode				= 0x03800000	//!< Mask for the 3 bit filter mode field
 	, XSF_HaveGnssTimePulse			= 0x04000000	//!< Indicates that the 1PPS GNSS time pulse is present
 
 	, XSF_RtkStatus					= 0x18000000	//!< Mask for 2 bit RTK status field 00: No RTK; 01: RTK floating; 10: RTK fixed
+
+	, XSF_DualAntennaHeadingValid	= 0x20000000	//!< Is set when the dual-antenna GNSS heading is valid. Only devices with a dual GNSS receiver set this flag
 };
 
 /*! \brief Status flag bit offsets
@@ -121,6 +123,8 @@ enum XsStatusFlagOffset
 	, XSFO_HaveGnssTimePulse			= 26
 	, XSFO_RtkStatus					= 27
 	, XSFO_RtkStatusNrOfBits			= 2
+
+	, XSFO_DualAntennaHeadingValid		= 29
 };
 
 /*! @} */
@@ -145,6 +149,59 @@ inline static bool anyMagClipped(int status)
 	return 0 != (status & (XSF_ClipMagX | XSF_ClipMagY | XSF_ClipMagZ));
 }
 
+//! Return if the Accelerometer X channel clipped
+inline static bool accClippedX(int status)
+{
+	return 0 != (status & XSF_ClipAccX);
+}
+
+//! Return if the Accelerometer Y channel clipped
+inline static bool accClippedY(int status)
+{
+	return 0 != (status & XSF_ClipAccY);
+}
+
+//! Return if the Accelerometer Z channel clipped
+inline static bool accClippedZ(int status)
+{
+	return 0 != (status & XSF_ClipAccZ);
+}
+
+//! Return if the Gyroscope X channel clipped
+inline static bool gyrClippedX(int status)
+{
+	return 0 != (status & XSF_ClipGyrX);
+}
+
+//! Return if the Gyroscope Y channel clipped
+inline static bool gyrClippedY(int status)
+{
+	return 0 != (status & XSF_ClipGyrY);
+}
+
+//! Return if the Gyroscope Z channel clipped
+inline static bool gyrClippedZ(int status)
+{
+	return 0 != (status & XSF_ClipGyrZ);
+}
+
+//! Return if the Magnetometer X channel clipped
+inline static bool magClippedX(int status)
+{
+	return 0 != (status & XSF_ClipMagX);
+}
+
+//! Return if the Magnetometer Y channel clipped
+inline static bool magClippedY(int status)
+{
+	return 0 != (status & XSF_ClipMagY);
+}
+
+//! Return if the Magnetometer Z channel clipped
+inline static bool magClippedZ(int status)
+{
+	return 0 != (status & XSF_ClipMagZ);
+}
 
 //! \brief Status object.
 class XsStatus
@@ -203,7 +260,7 @@ public:
 		\param a The Status object to copy from
 		\return A reference to this object
 	*/
-	inline XsStatus const& operator = (XsStatus const& a)
+	inline XsStatus& operator = (XsStatus const& a)
 	{
 		m_status = a.m_status;
 		return *this;
@@ -213,7 +270,7 @@ public:
 		\param a The full status flags to set
 		\return A reference to this object
 	*/
-	inline XsStatus const& operator = (int a)
+	inline XsStatus& operator = (int a)
 	{
 		m_status = (uint32_t)(a & 0x1FFFF);
 		return *this;
@@ -275,6 +332,60 @@ public:
 	inline bool anyMagClipped() const
 	{
 		return ::anyMagClipped((int)m_status);
+	}
+
+	//! Return if the Accelerometer X channel clipped
+	inline bool accClippedX() const
+	{
+		return ::accClippedX((int)m_status);
+	}
+
+	//! Return if the Accelerometer Y channel clipped
+	inline bool accClippedY() const
+	{
+		return ::accClippedY((int)m_status);
+	}
+
+	//! Return if the Accelerometer Z channel clipped
+	inline bool accClippedZ() const
+	{
+		return ::accClippedZ((int)m_status);
+	}
+
+	//! Return if the Gyroscope X channel clipped
+	inline bool gyrClippedX() const
+	{
+		return ::gyrClippedX((int)m_status);
+	}
+
+	//! Return if the Gyroscope Y channel clipped
+	inline bool gyrClippedY() const
+	{
+		return ::gyrClippedY((int)m_status);
+	}
+
+	//! Return if the Gyroscope Z channel clipped
+	inline bool gyrClippedZ() const
+	{
+		return ::gyrClippedZ((int)m_status);
+	}
+
+	//! Return if the Magnetometer X channel clipped
+	inline bool magClippedX() const
+	{
+		return ::magClippedX((int)m_status);
+	}
+
+	//! Return if the Magnetometer Y channel clipped
+	inline bool magClippedY() const
+	{
+		return ::magClippedY((int)m_status);
+	}
+
+	//! Return if the Magnetometer Z channel clipped
+	inline bool magClippedZ() const
+	{
+		return ::magClippedZ((int)m_status);
 	}
 
 	//! Clear status object

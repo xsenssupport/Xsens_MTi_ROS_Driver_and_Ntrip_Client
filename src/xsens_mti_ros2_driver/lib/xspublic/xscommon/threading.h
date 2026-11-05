@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -35,8 +35,10 @@
 
 #include "xsens_mutex.h"
 #include <functional>
+#include <utility>
 
 #ifndef __GNUC__
+	#pragma warning(push)
 	#pragma warning(disable: 4127)
 #endif
 
@@ -50,36 +52,32 @@ namespace xsens
 */
 class StandardThread
 {
-private:
-	XsThread m_thread;
-	XsThreadPriority m_priority;
-#ifdef _WIN32
-	mutable xsens::Mutex m_mux;
-#endif
-
 protected:
-	volatile std::atomic_bool m_stop;	//!< Indicates that the thread should stop. Derived classes should check isTerminating() instead of directly polling this value when checking if the thread should stop. However, there are some cases (tests, SignallingThread) where direct access from within the class is desired, which is why the vlaue is protected instead of private.
-	volatile std::atomic_bool m_yieldOnZeroSleep;	//!< When true, a sleep value of 0 returned by innerFunction will trigger a thread yield operation. When false, the next cycle is started immediately.
+	std::atomic_bool m_stop;                //!< Indicates that the thread should stop. Derived classes should check isTerminating() instead of directly polling this value when checking if the thread should stop. However, there are some cases (tests, SignallingThread) where direct access from within the class is desired, which is why the value is protected instead of private.
+	std::atomic_bool m_yieldOnZeroSleep;    //!< When true, a sleep value of 0 returned by innerFunction will trigger a thread yield operation. When false, the next cycle is started immediately.
 #ifdef _WIN32
-	HANDLE m_stopHandle;	//!< Duplicates m_stop functionality for external dependent classes such as Semaphore
-	HANDLE m_running;		//!< Indicates that the thread is running
-private:
-	XsThreadId m_threadId;
+	HANDLE m_stopHandle;    //!< Duplicates m_stop functionality for external dependent classes such as Semaphore
 #else
-	pthread_attr_t m_attr;	//!< Duplicates m_stop functionality for external dependent classes such as Semaphore
-	bool m_running;			//!< Indicates that the thread is running
-	bool m_finished;		//!< Indicates that the thread main function has finished
-private:
+	pthread_attr_t m_attr;
 #endif
+private:
+	mutable xsens::Mutex m_mux;
+	XsThread m_thread;
+	std::atomic<XsThreadId> m_threadId;
+	std::atomic<XsThreadPriority> m_priority;
+	std::atomic_bool m_finished;            //!< Indicates that the thread main function has finished
+	std::atomic_bool m_killRequested;       //!< Set by terminateThread, honored by whoever holds mutex during a join
 	char* m_name;
 	static XSENS_THREAD_RETURN threadInit(void* obj);
 	void threadMain(void);
+	void stopThreadLocked() noexcept;
+	bool setPriorityLocked(XsThreadPriority pri);
 protected:
 	//! Virtual initialization function
-	virtual void initFunction(void) { }
+	virtual void initFunction(void) { /* Intentional no-op: an optional hook for subclasses. */ }
 
 	//! Virtual exit function
-	virtual void exitFunction(void) { }
+	virtual void exitFunction(void) { /* Intentional no-op: an optional hook for subclasses. */ }
 
 	//! Virtual inner function
 	virtual int32_t innerFunction(void)
@@ -96,30 +94,25 @@ public:
 	StandardThread();
 	virtual ~StandardThread();
 
-	bool startThread(const char* name = NULL);
+	bool startThread(const char* name = nullptr);
 	virtual void signalStopThread(void);
 	void stopThread(void) noexcept;
 	bool isAlive(void) volatile const noexcept;
 	bool isRunning(void) volatile const noexcept;
 	bool setPriority(XsThreadPriority pri);
 	bool isTerminating() volatile const noexcept;
+	void terminateThread();
+	bool isCurrentThread() const;
 
 	//! \returns The thread ID
-	XsThreadId getThreadId(void) const
+	inline XsThreadId getThreadId(void) const
 	{
-#ifdef _WIN32
 		return m_threadId;
-#else
-		return m_thread;
-#endif
 	}
-#ifdef _WIN32
-	void terminateThread();
-#endif
 };
 #define XSENS_THREAD_CHECK()	if (isTerminating()) return 0
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(__aarch64__)
 	#define CDECL_XS
 #else
 	#define CDECL_XS	__cdecl
@@ -161,14 +154,14 @@ public:
 
 	/*! \brief Constructor
 	*/
-	WatchDogThread(WatchDogFunction func, void* param = NULL);
+	WatchDogThread(WatchDogFunction func, void* param = nullptr);
 
 	/*! \brief Destructor
 	*/
 	~WatchDogThread();
 
 	bool resetTimer(uint32_t timeout = 0);
-	bool startTimer(uint32_t timeout = 10000, const char* name = NULL);
+	bool startTimer(uint32_t timeout = 10000, const char* name = nullptr);
 	bool stopTimer(void) noexcept;
 
 	//! \returns The thread ID
@@ -205,10 +198,10 @@ protected:
 		If there are no tasks in the queue, the thread will terminate itself.
 		\returns Not 0 if successful
 	*/
-	virtual int32_t innerFunction(void)
+	int32_t innerFunction(void) override
 	{
 		Lock safety(&m_safe);
-		if (m_queue.size() > 0)
+		if (!m_queue.empty())
 		{
 			TaskType& task = m_queue.front();
 			m_queue.pop_front();
@@ -219,7 +212,7 @@ protected:
 			return 0;	// no sleep
 		}
 		// notify thread to terminate when there are no more tasks
-		stopThread();
+		signalStopThread();
 		return 0;
 	}
 public:
@@ -273,26 +266,57 @@ public:
 		: m_func(f)
 	{
 		if (runNow)
-			startThread();
+			startThread(); // NOSONAR cpp:S1699 - startThread is non-virtual and innerFunction is final, so no subclass override can be missed here
 	}
 	~ThreadedFunction()
 	{
-		stopThread();
+		stopThread(); // NOSONAR cpp:S1699 - stopThread is non-virtual; the virtual signalStopThread it reaches must resolve to this class during destruction
 	}
 
 	/*! \brief The internal thread function, runs the supplied function */
-	int32_t innerFunction(void) override final
+	int32_t innerFunction(void) final
 	{
 		m_func();
 		signalStopThread();
 		return 0;
 	}
 };
+
+/*!	\class StandardFunctionThread
+	\brief A StandardThread that repeatedly runs a supplied (lambda) function
+	\details The function plays the role of StandardThread::innerFunction: its return value is the time in ms
+	to sleep before the next call. The thread runs until stopThread() is called or the object is destroyed.
+*/
+class StandardFunctionThread : public StandardThread
+{
+	std::function<int32_t()> m_func;
+public:
+	/*! \brief Construct the object
+		\param f The function to call repeatedly, returning the number of ms to sleep before the next call
+		\param runNow Start the thread immediately (default = true)
+	*/
+	explicit StandardFunctionThread(std::function<int32_t()> f, bool runNow = true)
+		: m_func(std::move(f))
+	{
+		if (runNow)
+			startThread(); // NOSONAR cpp:S1699 - startThread is non-virtual and innerFunction is final, so no subclass override can be missed here
+	}
+	~StandardFunctionThread()
+	{
+		stopThread(); // NOSONAR cpp:S1699 - stopThread is non-virtual; the virtual signalStopThread it reaches must resolve to this class during destruction
+	}
+
+	/*! \brief The internal thread function, runs the supplied function */
+	int32_t innerFunction(void) final
+	{
+		return m_func();
+	}
+};
 #endif
 } // namespace xsens
 
 #ifndef __GNUC__
-	#pragma warning(default: 4127)
+	#pragma warning(pop)
 #endif
 
 #endif

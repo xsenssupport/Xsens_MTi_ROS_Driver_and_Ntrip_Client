@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -50,16 +50,14 @@ void XsMatrix3x3_construct(XsMatrix3x3* thisPtr)
 /*! \relates XsMatrix3x3 \brief Init the %XsMatrix3x3 and copy the data from \a src into the matrix if \a src is not null */
 void XsMatrix3x3_assign(XsMatrix3x3* thisPtr, const XsReal* src, XsSize srcStride)
 {
-	XsSize r, c;
-
 	if (src)
 	{
 		if (srcStride == 0 || srcStride == 3)
 			memcpy(thisPtr->m_matrix.m_data, src, 3 * 3 * sizeof(XsReal));
 		else
 		{
-			for (r = 0; r < 3; ++r)
-				for (c = 0; c < 3; ++c)
+			for (XsSize r = 0; r < 3; ++r)
+				for (XsSize c = 0; c < 3; ++c)
 					thisPtr->m_matrix.m_data[r * 3 + c] = src[r * srcStride + c];
 		}
 	}

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -32,6 +32,9 @@
 
 #include "journalfile.h"
 #ifdef _MSC_VER
+	#ifndef WIN32_LEAN_AND_MEAN
+		#define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
+	#endif
 	#include <Windows.h>
 #endif
 
@@ -76,8 +79,9 @@ JournalFile::~JournalFile()
 		flush();
 		m_file.close();
 	}
-	catch (...)
+	catch (...) // NOSONAR cpp:S2486 - destructor; an escaping exception would terminate the process
 	{
+		// Deliberately swallowed: a destructor must not let an exception escape.
 	}
 }
 

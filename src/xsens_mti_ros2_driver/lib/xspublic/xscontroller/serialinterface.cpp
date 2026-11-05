@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -126,7 +126,7 @@ XsResultValue SerialInterface::closeLive(void)
 				DWORD length;
 				do
 				{
-					if (!::ReadFile(m_handle, buffer, 1024, &length, NULL))
+					if (!::ReadFile(m_handle, buffer, 1024, &length, nullptr))
 						break;
 				} while (length > 0);
 			}
@@ -336,7 +336,7 @@ XsResultValue SerialInterface::open(const XsPortInfo& portInfo,
 
 	// Open port
 	sprintf(winPortName, "\\\\.\\%s", portInfo.portName_c_str());
-	m_handle = CreateFileA(winPortName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+	m_handle = CreateFileA(winPortName, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
 	if (m_handle == INVALID_HANDLE_VALUE)
 	{
 		JLDEBUGG("Port " << portInfo.portName() << " cannot be opened");
@@ -465,6 +465,17 @@ XsResultValue SerialInterface::open(const XsPortInfo& portInfo,
 	if (tcsetattr(m_handle, TCSANOW, &m_commState) != 0)
 		return XRV_INPUTCANNOTBEOPENED;
 
+#if !defined(__APPLE__) && !defined(ANDROID)
+	// Request low-latency mode so the FTDI driver flushes immediately instead of
+	// buffering data into ~16 ms bursts, matching the Windows D2XX behaviour.
+	serial_struct serInfo;
+	if (ioctl(m_handle, TIOCGSERIAL, &serInfo) == 0)
+	{
+		serInfo.flags |= ASYNC_LOW_LATENCY;
+		ioctl(m_handle, TIOCSSERIAL, &serInfo);
+	}
+#endif
+
 #if defined(JLDEF_BUILD) && JLDEF_BUILD <= JLL_ALERT
 	termios checkCommState;
 	if (tcgetattr(m_handle, &checkCommState) != 0)
@@ -546,7 +557,7 @@ XsResultValue SerialInterface::readData(XsFilePos maxLength, XsByteArray& data)
 #ifdef _WIN32
 	DWORD length;
 	data.setSize((XsSize) maxLength);
-	BOOL rres = ::ReadFile(m_handle, data.data(), (DWORD) maxLength, &length, NULL);
+	BOOL rres = ::ReadFile(m_handle, data.data(), (DWORD) maxLength, &length, nullptr);
 	data.pop_back((XsSize)(maxLength - length));
 	JLTRACEG("ReadFile result " << rres << ", length " << length);
 
@@ -575,7 +586,7 @@ XsResultValue SerialInterface::readData(XsFilePos maxLength, XsByteArray& data)
 	timeout.tv_sec = m_timeout / 1000;
 	timeout.tv_usec = (m_timeout - (timeout.tv_sec * 1000)) * 1000;
 
-	int res = select(FD_SETSIZE, &fd, NULL, &err, &timeout);
+	int res = select(FD_SETSIZE, &fd, nullptr, &err, &timeout);
 	if (res < 0 || FD_ISSET(m_handle, &err))
 	{
 		data.clear();
@@ -725,10 +736,10 @@ XsResultValue SerialInterface::waitForData(XsFilePos maxLength, XsByteArray& dat
 	JLTRACEG("timeout=" << m_timeout << ", maxLength=" << maxLength);
 	uint32_t timeout = m_timeout;
 
-	uint32_t eTime = XsTime_getTimeOfDay(NULL, NULL) + timeout;
+	uint32_t eTime = XsTime_getTimeOfDay(nullptr, nullptr) + timeout;
 	//	uint32_t newLength = 0;
 
-	while (((XsFilePos) data.size() < maxLength) && (XsTime_getTimeOfDay(NULL, NULL) <= eTime))
+	while (((XsFilePos) data.size() < maxLength) && (XsTime_getTimeOfDay(nullptr, nullptr) <= eTime))
 	{
 		XsByteArray raw;
 
@@ -750,7 +761,7 @@ XsResultValue SerialInterface::waitForData(XsFilePos maxLength, XsByteArray& dat
 XsResultValue SerialInterface::writeData(const XsByteArray& data, XsFilePos* written)
 {
 	XsFilePos bytes;
-	if (written == NULL)
+	if (written == nullptr)
 		written = &bytes;
 
 	if (!isOpen())
@@ -760,7 +771,7 @@ XsResultValue SerialInterface::writeData(const XsByteArray& data, XsFilePos* wri
 
 #ifdef _WIN32
 	DWORD lwritten = 0;
-	if (WriteFile(m_handle, data.data(), (DWORD) data.size(), &lwritten, NULL) == 0)
+	if (WriteFile(m_handle, data.data(), (DWORD) data.size(), &lwritten, nullptr) == 0)
 	{
 		DWORD wErr = ::GetLastError();
 		JLALERTG("WriteFile returned windows error " << wErr);
@@ -833,7 +844,7 @@ void SerialInterface::cancelIo() const
 	/*  This function is only available on Windows Vista and higher.
 	    When a read action hangs, this function can cancel IO operations from another thread.
 	*/
-	//CancelIoEx(m_handle, NULL);
+	//CancelIoEx(m_handle, nullptr);
 #endif
 }
 

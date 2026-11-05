@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -31,12 +31,14 @@
 //  
 
 #ifndef XSFLOATMATH_H
+
 /* Rename some <math.h> functions to their single precision equivalents for non-C++ code */
-#ifdef XSENS_SINGLE_PRECISION
+#if !defined(__cplusplus) && defined(XSENS_SINGLE_PRECISION)
 #define atan2 atan2f
 #define cos cosf
 #define sin sinf
 #define sqrt sqrtf
 #define asin asinf
 #endif
+
 #endif // XSFLOATMATH_H

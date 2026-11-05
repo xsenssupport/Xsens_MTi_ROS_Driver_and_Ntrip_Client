@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -36,7 +36,6 @@
 /*!	\addtogroup enums Global enumerations
 	@{
 */
-//AUTO namespace xscontroller {
 /*! \brief Alignment frame.
 */
 enum XsAlignmentFrame
@@ -46,7 +45,5 @@ enum XsAlignmentFrame
 };
 /*! @} */
 typedef enum XsAlignmentFrame XsAlignmentFrame;
-
-//AUTO }
 
 #endif

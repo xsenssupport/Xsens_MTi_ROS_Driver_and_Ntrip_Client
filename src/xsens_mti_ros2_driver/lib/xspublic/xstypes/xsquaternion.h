@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -113,7 +113,7 @@ public:
 
 #if !defined(SWIG) && !defined(__ADSP21000__)
 	//! \brief Move-construct a quaternion with the supplied values from the \a other Quaternion
-	inline XsQuaternion(XsQuaternion&& other)
+	inline XsQuaternion(XsQuaternion&& other) noexcept
 		: m_w(other.m_w)
 		, m_x(other.m_x)
 		, m_y(other.m_y)
@@ -134,9 +134,7 @@ public:
 	}
 
 	//! \brief Destructor, intentionally empty
-	inline ~XsQuaternion()
-	{
-	}
+	inline ~XsQuaternion() = default;
 
 	//! \brief Assigns the \a other quaternion to this quaternion
 	inline XsQuaternion& operator=(const XsQuaternion& other)
@@ -309,13 +307,13 @@ public:
 	}
 
 	//! \brief Swap the contents with \a other
-	inline void swap(XsQuaternion& other)
+	inline void swap(XsQuaternion& other) noexcept
 	{
 		XsQuaternion_swap(this, &other);
 	}
 
 	//! \brief Swap the contents of \a first with that of \a second
-	friend void swap(XsQuaternion& first, XsQuaternion& second)
+	friend void swap(XsQuaternion& first, XsQuaternion& second) noexcept
 	{
 		first.swap(second);
 	}

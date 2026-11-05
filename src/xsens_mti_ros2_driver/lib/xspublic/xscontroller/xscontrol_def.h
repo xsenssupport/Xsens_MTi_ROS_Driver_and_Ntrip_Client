@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -50,53 +50,24 @@
 #include <xstypes/xsvector3.h>
 #include "lastresultmanager.h"
 #include <xstypes/xsoption.h>
+#include "ixscontrol.h"
 
-struct XSNOEXPORT Communicator;
-class XSNOEXPORT BroadcastDevice;
-class XSNOEXPORT XdaCommunicatorFactory;
-class XSNOEXPORT ProxyCommunicator;
-class XSNOEXPORT RestoreCommunication;
+/*! \private */ struct Communicator;
+/*! \private */ class BroadcastDevice;
+/*! \private */ class XdaCommunicatorFactory;
+/*! \private */ class ProxyCommunicator;
+/*! \private */ class RestoreCommunication;
 
-struct XSNOEXPORT XsDevice;
-class XSNOEXPORT EmtsManager;
-class XSNOEXPORT NetworkScanner;
-
-//AUTO namespace xstypes {
-//AUTO+chdr struct PstdInt;
-//AUTO+chdr struct XsTypeDefs;
-//AUTO+chdr struct XsException;
-struct XsString;
-struct XsPortInfo;
-struct XsPortInfoArray;
-struct XsSyncSetting;
-struct XsDataPacket;
-struct XsMessage;
-struct XsFilterProfile;
-
-//AUTO enum XsResultValue;
-//AUTO enum XsBaud;
-//AUTO enum XsXbusMessageId;
-//AUTO struct XsDeviceIdArray;
-//AUTO struct XsIntArray;
-//AUTO struct XsSyncSettingArray;
-//AUTO typename XsDevice;
-//AUTO enum XsFilePos;
-//AUTO struct XsFilterProfileArray;
-//AUTO enum XsOption;
-
-//AUTO }
-
-//AUTO namespace xscontroller {
-struct XsDeviceConfiguration;
-struct XsDevicePtrArray;
-//AUTO }
+/*! \private */ struct XsDevice;
+/*! \private */ class EmtsManager;
+/*! \private */ class NetworkScanner;
 
 #ifndef XsensThreadReturn
 	#define XsensThreadReturn	XSENS_THREAD_RETURN	// for generator
 	#define XsensThreadParam	XSENS_THREAD_PARAM	// for generator
 #endif
 
-struct XsControl : public CallbackManagerXda
+struct XsControl : public IXsControl, public CallbackManagerXda
 {
 public:
 	XsControl();
@@ -115,14 +86,14 @@ public:
 	bool openCustomPort(int channelId, uint32_t channelLatency, bool detectRs485 = false);
 	virtual bool openImarPort_internal(const XsString& portname, XsBaudRate baudrate, int imarType, uint32_t timeout = 0);
 #ifndef XSENS_NO_PORT_NUMBERS
-	XSNOLINUXEXPORT bool openPort(int portNr, XsBaudRate baudrate, uint32_t timeout = 0, bool detectRs485 = false);
+	bool openPort(int portNr, XsBaudRate baudrate, uint32_t timeout = 0, bool detectRs485 = false);
 #endif
 	void closePort(const XsString& portname);
 	void closePort(const XsDeviceId& deviceId);
 	void closePort(const XsPortInfo& portinfo);
 	void closeCustomPort(int channelId);
 #ifndef XSENS_NO_PORT_NUMBERS
-	XSNOLINUXEXPORT void closePort(int portNr);
+	void closePort(int portNr);
 #endif
 	void closePort(XsDevice* device);
 
@@ -161,21 +132,33 @@ public:
 	XsDevice* broadcast() const;
 
 	void transmissionReceived(int channelId, const XsByteArray& data);
-#ifdef DOXYGEN
-	// Explicit inheritance for generator and doxygen
-	void XSNOCOMEXPORT clearCallbackHandlers(bool chain = true);
-	void XSNOCOMEXPORT addCallbackHandler(XsCallbackPlainC* cb, bool chain = true);
-	void XSNOCOMEXPORT removeCallbackHandler(XsCallbackPlainC* cb, bool chain = true);
-#endif
+
+	// IXsControl declares these; the implementations live in the sibling CallbackManagerXda base,
+	// which does not override across bases, so forward them explicitly.
+	// The body must stay on its own lines: the interface generator parses this header line by
+	// line, taking a declaration to span the first '(' to the last ')', so a same-line body
+	// contributes its own call arguments as extra parameters and generation fails.
+	void clearCallbackHandlers(bool chain = true) override
+	{
+		CallbackManagerXda::clearCallbackHandlers(chain);
+	}
+	void addCallbackHandler(XsCallbackPlainC* cb, bool chain = true) override
+	{
+		CallbackManagerXda::addCallbackHandler(cb, chain);
+	}
+	void removeCallbackHandler(XsCallbackPlainC* cb, bool chain = true) override
+	{
+		CallbackManagerXda::removeCallbackHandler(cb, chain);
+	}
 
 	// these are only required to allow using the lib the same way as to using the dll
-	static XSNOEXPORT XsControl* construct();
-	XSNOEXPORT void destruct()
+	/*! \private */ static XsControl* construct();
+	/*! \private */ void destruct()
 	{
 		delete this;
 	}
 
-	virtual bool XSNOEXPORT finalizeOpenPort(Communicator* communicator, XsPortInfo& portinfo, uint32_t timeout, bool detectRs485);
+	/*! \private */ virtual bool finalizeOpenPort(Communicator* communicator, XsPortInfo& portinfo, uint32_t timeout, bool detectRs485);
 	void gotoConfig();
 	void gotoMeasurement();
 
@@ -183,10 +166,10 @@ public:
 	void stopRestoreCommunication();
 
 protected:
-	virtual XsDevice* XSNOCOMEXPORT addMasterDevice(Communicator* communicator);
+	virtual XsDevice* addMasterDevice(Communicator* communicator);
 
 #ifndef DOXYGEN
-	XSNOEXPORT XsControl(const XsControl&) = delete;
+	/*! \private */ XsControl(const XsControl&) = delete;
 #endif
 
 	//void gotoOperational(const XsDeviceId& stationId = XsDeviceId());

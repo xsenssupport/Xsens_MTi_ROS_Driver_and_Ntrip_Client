@@ -3,7 +3,7 @@ CPP_FILES := $(wildcard *.cpp)
 C_FILES := $(wildcard *.c)
 OBJECTS := $(CPP_FILES:.cpp=.cpp.o) $(C_FILES:.c=.c.o)
 CFLAGS+= -fPIC -I../ -include xscontrollerconfig.h
-CXXFLAGS+= -std=c++11 -I../ -include xscontrollerconfig.h
+CXXFLAGS+= -std=c++17 -I../ -include xscontrollerconfig.h
 
 CXXFLAGS+=-DHAVE_JOURNALLER
 

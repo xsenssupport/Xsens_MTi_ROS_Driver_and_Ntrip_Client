@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -120,8 +120,7 @@ void DataParser::initFunction()
 {
 	setPriority(XS_THREAD_PRIORITY_HIGH);
 	sprintf(m_parserType, "XDA %s %p", parserType(), this);
-	//JLDEBUGG("Thread " << this << " " << buffer);
-	xsNameThisThread(m_parserType);
+	JLNAMETHISTHREAD(m_parserType);
 }
 
 /*! \brief Clears the data queue

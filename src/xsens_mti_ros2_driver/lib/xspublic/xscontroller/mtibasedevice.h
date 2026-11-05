@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -67,7 +67,7 @@ public:
 	bool setAlignmentRotationQuaternion(XsAlignmentFrame frame, const XsQuaternion& quat) override;
 	XsQuaternion alignmentRotationQuaternion(XsAlignmentFrame frame) const override;
 
-	bool setHeadingOffset(double offset);
+	bool setInitialHeading(double heading) override;
 
 	XsSyncSettingArray syncSettings() const override;
 	bool setSyncSettings(const XsSyncSettingArray& s) override;
@@ -86,7 +86,13 @@ public:
 	bool startRepresentativeMotion() override;
 	bool representativeMotionState() override;
 	XsIccRepMotionResult stopRepresentativeMotion() override;
+	XsIccRepMotionResult getIccState() override;
 	bool storeIccResults() override;
+
+	uint16_t deadReckoningDuration() const override;
+	bool setDeadReckoningDuration(uint16_t seconds) override;
+
+	XsVector modelingParameters(uint8_t sensingElement) const override;
 
 	//! A struct for base frequency result
 	struct BaseFrequencyResult

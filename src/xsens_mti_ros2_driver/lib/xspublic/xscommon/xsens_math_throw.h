@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -65,7 +65,7 @@
 
 	#ifdef XSEXCEPTION_H
 		#ifdef _MSC_VER
-			#define XETHROW(a)	throw XsException(XRV_ERROR, XsString(__FUNCTION__ " ") << XsString(a))
+			#define XETHROW(a)	throw XsException(XRV_ERROR, XsString(__FUNCTION__ " ") << XsString(a)) // NOSONAR cpp:S6190 - __FUNCTION__ must be captured at the throw site; a function parameter would report this header
 		#elif defined __GNUC__
 			#define XETHROW(a)	throw XsException(XRV_ERROR, XsString(__PRETTY_FUNCTION__) << " " << XsString(a))
 		#else
@@ -82,14 +82,11 @@
 	#endif
 #endif
 
-namespace xsens
-{
-namespace DebugTools
+namespace xsens::DebugTools
 {
 void mathThrowBreakFunc();
 void enableFloatingPointExceptions();
 void disableFloatingPointExceptions();
-} // namespace DebugTools
-} // namespace xsens
+} // namespace xsens::DebugTools
 
 #endif

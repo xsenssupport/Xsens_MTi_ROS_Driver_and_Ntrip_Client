@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -94,7 +94,7 @@ extern "C" {
 	/*!	\brief Set a callback function for scan log progress and problem reporting
 		\details When set, any scan will use the provided callback function to report progress and failures.
 		Normal operation is not affected, so all return values for the scan functions remain valid.
-		\param cb The callback function to use. When set to NULL, no callbacks will be generated.
+		\param cb The callback function to use. When set to nullptr, no callbacks will be generated.
 	*/
 	void XsScanner_setScanLogCallback(XsScanLogCallbackFunc cb)
 	{

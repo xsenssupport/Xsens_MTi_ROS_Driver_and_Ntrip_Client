@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -91,9 +91,10 @@ protected:
 
 	XsPortInfo m_activePortInfo;	//!< The information about the port this communicator is currently connected to
 
+	std::shared_ptr<StreamInterface> m_streamInterface; //!< The stream interface used to communicate with the device
+
 private:
 	MtThread m_thread;
-	std::shared_ptr<StreamInterface> m_streamInterface;
 	XsVersion m_firmwareRevision;
 	XsVersion m_hardwareRevision;
 

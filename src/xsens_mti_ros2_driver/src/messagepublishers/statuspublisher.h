@@ -35,6 +35,7 @@
 
 #include "packetcallback.h"
 #include "xsens_mti_ros2_driver/msg/xs_status_word.hpp"
+#include <xstypes/xsstatusflag.h>
 
 
 struct StatusPublisher : public PacketCallback
@@ -115,6 +116,8 @@ struct StatusPublisher : public PacketCallback
         msg.have_gnss_time_pulse = (temp != 0);
 
         msg.rtk_status = (status >> 27) & 0x3; // status & 0x18000000;
+
+        msg.dual_antenna_heading_valid = (status & XSF_DualAntennaHeadingValid) != 0; // bit 29
     }
 
     void operator()(const XsDataPacket &packet, rclcpp::Time timestamp)

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -34,17 +34,19 @@
 #define XSICCREPMOTIONRESULT_H
 
 #include <xstypes/pstdint.h>
+#include <xstypes/xsmessage.h>
 
 /*! \brief Contains the result of the representative motion processed by ICC
 */
 struct XsIccRepMotionResult
 {
+	float m_ddt;			//!< The ddt of the In-Run Compass Calibration. May be zero (unavailable).
 	float m_ddtAccuracy;	//!< The ddtAccuracy of the In-Run Compass Calibration
 	uint8_t m_dimension;	//!< The dimension of the In-Run Compass Calibration
 	uint8_t m_status;		//!< The status of the In-Run Compass Calibration
 
 #ifdef __cplusplus
-	XsIccRepMotionResult() : m_ddtAccuracy(0.0), m_dimension(0), m_status(0)
+	XsIccRepMotionResult() : m_ddt(0.0), m_ddtAccuracy(0.0), m_dimension(0), m_status(0)
 	{
 
 	}
@@ -53,10 +55,17 @@ struct XsIccRepMotionResult
 		\param other the filter profile object to construct a copy of
 	*/
 	XsIccRepMotionResult(const XsIccRepMotionResult& other)
-		: m_ddtAccuracy(other.m_ddtAccuracy)
+		: m_ddt(other.m_ddt)
+		, m_ddtAccuracy(other.m_ddtAccuracy)
 		, m_dimension(other.m_dimension)
 		, m_status(other.m_status)
 	{
+	}
+
+	//! \returns the ddt
+	inline float ddt() const
+	{
+		return m_ddt;
 	}
 
 	//! \returns the ddtAccuracy
@@ -76,6 +85,38 @@ struct XsIccRepMotionResult
 	{
 		return m_status;
 	}
+
+	//!	\brief Helper function to parse the result from an XsMessage.
+	//! \returns true if the parse succeeded, false otherwise.
+	bool readFromMessage(XsMessage const& rcv)
+	{
+		if (rcv.getMessageId() != XMID_IccCommandAck)
+			return false;
+
+		XsSize const dataSize = rcv.getDataSize();
+
+		if (dataSize == 7) // Short format without ddt
+		{
+			m_ddt = 0;
+			m_ddtAccuracy = rcv.getDataFloat(1);
+			m_dimension = rcv.getDataByte(5);
+			m_status = rcv.getDataByte(6);
+			return true;
+		}
+
+		if (dataSize == 11) // Long format with ddt
+		{
+			// Note: field order is also different
+			m_status = rcv.getDataByte(1);
+			m_ddt = rcv.getDataFloat(2);
+			m_ddtAccuracy = rcv.getDataFloat(6);
+			m_dimension = rcv.getDataByte(10);
+			return true;
+		}
+
+		return false;
+	}
+
 #endif
 };
 

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -78,7 +78,7 @@ struct XsMessageArray : public XsArrayImpl<XsMessage, g_xsMessageArrayDescriptor
 
 #ifndef SWIG
 	/*! \brief Swap the contents the \a first and \a second array */
-	friend void swap(XsMessageArray& first, XsMessageArray& second)
+	friend void swap(XsMessageArray& first, XsMessageArray& second) noexcept
 	{
 		first.swap(second);
 	}

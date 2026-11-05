@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -53,8 +53,14 @@ XsSyncSettingArray supportedSyncSettings(XsDeviceId const& deviceId)
 		return supportedSyncSettingsForAwindaBaseStation();
 	else if (deviceId.isSyncStationX())
 		return supportedSyncSettingsForAwindaBaseStation();
-	else if (deviceId.isSirius() || deviceId.isAvior())
-		return supportedSyncSettingsForMt6x0Device();
+	else if (deviceId.isSirius() && deviceId.isGnss())
+		return supportedSyncSettingsForSiriusGnssDevice();
+	else if (deviceId.isSirius())
+		return supportedSyncSettingsForSiriusDevice();
+	else if (deviceId.isAvior() && deviceId.isGnss())
+		return supportedSyncSettingsForAviorGnssDevice();
+	else if (deviceId.isAvior())
+		return supportedSyncSettingsForAviorDevice();
 	else if (deviceId.isMtMark5() && deviceId.isMtigX10())
 		return supportedSyncSettingsForMark5MtigX10Device();
 	else if (deviceId.isMtig())
@@ -477,6 +483,96 @@ XsSyncSettingArray supportedSyncSettingsForMtDevice()
 	s.m_offset = 0;
 	settings.push_back(s);
 
+
+	return settings;
+}
+
+XsSyncSettingArray supportedSyncSettingsForAviorDevice()
+{
+	XsSyncSettingArray settings = supportedSyncSettingsForMt6x0Device();
+
+	// We support everything that's on In1/In2 also on In3
+	// In3 does not support XSP_Both, although technically it does support either Rising- or FallingEdge.
+	// However, we just force it to be non-configurable (XSP_None) so that users don't try it.
+
+	XsSize existingCount = settings.size();
+	for (XsSize idx = 0; idx < existingCount; ++idx)
+	{
+		if (settings[idx].m_line == XSL_In1)
+		{
+			XsSyncSetting s = settings[idx];
+			s.m_line = XSL_In3;
+			s.m_polarity = XSP_None;
+			settings.push_back(s);
+		}
+	}
+
+	return settings;
+}
+
+XsSyncSettingArray supportedSyncSettingsForAviorGnssDevice()
+{
+	XsSyncSettingArray settings = supportedSyncSettingsForAviorDevice();
+
+	// add XSF_Gnss1Pps with gnss clock in setting
+	{
+		XsSyncSetting s;
+		s.m_function = XSF_Gnss1Pps;
+		s.m_polarity = XSP_None;
+		s.m_pulseWidth = 1;
+		s.m_line = XSL_In1;
+		settings.push_back(s);
+		s.m_line = XSL_In2;
+		settings.push_back(s);
+		s.m_line = XSL_In3;
+		settings.push_back(s);
+	}
+
+	return settings;
+}
+
+XsSyncSettingArray supportedSyncSettingsForSiriusDevice()
+{
+	return supportedSyncSettingsForMt6x0Device();
+}
+
+XsSyncSettingArray supportedSyncSettingsForSiriusGnssDevice()
+{
+	XsSyncSettingArray settings;
+
+	// Changes compared to other Sirius devices:
+	// - ClockBiasEstimation and Gnss1Pps are hardwired on both In2 and In3, so we remove the defaults.
+	//   And honestly, there is no point in mentioning In3, so we won't show that either.
+	// - In2 is available for other input functions but only on rising edge (because of the hardwiring),
+	//   so make the polarity non-configurable.
+
+	for (XsSyncSetting& s : supportedSyncSettingsForSiriusDevice())
+	{
+		if (s.m_function == XSF_ClockBiasEstimation || s.m_function == XSF_Gnss1Pps)
+			continue;
+		if (s.m_line == XSL_In2)
+			s.m_polarity = XSP_None;
+		settings.push_back(s);
+	}
+
+	{
+		XsSyncSetting s;
+		s.m_function = XSF_Gnss1Pps;
+		s.m_polarity = XSP_None;
+		s.m_pulseWidth = 1;
+		s.m_line = XSL_In2;
+		settings.push_back(s);
+	}
+
+	{
+		XsSyncSetting s;
+		s.m_function = XSF_ClockBiasEstimation;
+		s.m_polarity = XSP_None;
+		s.m_pulseWidth = 0;
+		s.m_clockPeriod = 1;
+		s.m_line = XSL_In2;
+		settings.push_back(s);
+	}
 
 	return settings;
 }

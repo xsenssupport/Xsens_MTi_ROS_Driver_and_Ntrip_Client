@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -111,7 +111,7 @@ int XsLibUsb::init(libusb_context** ctx)
 }
 
 /*! \brief Deinitialize libusb. Should be called after closing all open devices and before your application terminates.
-	\param ctx the context to deinitialize, or NULL for the default context
+	\param ctx the context to deinitialize, or nullptr for the default context
 */
 void XsLibUsb::exit(libusb_context* ctx)
 {
@@ -235,7 +235,7 @@ libusb_device* XsLibUsb::ref_device(libusb_device* dev)
 	if (m_libUsb.ref_device)
 		return m_libUsb.ref_device(dev);
 	else
-		return NULL;
+		return nullptr;
 }
 
 /*! \brief Decrement the reference count of a device.
@@ -321,7 +321,7 @@ int XsLibUsb::get_active_config_descriptor(libusb_device* dev,	struct libusb_con
 
 /*! \brief Free a configuration descriptor obtained from libusb_get_active_config_descriptor() or libusb_get_config_descriptor().
 
-	It is safe to call this function with a NULL config parameter, in which case the function simply returns.
+	It is safe to call this function with a nullptr config parameter, in which case the function simply returns.
 
 	\param config the configuration descriptor to free
 */
@@ -355,7 +355,7 @@ libusb_device* XsLibUsb::get_device(libusb_device_handle* dev_handle)
 	if (m_libUsb.get_device)
 		return m_libUsb.get_device(dev_handle);
 	else
-		return NULL;
+		return nullptr;
 }
 
 /*! \brief Get the address of the device on the bus it is connected to.
@@ -397,9 +397,9 @@ int XsLibUsb::get_device_descriptor(libusb_device* dev, struct libusb_device_des
 
 	This return value of this function indicates the number of devices in
 	the resultant list. The list is actually one element larger, as it is
-	NULL-terminated.
+	nullptr-terminated.
 
-	\param ctx the context to operate on, or NULL for the default context
+	\param ctx the context to operate on, or nullptr for the default context
 	\param list output location for a list of devices. Must be later freed with libusb_free_device_list().
 	\returns The number of devices in the outputted list, or any LIBUSB_ERROR code to errors encountered by the backend.
 */
@@ -503,7 +503,7 @@ int XsLibUsb::bulk_transfer(libusb_device_handle* dev_handle,	unsigned char endp
 	If libusb was compiled with verbose debug message logging, this function
 	does nothing: you'll always get messages from all levels.
 
-	\param ctx the context to operate on, or NULL for the default context
+	\param ctx the context to operate on, or nullptr for the default context
 	\param level debug level to set
 */
 void XsLibUsb::set_debug(libusb_context* ctx, int level)

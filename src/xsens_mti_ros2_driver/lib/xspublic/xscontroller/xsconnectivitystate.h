@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -41,7 +41,6 @@
 	@{
 */
 
-//AUTO namespace xscontroller {
 /*! \brief XsDevice connectivity state identifiers */
 enum XsConnectivityState
 {
@@ -56,7 +55,6 @@ enum XsConnectivityState
 
 /*! @} */
 typedef enum XsConnectivityState XsConnectivityState;
-//AUTO }
 
 #ifdef __cplusplus
 extern "C" {

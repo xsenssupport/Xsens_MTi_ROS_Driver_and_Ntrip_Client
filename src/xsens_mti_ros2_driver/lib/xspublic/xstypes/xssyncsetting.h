@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -103,7 +103,7 @@ struct XsSyncSetting
 	}
 
 	//! \brief Copy values of \a other into this.
-	const XsSyncSetting& operator =(const XsSyncSetting& other)
+	XsSyncSetting& operator =(const XsSyncSetting& other)
 	{
 		if (this != &other)
 			memcpy(this, &other, sizeof(XsSyncSetting));
@@ -124,14 +124,14 @@ struct XsSyncSetting
 
 	/*! \brief Swap the contents with \a other
 	*/
-	inline void swap(XsSyncSetting& other)
+	inline void swap(XsSyncSetting& other) noexcept
 	{
 		XsSyncSetting_swap(this, &other);
 	}
 
 	/*! \brief Swap the contents with \a fist with that of \a second
 	*/
-	friend void swap(XsSyncSetting& first, XsSyncSetting& second)
+	friend void swap(XsSyncSetting& first, XsSyncSetting& second) noexcept
 	{
 		first.swap(second);
 	}

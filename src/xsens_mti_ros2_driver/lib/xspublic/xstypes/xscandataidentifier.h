@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -42,7 +42,6 @@
 	@{
 */
 
-//AUTO namespace xstypes {
 /*!	\enum XsCanDataIdentifier
 	\brief Defines the data identifiers for CAN messages
 
@@ -60,7 +59,7 @@ enum XsCanDataIdentifier
 	XCDI_UtcTime			= 0x07,
 
 	/* Group Status Messages */
-	XCDI_StatusWord		= 0x11,
+	XCDI_StatusWord			= 0x11,
 
 	/* Group Quaternion Messages */
 	XCDI_Quaternion			= 0x21,
@@ -96,6 +95,10 @@ enum XsCanDataIdentifier
 	XCDI_Longitude			= 0x78,
 	XCDI_GnssReceiverStatus	= 0x79,
 	XCDI_GnssReceiverDop	= 0x7A,
+
+	/* Group Maritime motion messages */
+	XCDI_HeavePosition		= 0x7E, //!< Heave position in millimeters
+	XCDI_HeavePeriod		= 0x7F, //!< Heave period in milliseconds
 
 	XCDI_EndOfGroup, //Keep this entry second to last.
 	XCDI_HighestIdentifier, //Keep this entry last. Don't assign IDs with a higher value than this.

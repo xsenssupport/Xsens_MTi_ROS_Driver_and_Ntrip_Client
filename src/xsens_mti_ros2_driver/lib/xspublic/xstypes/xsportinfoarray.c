@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -45,7 +45,7 @@ void copyPortInfo(XsPortInfo* dest, XsPortInfo const* src)
 int comparePortInfo(XsPortInfo const* a, XsPortInfo const* b)
 {
 	if ((memcmp(&a->m_deviceId, &b->m_deviceId, sizeof(XsDeviceId)) == 0) &&
-		(memcmp(&a->m_portName, &b->m_portName, sizeof(a->m_portName)) == 0) && //lint !e545 Taking this address is no problem here
+		(memcmp(&a->m_portName, &b->m_portName, sizeof(a->m_portName)) == 0) &&
 		(a->m_baudrate == b->m_baudrate) &&
 		(a->m_linesOptions == b->m_linesOptions) &&
 		(a->m_vid == b->m_vid) &&

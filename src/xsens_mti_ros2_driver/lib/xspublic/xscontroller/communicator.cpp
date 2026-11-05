@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -164,13 +164,7 @@ void Communicator::handleMessage(const XsMessage& message)
 	//JLTRACEG("Received " << JLHEXLOG(message.getMessageId()) << " size " << message.getTotalMessageSize());
 	if (message.getMessageId() == XMID_Error)
 	{
-		char buffer[256];
-		XsSize sz = message.getTotalMessageSize();
-		const uint8_t* m = message.getMessageStart();
-		for (XsSize i = 0; i < sz; ++i)
-			sprintf(buffer + 2 * i, "%02X", (unsigned int) m[i]);
-		buffer[2 * sz] = 0;
-		JLALERTG("Error message received: " << buffer);
+		JLALERTG("Error message received: " << message.toHexString());
 		JLIFG(m_replyMonitor->dumpObjectList);
 	}
 	if (!m_replyMonitor->addReply(message) && m_masterInfo)

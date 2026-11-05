@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -52,6 +52,10 @@ XsSyncSettingArray supportedSyncSettingsForMtDevice();
 XsSyncSettingArray supportedSyncSettingsForMt6x0Device();
 XsSyncSettingArray supportedSyncSettingsForMt6x0GnssDevice();
 XsSyncSettingArray supportedSyncSettingsForMt6x0IntGnssDevice();
+XsSyncSettingArray supportedSyncSettingsForAviorDevice();
+XsSyncSettingArray supportedSyncSettingsForAviorGnssDevice();
+XsSyncSettingArray supportedSyncSettingsForSiriusDevice();
+XsSyncSettingArray supportedSyncSettingsForSiriusGnssDevice();
 XsSyncSettingArray supportedSyncSettingsForGnssDevice();
 XsSyncSettingArray supportedSyncSettingsForAwindaBaseStation();
 XsSyncSettingArray supportedSyncSettingsForMtiXDevice();

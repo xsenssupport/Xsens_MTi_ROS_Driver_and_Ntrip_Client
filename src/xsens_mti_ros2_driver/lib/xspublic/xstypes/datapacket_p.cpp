@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -74,8 +74,8 @@ DataPacketPrivate& DataPacketPrivate::operator = (const DataPacketPrivate& p)
 	if (this != &p)
 	{
 		clear();
-		for (auto i : p)
-			insert(i.first, i.second->clone());
+		for (auto [id, variant] : p)
+			insert(id, variant->clone());
 	}
 	return *this;
 }
@@ -83,8 +83,8 @@ DataPacketPrivate& DataPacketPrivate::operator = (const DataPacketPrivate& p)
 /*! \brief Clear the contents */
 void DataPacketPrivate::clear()
 {
-	for (auto it : *this)
-		delete it.second;
+	for (auto [id, variant] : *this)
+		delete variant;
 	MapType::clear();
 }
 
@@ -146,15 +146,15 @@ void DataPacketPrivate::erase(MapType::const_iterator const& it)
 void DataPacketPrivate::merge(DataPacketPrivate const& other, bool overwrite)
 {
 	if (overwrite)
-		for (auto i : other)
-			insert(i.first, i.second->clone());
+		for (auto [id, variant] : other)
+			insert(id, variant->clone());
 	else
 	{
-		for (auto i : other)
+		for (auto [id, variant] : other)
 		{
-			auto j = find(i.first);
+			auto j = find(id);
 			if (j == end())
-				insert(i.first, i.second->clone());
+				insert(id, variant->clone());
 		}
 	}
 }

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -78,7 +78,7 @@ int32_t XsTimeStamp_milliSecondPart(const XsTimeStamp* thisPtr)
 */
 int32_t XsTimeStamp_secondPart(const XsTimeStamp* thisPtr)
 {
-	return (int32_t)((thisPtr->m_msTime / (1000)) % 60);
+	return (int32_t)((thisPtr->m_msTime / 1000) % 60);
 }
 
 /*! \relates XsTimeStamp \brief Returns the minutes part of the time (in the range 0-59)
@@ -103,7 +103,7 @@ int32_t XsTimeStamp_hourPart(const XsTimeStamp* thisPtr)
 */
 int64_t XsTimeStamp_now(XsTimeStamp* dest)
 {
-	return (int64_t) XsTime_timeStampNow(dest);
+	return XsTime_timeStampNow(dest);
 }
 
 /*! \relates XsTimeStamp
@@ -214,7 +214,7 @@ void XsTimeStamp_toString(struct XsTimeStamp const* thisPtr, struct XsString* re
 
 	if (info.m_valid)
 	{
-		sprintf(buffer, "%04d/%02d/%02d %02d:%02d:%02d.%03d"
+		snprintf(buffer, sizeof(buffer), "%04d/%02d/%02d %02d:%02d:%02d.%03d"
 			, (int) info.m_year
 			, (int) info.m_month
 			, (int) info.m_day

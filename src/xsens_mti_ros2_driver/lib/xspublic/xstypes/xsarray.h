@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -85,6 +85,7 @@ typedef struct XsArrayDescriptor XsArrayDescriptor;
 #ifdef __cplusplus
 #include <iterator>
 #include <stdexcept>
+#include <utility>
 
 #if __cplusplus >= 201103L && !defined(XSENS_HAVE_TYPE_TRAITS)
 #include <type_traits>
@@ -124,12 +125,12 @@ struct XsArray
 	XSARRAY_DECL(void)
 #ifdef __cplusplus
 	//! \copydoc XsArray_construct
-	inline XsArray(XsArrayDescriptor const* descriptor, XsSize count = 0, void const* src = 0)
-		: m_data(0)
+	inline XsArray(XsArrayDescriptor const* descriptor, XsSize count = 0, void const* src = nullptr)
+		: m_data(nullptr)
 		, m_size(0)
 		, m_reserved(0)
 		, m_flags(0)
-		, m_descriptor(0)
+		, m_descriptor(nullptr)
 	{
 		XsArray_construct(this, descriptor, count, src);
 #ifndef XSENS_NO_EXCEPTIONS
@@ -140,11 +141,11 @@ struct XsArray
 
 	//! \copydoc XsArray_copyConstruct
 	inline XsArray(const XsArray& src)
-		: m_data(0)
+		: m_data(nullptr)
 		, m_size(0)
 		, m_reserved(0)
 		, m_flags(0)
-		, m_descriptor(0)
+		, m_descriptor(nullptr)
 	{
 		XsArray_copyConstruct(this, &src);
 #ifndef XSENS_NO_EXCEPTIONS
@@ -166,7 +167,7 @@ struct XsArray
 #ifndef SWIG
 	//! \brief Move-construct an array using the supplied \a src
 	inline XsArray(XsArray&& src) noexcept
-		: m_data(0)
+		: m_data(nullptr)
 		, m_size(0)
 		, m_reserved(0)
 		, m_flags(0)
@@ -188,7 +189,7 @@ struct XsArray
 		\param src The array to copy from
 		\return A reference to this
 	*/
-	inline XsArray const& operator=(const XsArray& src)
+	inline XsArray& operator=(const XsArray& src)
 	{
 		if (this != &src)
 			XsArray_copy(this, &src);
@@ -215,20 +216,20 @@ template <typename T, XsArrayDescriptor const& D, typename I>
 struct XsArrayImpl : private XsArray
 {
 	//! \brief The contained type
-	typedef T value_type;
+	using value_type = T;
 
 	//! \brief The type of size fields
-	typedef XsSize size_type;
+	using size_type = XsSize;
 
 	//! \brief A shorthand for the type of this specific implementation
-	typedef XsArrayImpl<T, D, I> ArrayImpl;
+	using ArrayImpl = XsArrayImpl<T, D, I>;
 
 	/*! \brief Construct an XsArray
 		\param count the number of items in src
 		\param src pointer to an array of output configurations
 		\sa XsArray_construct
 	*/
-	inline explicit XsArrayImpl(XsSize count = 0, T const* src = 0)
+	inline explicit XsArrayImpl(XsSize count = 0, T const* src = nullptr)
 		: XsArray(&D, count, src)
 	{
 	}
@@ -238,6 +239,14 @@ struct XsArrayImpl : private XsArray
 		: XsArray(other)
 	{
 	}
+
+#ifndef SWIG
+	//! \brief Move-constructs the XsArray from \a other, leaving \a other in a valid empty state
+	inline XsArrayImpl(ArrayImpl&& other) noexcept
+		: XsArray(std::move(other))
+	{
+	}
+#endif
 
 #ifndef XSENS_NOITERATOR
 	//! \brief Constructs the XsArray with a copy of the array bound by the supplied iterators \a beginIt and \a endIt
@@ -346,58 +355,62 @@ protected:
 	{
 	public:
 		//! \brief Difference between two items
-		typedef ptrdiff_t difference_type;
+		using difference_type = ptrdiff_t;
 		//! \brief The contained type
-		typedef T value_type;
-		//! \brief Type of pointer
-		typedef T* pointer;
-		//! \brief Type of reference
-		typedef T& reference;
+		//! \note Deliberately T and not R: value_type is the bare element type for both the
+		//! mutable and the const iterator, which is what std::iterator_traits expects.
+		using value_type = T;
+		/*! \brief Type of pointer
+			\details Spelled in terms of \a R rather than \a T. IteratorImplConst instantiates
+			the base with R = T const, so a T* here would advertise mutable access that
+			operator->() does not actually hand out.
+		*/
+		using pointer = R*;
+		/*! \brief Type of reference
+			\details \a R and not \a T, for the same reason as pointer above: this must agree
+			with what operator*() returns, or std::iterator_traits<const_iterator>::reference
+			claims T& while dereferencing yields T const&.
+		*/
+		using reference = R&;
 #ifndef XSENS_NO_STL
 		//! \brief The category of this type of iterator (random access)
-		typedef std::random_access_iterator_tag iterator_category;
+		using iterator_category = std::random_access_iterator_tag;
 #endif
 		//! \brief The type of the inherited class that is actually this class
-		typedef Derived this_type;
+		using this_type = Derived;
 		//! \brief The direction of the iterator, +1 = forward, -1 = reverse
 		static const ptrdiff_t direction = F;
 	protected:
 		//! \brief Basic constructor
-		inline explicit IteratorImplBase(void* p = 0) : m_ptr((T*) p) {}
+		inline explicit IteratorImplBase(void* p = nullptr) : m_ptr((T*) p) {}
 		//! \brief Basic constructor
 		inline explicit IteratorImplBase(T* p) : m_ptr(p) {}
 		//! \brief Copy constructor
 		inline IteratorImplBase(this_type const& i) : m_ptr(i.m_ptr) {}
 	public:
 #ifndef SWIG
-		/*! \brief indexed data access operator */
+		/*! \brief indexed data access operator
+			\details Deliberately a single const-qualified overload returning \a R&, mirroring
+			operator*(). Subscripting an iterator must be equivalent to *(it + index), so it
+			yields the iterator's reference type and the const-ness of the *iterator object*
+			says nothing about the const-ness of the element -- exactly as for T* const.
+			A const/non-const overload pair instead returns T const& here and T& there, which
+			both contradicts operator*() and hands out a mutable reference through a
+			const_iterator.
+		*/
 		template <typename J>
-		inline T const& operator[](J index) const
+		inline R& operator[](J index) const
 		{
 #ifdef XSENS_HAVE_TYPE_TRAITS
 			static_assert(std::is_integral<J>::value || std::is_enum<J>::value, "Integral index required.");
 #endif
-			return *ptrAt(m_ptr, F * static_cast<ptrdiff_t>(index));
-		}
-		/*! \brief indexed data access operator */
-		template <typename J>
-		inline T& operator[](J index)
-		{
-#ifdef XSENS_HAVE_TYPE_TRAITS
-			static_assert(std::is_integral<J>::value || std::is_enum<J>::value, "Integral index required.");
-#endif
-			return *ptrAt(m_ptr, F * static_cast<ptrdiff_t>(index));
+			return *(R*) ptrAt(m_ptr, F * static_cast<ptrdiff_t>(index));
 		}
 #else
-		/*! \brief indexed data access operator */
-		inline T const& operator[](int index) const
+		/*! \brief indexed data access operator \sa the non-SWIG overload for why this is const */
+		inline R& operator[](int index) const
 		{
-			return *ptrAt(m_ptr, F * static_cast<ptrdiff_t>(index));
-		}
-		/*! \brief indexed data access operator */
-		inline T& operator[](int index)
-		{
-			return *ptrAt(m_ptr, F * static_cast<ptrdiff_t>(index));
+			return *(R*) ptrAt(m_ptr, F * static_cast<ptrdiff_t>(index));
 		}
 #endif
 		//! \brief Assignment operator
@@ -445,13 +458,16 @@ protected:
 			return p;
 		}
 		//! \brief Increment by \a count operator
-		inline this_type const& operator +=(ptrdiff_t count)
+		//! \note Returns a mutable reference: std::random_access_iterator requires
+		//! { i += n } -> std::same_as<I&>, so a const& here disqualifies the iterator.
+		inline this_type& operator +=(ptrdiff_t count)
 		{
 			m_ptr = ptrAt(m_ptr, F * count);
 			return *(this_type*)this;
 		}
 		//! \brief Decrement by \a count operator
-		inline this_type const& operator -=(ptrdiff_t count)
+		//! \note Returns a mutable reference, see operator+=.
+		inline this_type& operator -=(ptrdiff_t count)
 		{
 			m_ptr = ptrAt(m_ptr, -F * count);
 			return *(this_type*)this;
@@ -460,6 +476,13 @@ protected:
 		inline this_type operator +(ptrdiff_t count) const
 		{
 			return this_type(ptrAt(m_ptr, F * count));
+		}
+		/*! \brief Addition of an iterator to a \a count, the symmetric form of operator+
+			\details std::random_access_iterator requires both { j + n } and { n + j }.
+		*/
+		friend inline this_type operator +(ptrdiff_t count, this_type const& iter)
+		{
+			return iter + count;
 		}
 		//! \brief Subtraction by \a count operator
 		inline this_type operator -(ptrdiff_t count) const
@@ -536,10 +559,10 @@ public:
 	{
 	private:
 		//! \brief A shorthand for the base object
-		typedef IteratorImplBase<F, T, IteratorImpl<F> > ParentType;
+		using ParentType = IteratorImplBase<F, T, IteratorImpl<F> >;
 	public:
 		//! \brief Basic constructor
-		inline IteratorImpl(void* p = 0) : ParentType(p) {}
+		inline IteratorImpl(void* p = nullptr) : ParentType(p) {}
 		//! \brief Basic constructor
 		inline IteratorImpl(T* p) : ParentType(p) {}
 		//! \brief Copy constructor
@@ -552,10 +575,10 @@ public:
 	{
 	private:
 		//! \brief A shorthand for the base object
-		typedef IteratorImplBase<F, T const, IteratorImplConst<F> > ParentType;
+		using ParentType = IteratorImplBase<F, T const, IteratorImplConst<F> >;
 	public:
 		//! \brief Basic constructor
-		inline IteratorImplConst(void* p = 0) : ParentType(p) {}
+		inline IteratorImplConst(void* p = nullptr) : ParentType(p) {}
 		//! \brief Basic constructor
 		inline IteratorImplConst(T* p) : ParentType(p) {}
 		//! \brief Copy constructor
@@ -565,13 +588,13 @@ public:
 	};
 
 	//! \brief STL-style mutable forward iterator
-	typedef IteratorImpl<1> iterator;
+	using iterator = IteratorImpl<1>;
 	//! \brief STL-style mutable reverse iterator
-	typedef IteratorImpl < -1 > reverse_iterator;
+	using reverse_iterator = IteratorImpl < -1 >;
 	//! \brief STL-style mutable const forward iterator
-	typedef IteratorImplConst<1> const_iterator;
+	using const_iterator = IteratorImplConst<1>;
 	//! \brief STL-style mutable const reverse iterator
-	typedef IteratorImplConst < -1 > const_reverse_iterator;
+	using const_reverse_iterator = IteratorImplConst < -1 >;
 
 	/*! \brief STL-style const_iterator to the first data item in the array */
 	inline const_iterator begin() const
@@ -623,7 +646,7 @@ public:
 	inline T const& operator[](J index) const
 	{
 #ifdef XSENS_HAVE_TYPE_TRAITS
-		static_assert(std::is_integral<J>::value || std::is_enum<J>::value, "Integral index required.");
+		static_assert(std::is_integral<J>::value || std::is_enum<J>::value, "Integral index required."); // NOSONAR cpp:S6020 — _v aliases need a C++17 stdlib; IAR firmware (mtx2) lacks them, keep ::value form
 #endif
 		assert(static_cast<XsSize>(index) < m_size);
 		return *ptrAt(m_data, static_cast<ptrdiff_t>(index));
@@ -633,7 +656,7 @@ public:
 	inline T& operator[](J index)
 	{
 #ifdef XSENS_HAVE_TYPE_TRAITS
-		static_assert(std::is_integral<J>::value || std::is_enum<J>::value, "Integral index required.");
+		static_assert(std::is_integral<J>::value || std::is_enum<J>::value, "Integral index required."); // NOSONAR cpp:S6020 — _v aliases need a C++17 stdlib; IAR firmware (mtx2) lacks them, keep ::value form
 #endif
 		assert(static_cast<XsSize>(index) < m_size);
 		return *ptrAt(m_data, static_cast<ptrdiff_t>(index));
@@ -853,7 +876,7 @@ public:
 	{
 		if (count != m_size)
 		{
-			XsArray_assign(this, count, 0);
+			XsArray_assign(this, count, nullptr);
 #ifndef XSENS_NO_EXCEPTIONS
 			if (count && !m_data)
 				throw std::bad_alloc();
@@ -882,6 +905,14 @@ public:
 		}
 		return *this;
 	}
+#ifndef SWIG
+	/*! \brief Move-assignment operator, swaps the contents of \a other into this \sa XsArray_swap */
+	inline ArrayImpl& operator=(ArrayImpl&& other) noexcept
+	{
+		XsArray_swap(this, &other);
+		return *this;
+	}
+#endif
 	/*! \brief Returns whether the array is empty. \details This differs slightly from a straight check for size() != 0 in that it also works for fixed-size XsArrays. \returns true if the array is empty. */
 	inline bool empty() const noexcept
 	{
@@ -909,13 +940,13 @@ public:
 
 #endif
 	/*! \brief Swap the contents of the array with those of \a other. \param other The array to swap contents with. \sa XsArray_swap*/
-	inline void swap(ArrayImpl& other)
+	inline void swap(ArrayImpl& other) noexcept
 	{
 		XsArray_swap(this, &other);
 	}
 
 	/*! \brief Swap the contents the \a first and \a second array */
-	friend void swap(ArrayImpl& first, ArrayImpl& second)
+	friend void swap(ArrayImpl& first, ArrayImpl& second) noexcept
 	{
 		first.swap(second);
 	}

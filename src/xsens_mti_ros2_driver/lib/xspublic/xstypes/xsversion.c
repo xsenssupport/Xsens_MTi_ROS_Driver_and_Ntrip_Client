@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -33,6 +33,7 @@
 #include "xsversion.h"
 #include "xsstring.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 /*! \class XsVersion
 	\brief A class to store version information
@@ -55,9 +56,17 @@ void XsVersion_toString(const XsVersion* thisPtr, XsString* version)
 	int chars;
 
 	if (thisPtr->m_build != 0 && thisPtr->m_reposVersion != 0)
-		chars = sprintf(buffer, "%d.%d.%d build %d rev %d", thisPtr->m_major, thisPtr->m_minor, thisPtr->m_revision, thisPtr->m_build, thisPtr->m_reposVersion);
+	{
+		// Old-school revision numbers went up to ~126k, numbers in this range are still printed as integers.
+		if (thisPtr->m_reposVersion > 0 && thisPtr->m_reposVersion < 150000)
+			chars = snprintf(buffer, sizeof(buffer), "%d.%d.%d build %d rev %d", thisPtr->m_major, thisPtr->m_minor, thisPtr->m_revision, thisPtr->m_build, thisPtr->m_reposVersion);
+		else
+			chars = snprintf(buffer, sizeof(buffer), "%d.%d.%d build %d rev %08x", thisPtr->m_major, thisPtr->m_minor, thisPtr->m_revision, thisPtr->m_build, (unsigned int)thisPtr->m_reposVersion);
+	}
 	else
-		chars = sprintf(buffer, "%d.%d.%d", thisPtr->m_major, thisPtr->m_minor, thisPtr->m_revision);
+	{
+		chars = snprintf(buffer, sizeof(buffer), "%d.%d.%d", thisPtr->m_major, thisPtr->m_minor, thisPtr->m_revision);
+	}
 
 	XsString_assign(version, (XsSize)(ptrdiff_t)chars, buffer);
 	if (thisPtr->m_extra.m_size != 0)
@@ -75,7 +84,7 @@ void XsVersion_toString(const XsVersion* thisPtr, XsString* version)
 void XsVersion_toSimpleString(const XsVersion* thisPtr, XsString* version)
 {
 	char buffer[256];
-	int chars = sprintf(buffer, "%d.%d.%d", thisPtr->m_major, thisPtr->m_minor, thisPtr->m_revision);
+	int chars = snprintf(buffer, sizeof(buffer), "%d.%d.%d", thisPtr->m_major, thisPtr->m_minor, thisPtr->m_revision);
 	XsString_assign(version, (XsSize)(ptrdiff_t)chars, buffer);
 }
 
@@ -89,9 +98,10 @@ void XsVersion_fromString(XsVersion* thisPtr, const XsString* version)
 	int minor = 0;
 	int revision = 0;
 	int build = 0;
-	int reposVersion = 0;
+	unsigned int reposVersion = 0;
 	int result;
-	size_t count = 0;
+	int revStart = 0;
+	int revEnd = 0;
 
 	assert(thisPtr);
 	thisPtr->m_major = 0;
@@ -103,7 +113,17 @@ void XsVersion_fromString(XsVersion* thisPtr, const XsString* version)
 	if (!version || XsString_empty(version))
 		return;
 
-	result = sscanf(version->m_data, "%d.%d.%d build %d rev %d%zn", &major, &minor, &revision, &build, &reposVersion, &count);
+	result = sscanf(version->m_data, "%d.%d.%d build %d rev %n%x%n", &major, &minor, &revision, &build, &revStart, &reposVersion, &revEnd);
+
+	// toString prints old-school revisions as decimal and everything else as exactly 8 hex digits
+	// Anything that does not fit either form is considered corrupt and results in a 0 revision
+	if (result == 5 && (revEnd - revStart) != 8)
+	{
+		char* end = NULL;
+		reposVersion = (unsigned int)strtoul(&version->m_data[revStart], &end, 10);
+		if (end != &version->m_data[revEnd])
+			reposVersion = 0;
+	}
 
 	if (result > 0)
 	{
@@ -115,11 +135,11 @@ void XsVersion_fromString(XsVersion* thisPtr, const XsString* version)
 	if (result > 3)
 	{
 		thisPtr->m_build = build;
-		thisPtr->m_reposVersion = reposVersion;
+		thisPtr->m_reposVersion = (int)reposVersion;
 	}
 
-	if ((result == 5) && ((count + 1) < version->m_size))
-		XsString_assignCharArray(&thisPtr->m_extra, &version->m_data[count + 1]);
+	if ((result == 5) && ((1ULL + (unsigned int)revEnd) < version->m_size))
+		XsString_assignCharArray(&thisPtr->m_extra, &version->m_data[revEnd + 1]);
 }
 
 /*! \relates XsVersion

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -49,7 +49,7 @@
 	#ifndef WIN32_LEAN_AND_MEAN
 		#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 	#endif
-	#include <windows.h>
+	#include <Windows.h>
 #else
 #endif
 #include "xstypesdynlib.h"
@@ -80,7 +80,7 @@ so_fini(void)
 }
 
 #ifdef _WIN32
-HMODULE g_hModule = 0;
+HMODULE g_hModule = NULL;
 BOOL APIENTRY DllMain(HMODULE hModule,
 	DWORD  ul_reason_for_call,
 	LPVOID lpvReserved

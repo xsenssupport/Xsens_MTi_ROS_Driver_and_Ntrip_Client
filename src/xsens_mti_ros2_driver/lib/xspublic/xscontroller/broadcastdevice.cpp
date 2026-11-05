@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -247,7 +247,7 @@ BroadcastDevice::BroadcastDevice(XsControl* control_)
 BroadcastDevice::~BroadcastDevice()
 {
 	setTerminationPrepared(true);
-	m_control = NULL;
+	m_control = nullptr;
 }
 
 /*! \brief Return the children of this device, actually returns the main devices in the XsControl object

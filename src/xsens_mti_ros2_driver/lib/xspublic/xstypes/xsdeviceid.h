@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -38,10 +38,6 @@
 #include "xsstring.h"
 #include "xshandid.h"
 #include "xstypesdef.h"
-
-#ifndef XSNOEXPORT
-#define XSNOEXPORT
-#endif
 
 #ifdef __cplusplus
 #include <cstring>
@@ -103,6 +99,7 @@ XSTYPES_DLL_API int XsDeviceId_isVru(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isAhrs(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isGnss(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isRtk(struct XsDeviceId const* thisPtr);
+XSTYPES_DLL_API int XsDeviceId_isDualGnss(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_hasInternalGnss(struct XsDeviceId const* thisPtr);
 XSTYPES_DLL_API int XsDeviceId_isContainerDevice(struct XsDeviceId const* thisPtr);
 
@@ -176,7 +173,7 @@ struct XsDeviceId
 		memcpy(static_cast<void*>(this), static_cast<void const*>(&other), sizeof(XsDeviceId));
 	}
 	/*! \brief Assign the \a other deviceId to this XsDeviceId */
-	inline const XsDeviceId& operator=(const XsDeviceId& other)
+	inline XsDeviceId& operator=(const XsDeviceId& other)
 	{
 		if (this != &other)
 			memcpy(static_cast<void*>(this), static_cast<void const*>(&other), sizeof(XsDeviceId));
@@ -205,7 +202,7 @@ struct XsDeviceId
 		return tmp;
 	}
 	/*! \brief Returns the raw product code data pointer */
-	XSNOEXPORT inline const char* productCodeData() const
+	/*! \private */ inline const char* productCodeData() const
 	{
 		return m_productCode;
 	}
@@ -335,7 +332,9 @@ struct XsDeviceId
 	/*! \brief \copybrief XsDeviceId_isBodyPack(const struct XsDeviceId*) */
 	inline bool isBodyPack() const
 	{
-		return 0 != XsDeviceId_isBodyPack(this) || isBodyHub();
+		// XsDeviceId_isBodyPack now treats a bodyhub as a bodypack itself, so the previous
+		// '|| isBodyHub()' here is no longer needed (single source of truth in the C function).
+		return 0 != XsDeviceId_isBodyPack(this);
 	}
 	/*! \brief \copybrief XsDeviceId_isBodyPackV1(const struct XsDeviceId*) */
 	inline bool isBodyPackV1() const
@@ -436,6 +435,11 @@ struct XsDeviceId
 	inline bool isRtk() const
 	{
 		return 0 != XsDeviceId_isRtk(this);
+	}
+	/*! \brief \copybrief XsDeviceId_isDualGnss(const struct XsDeviceId*) */
+	inline bool isDualGnss() const
+	{
+		return 0 != XsDeviceId_isDualGnss(this);
 	}
 	/*! \brief \copybrief XsDeviceId_hasInternalGnss(const struct XsDeviceId*) */
 	inline bool hasInternalGnss() const
@@ -764,8 +768,7 @@ static std::string makeNiceProductCode(char const* pc, int maxSz = 20)
 	if (maxSz <= 0 && pc)
 		maxSz = 20;
 	std::string result(pc ? pc : "", (unsigned int) maxSz);
-	std::string::size_type thingy = result.find(" ");
-	if (thingy != std::string::npos && (int) thingy < maxSz)
+	if (std::string::size_type thingy = result.find(" "); thingy != std::string::npos && (int) thingy < maxSz)
 		result.erase(result.begin() + (unsigned)thingy, result.end());
 	return result;
 }
