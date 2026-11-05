@@ -41,12 +41,16 @@
 #include <xstypes/xstypedefs.h>
 #include <xstypes/xsdatapacket.h>
 
+#include <cmath>
+#include <cstdio>
+
 #include "messagepublishers/packetcallback.h"
 #include "messagepublishers/accelerationpublisher.h"
 #include "messagepublishers/angularvelocitypublisher.h"
 #include "messagepublishers/freeaccelerationpublisher.h"
 #include "messagepublishers/gnsspublisher.h"
 #include "messagepublishers/gnsspvtpublisher.h"
+#include "messagepublishers/gnssheadingpublisher.h"
 #include "messagepublishers/gnssatinfopublisher.h"
 #include "messagepublishers/imupublisher.h"
 #include "messagepublishers/magneticfieldpublisher.h"
@@ -251,6 +255,12 @@ void XdaInterface::registerPublishers()
 		if (m_node->get_parameter("pub_gnsspvt", should_publish) && should_publish)
 		{
 			registerCallback(new GnssPvtPublisher(m_node));
+		}
+		// Dual-antenna heading is only available on Sirius/Avior Dual Antenna models
+		if (m_device->deviceId().isDualGnss() &&
+			m_node->get_parameter("pub_gnss_heading", should_publish) && should_publish)
+		{
+			registerCallback(new GnssHeadingPublisher(m_node));
 		}
 		// Satellite info is only available on MTi-670(G), MTi-680(G), and MTi-G-710
 		if ((m_device->deviceId().isMti6X0() || m_device->deviceId().isMtig()) &&
@@ -706,6 +716,28 @@ bool XdaInterface::handleError(std::string error)
 	return false;
 }
 
+/**
+ * \brief Logs whether a lever arm read back from the device matches the requested one.
+ *
+ * The device stores lever arms as float, so a difference below 0.1 mm counts as a match.
+ * An empty read-back (size != 3) means the request failed.
+ */
+static void reportLeverArmReadBack(const rclcpp::Logger& logger, const char* name,
+	const XsVector3& requested, const XsVector& readBack, const char* requestedText)
+{
+	bool matches = readBack.size() == 3;
+	for (XsSize i = 0; matches && i < 3; ++i)
+		matches = std::fabs(readBack[i] - requested[i]) < 1e-4;
+
+	if (matches)
+		RCLCPP_INFO(logger, "%s applied and confirmed by the device: %s", name, requestedText);
+	else if (readBack.size() == 3)
+		RCLCPP_WARN(logger, "%s read back as %.3f, %.3f, %.3f m; expected %s",
+			name, readBack[0], readBack[1], readBack[2], requestedText);
+	else
+		RCLCPP_WARN(logger, "Could not read back the %s; requested %s", name, requestedText);
+}
+
 
 
 
@@ -1020,11 +1052,30 @@ bool XdaInterface::configureSensorSettings()
 				}
 			}
 
-			//XDI_GnssPvtData output data rate is fixed at 4Hz
+			//XDI_GnssPvtData output data rate is fixed at 4Hz, 10Hz for dual-antenna modules
 			if (m_node->get_parameter("pub_gnss", should_config) && should_config)
 			{
-				configArray.push_back(XsOutputConfiguration(XDI_GnssPvtData, 4));
-				RCLCPP_INFO(m_node->get_logger(), "XDI_GnssPvtData, 4Hz");
+				// Check if the device is dual-antenna and set the output rate accordingly
+				if (xsens_device_id.isDualGnss())
+				{
+					configArray.push_back(XsOutputConfiguration(XDI_GnssPvtData, 10));
+					RCLCPP_INFO(m_node->get_logger(), "XDI_GnssPvtData, 10Hz");
+				}
+				else
+				{
+					configArray.push_back(XsOutputConfiguration(XDI_GnssPvtData, 4));
+					RCLCPP_INFO(m_node->get_logger(), "XDI_GnssPvtData, 4Hz");
+				}
+			}
+
+			// Dual-antenna relative position and heading (XDI_GnssHeading), Avior/Sirius Dual Antenna only.
+			// Comparable in content to u-blox NAV-RELPOSNED, but in Xsens units and flag bits;
+			// see the MT Low Level Communication Protocol.
+			// Output rate is fixed at 10Hz, the same as XDI_GnssPvtData on dual-antenna modules.
+			if (xsens_device_id.isDualGnss() && m_node->get_parameter("pub_gnss_heading", should_config) && should_config)
+			{
+				configArray.push_back(XsOutputConfiguration(XDI_GnssHeading, 10));
+				RCLCPP_INFO(m_node->get_logger(), "XDI_GnssHeading, 10Hz");
 			}
 
 
@@ -1274,7 +1325,8 @@ bool XdaInterface::configureSensorSettings()
 		}
 		
 
-		// read yaml config for gnss lever arm, only for MTI-8 or MTI-680(G):
+		// read yaml config for gnss lever arm, only for RTK devices (MTi-8, MTi-680(G), Sirius/Avior RTK and Dual Antenna).
+		// On a Dual Antenna device this is the lever arm to the primary antenna (ANT1).
 		if (xsens_device_id.isRtk())
 		{
 			std::vector<double> gnssLeverArm = {0.0, 0.0, 0.0};
@@ -1288,15 +1340,26 @@ bool XdaInterface::configureSensorSettings()
 				leverArm[0] = gnssLeverArm[0];
 				leverArm[1] = gnssLeverArm[1];
 				leverArm[2] = gnssLeverArm[2];
-				RCLCPP_INFO(m_node->get_logger(), "Setting GNSS lever arm to: %f, %f, %f", leverArm[0], leverArm[1], leverArm[2]);
+				char leverArmText[96];
+				snprintf(leverArmText, sizeof(leverArmText), "%.3f, %.3f, %.3f m (from GNSS_LeverArm)", leverArm[0], leverArm[1], leverArm[2]);
 				if (!m_device->setGnssLeverArm(leverArm))
-					return handleError("Could not set GNSS lever arm");
+					return handleError(std::string("Device rejected the requested GNSS lever arm: ") + leverArmText);
+
+				reportLeverArmReadBack(m_node->get_logger(), "GNSS lever arm", leverArm, m_device->gnssLeverArm(), leverArmText);
 			}
 			else
 			{
 				RCLCPP_WARN(m_node->get_logger(), "No GNSS_LeverArm parameter found, using default value");
 			}
 
+		}
+
+		// Avior/Sirius Dual Antenna: baseline mode, secondary antenna (ANT2) lever arm and baseline angle.
+		// A failure only skips the dual-antenna settings, the rest of the configuration continues.
+		if (xsens_device_id.isDualGnss())
+		{
+			if (!configureDualAntenna())
+				RCLCPP_WARN(m_node->get_logger(), "Dual-antenna configuration skipped, continuing with the remaining device configuration.");
 		}
 
 
@@ -1569,6 +1632,105 @@ bool XdaInterface::configureSensorSettings()
 }
 
 
+static const char* dualAntennaModeName(XsDualAntennaMode mode)
+{
+	switch (mode)
+	{
+		case XDAM_None:		return "None";
+		case XDAM_Leverarm:	return "LeverArm";
+		case XDAM_Angle:	return "Angle";
+		default:			return "Unknown";
+	}
+}
+
+/**
+ * \brief Configures the dual-antenna settings of an Avior/Sirius Dual Antenna GNSS/INS.
+ *
+ * The primary antenna (ANT1) lever arm is set from 'GNSS_LeverArm' together with the
+ * other RTK devices. This function sets the baseline mode from 'dual_antenna_mode':
+ *   -1: keep the device's current settings (only logged)
+ *    0: None, single-antenna operation
+ *    1: LeverArm, baseline derived from the ANT1 and ANT2 lever arms ('GNSS_LeverArm_Ant2')
+ *    2: Angle, baseline derived from 'dual_antenna_angle' (deg, -180..180)
+ * Must be called in config mode.
+ *
+ * \return true on success, false if a parameter is invalid or the device rejects a setting.
+ *         The error is logged; the caller continues with the rest of the configuration.
+ */
+bool XdaInterface::configureDualAntenna()
+{
+	int modeParam = -1;
+	m_node->get_parameter("dual_antenna_mode", modeParam);
+
+	if (modeParam == -1)
+	{
+		float currentAngle = 0.0f;
+		XsDualAntennaMode currentMode = m_device->dualAntennaSettings(&currentAngle);
+		RCLCPP_INFO(m_node->get_logger(), "dual_antenna_mode is -1, keeping the device's dual-antenna settings: mode %s, angle %.2f deg%s",
+			dualAntennaModeName(currentMode), currentAngle,
+			currentMode == XDAM_Angle ? "" : " (angle is only used in Angle mode, reported as 0 in this mode)");
+		return true;
+	}
+
+	if (modeParam < XDAM_None || modeParam > XDAM_Angle)
+		return handleError("Invalid dual_antenna_mode " + std::to_string(modeParam) +
+			", use -1 (keep device setting), 0 (None), 1 (LeverArm) or 2 (Angle)");
+	XsDualAntennaMode mode = static_cast<XsDualAntennaMode>(modeParam);
+
+	double angle = 0.0;
+	if (mode == XDAM_Angle)
+	{
+		rclcpp::Parameter angleParam;
+		if (m_node->get_parameter("dual_antenna_angle", angleParam))
+		{
+			if (angleParam.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER)
+				angle = static_cast<double>(angleParam.as_int());
+			else if (angleParam.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE)
+				angle = angleParam.as_double();
+			else
+				return handleError("Invalid dual_antenna_angle parameter, must be a number in degrees");
+		}
+		if (angle < -180.0 || angle > 180.0)
+			return handleError("Invalid dual_antenna_angle " + std::to_string(angle) + ", must be between -180 and 180 degrees");
+	}
+
+	if (mode == XDAM_Leverarm)
+	{
+		std::vector<double> ant2LeverArm = {0.0, 0.0, 0.0};
+		m_node->get_parameter("GNSS_LeverArm_Ant2", ant2LeverArm);
+		if (ant2LeverArm.size() != 3)
+			return handleError("Invalid GNSS_LeverArm_Ant2 parameter");
+		XsVector3 leverArm;
+		leverArm[0] = ant2LeverArm[0];
+		leverArm[1] = ant2LeverArm[1];
+		leverArm[2] = ant2LeverArm[2];
+		char leverArmText[96];
+		snprintf(leverArmText, sizeof(leverArmText), "%.3f, %.3f, %.3f m (from GNSS_LeverArm_Ant2)", leverArm[0], leverArm[1], leverArm[2]);
+		if (!m_device->setLeverArm(XLAT_Antenna2, leverArm))
+			return handleError(std::string("Device rejected the requested secondary antenna (ANT2) lever arm: ") + leverArmText);
+
+		// No read-back: XsDevice::leverArm() in MT SDK 2026.4 reads the reply floats one byte too early
+		// (it skips the lever arm type byte), so it returns wrong values although the device stores them correctly.
+		RCLCPP_INFO(m_node->get_logger(), "Secondary antenna (ANT2) lever arm applied: %s", leverArmText);
+	}
+
+	char settingsText[160];
+	snprintf(settingsText, sizeof(settingsText), "mode %s, angle %.2f deg%s", dualAntennaModeName(mode), angle,
+		mode == XDAM_Angle ? " (from dual_antenna_angle)" : " (angle is only used in Angle mode, sent as 0 in this mode)");
+	if (!m_device->setDualAntennaSettings(mode, static_cast<float>(angle)))
+		return handleError(std::string("Device rejected the requested dual-antenna settings: ") + settingsText);
+
+	// Read back, the device may silently ignore unsupported values.
+	float readAngle = 0.0f;
+	XsDualAntennaMode readMode = m_device->dualAntennaSettings(&readAngle);
+	if (readMode != mode || (mode == XDAM_Angle && std::fabs(readAngle - angle) > 0.01))
+		RCLCPP_WARN(m_node->get_logger(), "Dual-antenna settings read back as mode %s, angle %.2f deg; expected mode %s, angle %.2f deg",
+			dualAntennaModeName(readMode), readAngle, dualAntennaModeName(mode), angle);
+	else
+		RCLCPP_INFO(m_node->get_logger(), "Dual-antenna settings applied and confirmed by the device: %s", settingsText);
+
+	return true;
+}
 
 
 void XdaInterface::declareCommonParameters()
@@ -1696,4 +1858,18 @@ void XdaInterface::declareCommonParameters()
 		m_node->declare_parameter("port_config_hardware_flow_control", should_publish);	
 	if (!m_node->has_parameter("pub_ship_motion"))
 		m_node->declare_parameter("pub_ship_motion", should_publish);
+	if (!m_node->has_parameter("pub_gnss_heading"))
+		m_node->declare_parameter("pub_gnss_heading", should_publish);
+	// Dual Antenna (Avior/Sirius): -1 keeps the device's current settings.
+	if (!m_node->has_parameter("dual_antenna_mode"))
+		m_node->declare_parameter("dual_antenna_mode", -1);
+	if (!m_node->has_parameter("dual_antenna_angle"))
+	{
+		// Dynamic typing so that a whole number like '90' in the yaml is accepted as well as '90.0'.
+		rcl_interfaces::msg::ParameterDescriptor angleDescriptor;
+		angleDescriptor.dynamic_typing = true;
+		m_node->declare_parameter("dual_antenna_angle", rclcpp::ParameterValue(0.0), angleDescriptor);
+	}
+	if (!m_node->has_parameter("GNSS_LeverArm_Ant2"))
+		m_node->declare_parameter("GNSS_LeverArm_Ant2", std::vector<double>{0.0, 0.0, 0.0});
 }
