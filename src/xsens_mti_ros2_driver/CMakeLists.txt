@@ -70,6 +70,11 @@ ExternalProject_Add(
   CONFIGURE_COMMAND ""  # No configure step
   BUILD_COMMAND env --unset=MAKEFLAGS make
   BUILD_IN_SOURCE 1  # Build in the source directory
+  BUILD_ALWAYS 1  # Recheck SDK sources even when an ExternalProject stamp exists
+  BUILD_BYPRODUCTS
+    ${CMAKE_SOURCE_DIR}/lib/xspublic/xscontroller/libxscontroller.a
+    ${CMAKE_SOURCE_DIR}/lib/xspublic/xscommon/libxscommon.a
+    ${CMAKE_SOURCE_DIR}/lib/xspublic/xstypes/libxstypes.a
   INSTALL_COMMAND ""  # No install step
 )
 
@@ -162,11 +167,14 @@ else()
   target_link_libraries(xsens_mti_node "${cpp_typesupport_target}")
 endif()
 
+# Link the SDK archives by full path so a rebuilt library actually relinks the
+# node. With plain -l names the stale archive can be reused silently, which
+# makes an SDK source change look like it had no effect.
 target_link_libraries(
 	xsens_mti_node
-	xscontroller
-	xscommon
-	xstypes
+	${CMAKE_SOURCE_DIR}/lib/xspublic/xscontroller/libxscontroller.a
+	${CMAKE_SOURCE_DIR}/lib/xspublic/xscommon/libxscommon.a
+	${CMAKE_SOURCE_DIR}/lib/xspublic/xstypes/libxstypes.a
 	pthread
 	dl
 )
@@ -203,6 +211,26 @@ if(BUILD_TESTING)
   target_link_libraries(test_imu_publisher
     "${cpp_typesupport_target}"
     xstypes
+    pthread
+    dl
+  )
+
+  # Guards the SDK message-extractor framing fix. Linked by full path so a
+  # rebuilt SDK archive is actually picked up.
+  ament_add_gtest(test_message_extractor_framing
+    test/test_message_extractor_framing.cpp
+  )
+  add_dependencies(test_message_extractor_framing xspublic)
+  target_include_directories(test_message_extractor_framing PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/xspublic
+  )
+  target_compile_options(test_message_extractor_framing PRIVATE
+    -include ${CMAKE_CURRENT_SOURCE_DIR}/lib/xspublic/xscontroller/xscontrollerconfig.h
+  )
+  target_link_libraries(test_message_extractor_framing
+    ${CMAKE_SOURCE_DIR}/lib/xspublic/xscontroller/libxscontroller.a
+    ${CMAKE_SOURCE_DIR}/lib/xspublic/xscommon/libxscommon.a
+    ${CMAKE_SOURCE_DIR}/lib/xspublic/xstypes/libxstypes.a
     pthread
     dl
   )
