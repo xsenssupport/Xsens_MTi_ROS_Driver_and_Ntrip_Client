@@ -1336,6 +1336,8 @@ bool XdaInterface::configureSensorSettings()
 			{
 				if (gnssLeverArm.size() != 3)
 					return handleError("Invalid GNSS_LeverArm parameter");
+				if (!std::isfinite(gnssLeverArm[0]) || !std::isfinite(gnssLeverArm[1]) || !std::isfinite(gnssLeverArm[2]))
+					return handleError("Invalid GNSS_LeverArm parameter, the values must be finite numbers");
 				XsVector3 leverArm;
 				leverArm[0] = gnssLeverArm[0];
 				leverArm[1] = gnssLeverArm[1];
@@ -1644,6 +1646,27 @@ static const char* dualAntennaModeName(XsDualAntennaMode mode)
 }
 
 /**
+ * \brief Reads the dual-antenna mode and angle from the device.
+ *
+ * XsDevice::dualAntennaSettings() returns XDAM_None both when the device is in None mode and when the
+ * request fails. This sends the request itself so that a failed request or an incomplete reply can be
+ * told apart from a device in None mode.
+ *
+ * \return true if the device replied with mode and angle; \a mode and \a angle are only set in that case.
+ */
+static bool readDualAntennaSettings(XsDevice* device, XsDualAntennaMode& mode, float& angle)
+{
+	XsMessage snd(XMID_ReqDualAntennaSettings), rcv;
+	if (!device->sendCustomMessage(snd, true, rcv))
+		return false;
+	if (rcv.getDataSize() < 1 + sizeof(float))
+		return false;
+	mode = static_cast<XsDualAntennaMode>(rcv.getDataByte(0));
+	angle = rcv.getDataFloat(1);
+	return true;
+}
+
+/**
  * \brief Configures the dual-antenna settings of an Avior/Sirius Dual Antenna GNSS/INS.
  *
  * The primary antenna (ANT1) lever arm is set from 'GNSS_LeverArm' together with the
@@ -1664,8 +1687,13 @@ bool XdaInterface::configureDualAntenna()
 
 	if (modeParam == -1)
 	{
+		XsDualAntennaMode currentMode = XDAM_None;
 		float currentAngle = 0.0f;
-		XsDualAntennaMode currentMode = m_device->dualAntennaSettings(&currentAngle);
+		if (!readDualAntennaSettings(m_device, currentMode, currentAngle))
+		{
+			RCLCPP_WARN(m_node->get_logger(), "dual_antenna_mode is -1, keeping the device's dual-antenna settings, but they could not be read from the device.");
+			return true;
+		}
 		RCLCPP_INFO(m_node->get_logger(), "dual_antenna_mode is -1, keeping the device's dual-antenna settings: mode %s, angle %.2f deg%s",
 			dualAntennaModeName(currentMode), currentAngle,
 			currentMode == XDAM_Angle ? "" : " (angle is only used in Angle mode, reported as 0 in this mode)");
@@ -1690,8 +1718,9 @@ bool XdaInterface::configureDualAntenna()
 			else
 				return handleError("Invalid dual_antenna_angle parameter, must be a number in degrees");
 		}
-		if (angle < -180.0 || angle > 180.0)
-			return handleError("Invalid dual_antenna_angle " + std::to_string(angle) + ", must be between -180 and 180 degrees");
+		// isfinite() first: every comparison with NaN is false, so NaN would pass the range check.
+		if (!std::isfinite(angle) || angle < -180.0 || angle > 180.0)
+			return handleError("Invalid dual_antenna_angle " + std::to_string(angle) + ", must be a finite number between -180 and 180 degrees");
 	}
 
 	if (mode == XDAM_Leverarm)
@@ -1700,6 +1729,8 @@ bool XdaInterface::configureDualAntenna()
 		m_node->get_parameter("GNSS_LeverArm_Ant2", ant2LeverArm);
 		if (ant2LeverArm.size() != 3)
 			return handleError("Invalid GNSS_LeverArm_Ant2 parameter");
+		if (!std::isfinite(ant2LeverArm[0]) || !std::isfinite(ant2LeverArm[1]) || !std::isfinite(ant2LeverArm[2]))
+			return handleError("Invalid GNSS_LeverArm_Ant2 parameter, the values must be finite numbers");
 		XsVector3 leverArm;
 		leverArm[0] = ant2LeverArm[0];
 		leverArm[1] = ant2LeverArm[1];
@@ -1721,9 +1752,11 @@ bool XdaInterface::configureDualAntenna()
 		return handleError(std::string("Device rejected the requested dual-antenna settings: ") + settingsText);
 
 	// Read back, the device may silently ignore unsupported values.
+	XsDualAntennaMode readMode = XDAM_None;
 	float readAngle = 0.0f;
-	XsDualAntennaMode readMode = m_device->dualAntennaSettings(&readAngle);
-	if (readMode != mode || (mode == XDAM_Angle && std::fabs(readAngle - angle) > 0.01))
+	if (!readDualAntennaSettings(m_device, readMode, readAngle))
+		RCLCPP_WARN(m_node->get_logger(), "Dual-antenna settings applied, but they could not be read back from the device to confirm them: %s", settingsText);
+	else if (readMode != mode || (mode == XDAM_Angle && (!std::isfinite(readAngle) || std::fabs(readAngle - angle) > 0.01)))
 		RCLCPP_WARN(m_node->get_logger(), "Dual-antenna settings read back as mode %s, angle %.2f deg; expected mode %s, angle %.2f deg",
 			dualAntennaModeName(readMode), readAngle, dualAntennaModeName(mode), angle);
 	else
