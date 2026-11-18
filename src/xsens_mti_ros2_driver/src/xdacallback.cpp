@@ -35,14 +35,18 @@
 #include <xscontroller/xsdevice_def.h>
 #include <xstypes/xsdatapacket.h>
 
-XdaCallback::XdaCallback(rclcpp::Node::SharedPtr node, size_t maxBufferSize)
+#include "xsens_diagnostics.h"
+
+XdaCallback::XdaCallback(DriverNode::SharedPtr node, size_t maxBufferSize)
 	: m_maxBufferSize(maxBufferSize)
 	, parent_node(node)
 	, m_interpolator(node)
 	, m_interpolationEnabled(false)
 {
 	int time_option = 0; //default is "mti_utc"
-	parent_node->declare_parameter<int>("time_option", 0);
+	// Guarded, because a new callback object is created on every lifecycle configure.
+	if (!parent_node->has_parameter("time_option"))
+		parent_node->declare_parameter<int>("time_option", 0);
 	parent_node->get_parameter("time_option", time_option);
 	m_timeHandler.setTimeOption(time_option);
 	//if else to check time_option rosinfo to print time_option
@@ -221,9 +225,16 @@ void XdaCallback::onLiveDataAvailable(XsDevice *, const XsDataPacket *packet)
 	}
 }
 
+void XdaCallback::setDiagnostics(std::shared_ptr<XsensDiagnostics> diagnostics)
+{
+	m_diagnostics = diagnostics;
+}
+
 void XdaCallback::onError(XsDevice *dev, XsResultValue error)
 {
 	RCLCPP_ERROR(parent_node->get_logger(), "MTi Error: %s", XsResultValue_toString(error));
+	if (m_diagnostics)
+		m_diagnostics->recordDeviceError(XsResultValue_toString(error));
 	if(error == XRV_DATAOVERFLOW)
 	{
 		RCLCPP_ERROR(parent_node->get_logger(), "Data overflow occurred. Use MT Manager - Device Settings, to change the baudrate to higher value like 921600 or 2000000!! Optionally, change the enable_deviceConfig to true to change the output in the xsens_mti_node.yaml. If both doesn't work, reduce your output data rate.");

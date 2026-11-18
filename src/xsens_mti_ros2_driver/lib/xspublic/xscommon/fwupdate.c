@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -35,7 +35,7 @@
 #include "xbus.h"
 
 #ifndef LOG
-	#define LOG(...)
+	#define LOG(...)	((void) 0)
 #endif
 
 #define XMID_FIRMWARE_UPDATE (0xF2)
@@ -64,21 +64,21 @@ const char* commandToString(uint8_t command)
 	switch (command)
 	{
 		case FWUP_READY:
-			return ("FWUP_READY");
+			return "FWUP_READY";
 		case FWUP_HEADER:
-			return ("FWUP_HEADER");
+			return "FWUP_HEADER";
 		case FWUP_FINISHED:
-			return ("FWUP_FINISHED");
+			return "FWUP_FINISHED";
 		case FWUP_PAGE:
-			return ("FWUP_PAGE");
+			return "FWUP_PAGE";
 		case FWUP_PAGESLICE:
-			return ("FWUP_PAGESLICE");
+			return "FWUP_PAGESLICE";
 		case FWUP_STARTED:
-			return ("FWUP_STARTED");
+			return "FWUP_STARTED";
 		case FWUP_OTHER:
-			return ("FWUP_OTHER");
+			return "FWUP_OTHER";
 		default:
-			return ("unknown");
+			return "unknown";
 	}
 }
 
@@ -307,6 +307,16 @@ static void enterNewSection(FwUpdate* thisPtr)
 {
 	LOG("\nFwu: enterNewSection()\n");
 	readXffHeader(thisPtr);
+	if (thisPtr->m_endOfFile)
+	{
+		LOG("Fwu: End of file during section header read --> Firmware update done\n");
+		sendFinished(thisPtr);
+		thisPtr->m_state = STATE_Idle;
+		thisPtr->m_readyHandler(FWU_Success);
+		return;
+	}
+	// Note: a corrupt xff with pageSize==0 or sliceSize==0 would cause division by zero here,
+	// but we control xff creation and distribution so this is not a realistic scenario.
 	thisPtr->m_nofPages = thisPtr->m_xffHeader.m_sectionSize / ((uint32_t)thisPtr->m_xffHeader.m_pageSize + (uint32_t)thisPtr->m_xffHeader.m_addressLength);
 	thisPtr->m_nofSlicesPerPage = thisPtr->m_xffHeader.m_pageSize / thisPtr->m_xffHeader.m_sliceSize;
 	thisPtr->m_pageCounter = 0;
@@ -373,7 +383,8 @@ void FwUpdate_handleXbus(FwUpdate* thisPtr, uint8_t const* xbusMessage)
 			{
 				LOG("Fwu: FWUP_READY in STATE_Start --> Enter new section\n");
 				enterNewSection(thisPtr);
-				thisPtr->m_state = STATE_WaitReady;
+				if (thisPtr->m_state != STATE_Idle)
+					thisPtr->m_state = STATE_WaitReady;
 			}
 			else
 				LOG("Fwu: Got %s in STATE_Start (ignored)\n", ackToString(ack));
@@ -465,12 +476,13 @@ void FwUpdate_handleXbus(FwUpdate* thisPtr, uint8_t const* xbusMessage)
 				{
 					LOG("Fwu: All pages sent --> Enter new section\n");
 					enterNewSection(thisPtr);
-					thisPtr->m_state = STATE_WaitReady;
+					if (thisPtr->m_state != STATE_Idle) // NOSONAR c:S134 - firmware-update state machine; flattening it needs its own PR with focused testing
+						thisPtr->m_state = STATE_WaitReady;
 				}
 				else
 				{
 					sendHeader(thisPtr);
-					if (thisPtr->m_endOfFile)
+					if (thisPtr->m_endOfFile) // NOSONAR c:S134 - firmware-update state machine; flattening it needs its own PR with focused testing
 					{
 						LOG("Fwu: End of file --> Firmware update done\n");
 						sendFinished(thisPtr);

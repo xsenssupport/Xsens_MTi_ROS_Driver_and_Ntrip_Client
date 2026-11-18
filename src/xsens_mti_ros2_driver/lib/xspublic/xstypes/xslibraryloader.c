@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -36,7 +36,11 @@
 #ifdef __GNUC__
 	#include <dlfcn.h>
 #elif defined(_MSC_VER)
+	#ifndef WIN32_LEAN_AND_MEAN
+		#define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
+	#endif
 	#include <Windows.h>
+	#include <stdlib.h>
 #endif
 
 /*! \brief Dynamically load a library

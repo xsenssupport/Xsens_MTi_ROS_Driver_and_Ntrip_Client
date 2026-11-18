@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -57,9 +57,7 @@ struct XsSdiData
 {
 #ifdef __cplusplus
 	//! \brief Construct an empty object
-	inline XsSdiData()
-	{
-	}
+	inline XsSdiData() = default;
 
 	//! \brief Construct an initialized object
 	inline XsSdiData(const XsQuaternion& dq, const XsVector& dv)
@@ -69,14 +67,10 @@ struct XsSdiData
 	}
 
 	//! \brief Copy constructor
-	inline XsSdiData(const XsSdiData& other)
-		: m_orientationIncrement(other.m_orientationIncrement)
-		, m_velocityIncrement(other.m_velocityIncrement)
-	{
-	}
+	inline XsSdiData(const XsSdiData& other) = default;
 
 	//! \brief Assignment operator
-	inline const XsSdiData& operator=(const XsSdiData& other)
+	inline XsSdiData& operator=(const XsSdiData& other)
 	{
 		if (this != &other)
 		{

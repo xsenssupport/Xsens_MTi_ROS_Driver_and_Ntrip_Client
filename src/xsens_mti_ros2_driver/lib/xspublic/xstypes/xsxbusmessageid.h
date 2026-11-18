@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -497,6 +497,19 @@ enum XsXbusMessageId
 	XMID_ReqLeverArmAck				= 0x0101,
 	XMID_SetLeverArm				= 0x0100,
 	XMID_SetLeverArmAck				= 0x0101,
+
+	XMID_ReqDualAntennaSettings		= 0x0102,
+	XMID_ReqDualAntennaSettingsAck	= 0x0103,
+	XMID_SetDualAntennaSettings		= 0x0102,
+	XMID_SetDualAntennaSettingsAck	= 0x0103,
+
+	XMID_ReqModelingParameters		= 0x0104,
+	XMID_ReqModelingParametersAck	= 0x0105,
+
+	XMID_SetDeadReckoningDuration		= 0x0106,
+	XMID_SetDeadReckoningDurationAck	= 0x0107,
+	XMID_ReqDeadReckoningDuration		= 0x0106,
+	XMID_ReqDeadReckoningDurationAck	= 0x0107,
 };
 /*! @} */
 typedef enum XsXbusMessageId XsXbusMessageId;

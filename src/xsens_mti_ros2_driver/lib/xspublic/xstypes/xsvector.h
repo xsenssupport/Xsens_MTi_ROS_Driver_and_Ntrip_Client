@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -98,8 +98,8 @@ struct XsVector
 	}
 public:
 	//! \brief Initialize a vector, empty or using the data in the supplied \a sz and \a src
-	inline explicit XsVector(XsSize sz = 0, const XsReal* src = 0)
-		: m_data(0)
+	inline explicit XsVector(XsSize sz = 0, const XsReal* src = nullptr)
+		: m_data(nullptr)
 		, m_size(0)
 		, m_flags(0)
 	{
@@ -109,7 +109,7 @@ public:
 
 	//! \brief Initialize a vector using the supplied \a other vector
 	inline XsVector(const XsVector& other)
-		: m_data(0)
+		: m_data(nullptr)
 		, m_size(0)
 		, m_flags(0)
 	{
@@ -135,7 +135,7 @@ public:
 
 	//! \copydoc XsVector_angularVelocityFromQuaternion
 	inline explicit XsVector(const XsQuaternion& quat, XsReal deltaT)
-		: m_data(0)
+		: m_data(nullptr)
 		, m_size(0)
 		, m_flags(0)
 	{
@@ -144,8 +144,8 @@ public:
 
 #if !defined(SWIG) && !defined(__ADSP21000__) && !defined(__AVR32__)
 	//! \brief Move-construct a vector using the supplied \a other vector
-	inline XsVector(XsVector&& other)
-		: m_data(0)
+	inline XsVector(XsVector&& other) noexcept
+		: m_data(nullptr)
 		, m_size(0)
 		, m_flags(0)
 	{
@@ -181,7 +181,7 @@ public:
 	*/
 	inline void setSize(XsSize sz)
 	{
-		XsVector_assign(this, sz, 0);
+		XsVector_assign(this, sz, nullptr);
 	}
 
 	//! \brief Returns the number of elements in the vector
@@ -246,7 +246,7 @@ public:
 	inline XsReal operator[](J index) const
 	{
 #ifdef XSENS_HAVE_TYPE_TRAITS
-		static_assert(std::is_integral<J>::value || std::is_enum<J>::value, "Integral index required.");
+		static_assert(std::is_integral<J>::value || std::is_enum<J>::value, "Integral index required."); // NOSONAR cpp:S6020 — _v aliases need a C++17 stdlib; IAR firmware (mtx2) lacks them, keep ::value form
 #endif
 		assert(static_cast<XsSize>(index) < m_size);
 		return m_data[index];
@@ -257,7 +257,7 @@ public:
 	inline XsReal& operator[](J index)
 	{
 #ifdef XSENS_HAVE_TYPE_TRAITS
-		static_assert(std::is_integral<J>::value || std::is_enum<J>::value, "Integral index required.");
+		static_assert(std::is_integral<J>::value || std::is_enum<J>::value, "Integral index required."); // NOSONAR cpp:S6020 — _v aliases need a C++17 stdlib; IAR firmware (mtx2) lacks them, keep ::value form
 #endif
 		assert(static_cast<XsSize>(index) < m_size);
 		return m_data[index];
@@ -399,13 +399,13 @@ public:
 		data an elementwise swap is done, but only if the vectors are the same size.
 		\param b Object whose contents will be swapped with this
 	*/
-	inline void swap(XsVector& b)
+	inline void swap(XsVector& b) noexcept
 	{
 		XsVector_swap(this, &b);
 	}
 
 	/*! \brief swap the contents of \a first and \a second */
-	friend void swap(XsVector& first, XsVector& second)
+	friend void swap(XsVector& first, XsVector& second) noexcept
 	{
 		first.swap(second);
 	}

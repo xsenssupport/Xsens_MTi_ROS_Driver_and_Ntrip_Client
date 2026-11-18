@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -90,7 +90,6 @@ MtiBaseDevice::BaseFrequencyResult Mti8X0Mti9X0Device::getBaseFrequencyInternal(
 
 	auto baseFreq = [this](XsDataIdentifier dataType)
 	{
-		XsDataIdentifier fullType = (dataType & XDI_FullTypeMask);
 		switch (dataType & XDI_TypeMask)
 		{
 			case XDI_None:
@@ -112,13 +111,11 @@ MtiBaseDevice::BaseFrequencyResult Mti8X0Mti9X0Device::getBaseFrequencyInternal(
 			case XDI_RawSensorGroup:
 				return 200;
 			case XDI_MaritimeMotionGroup:
-				return deviceId().isImu() ? 0 : 100;
+				return (deviceId().isImu() || deviceId().isVru()) ? 0 : 100;
 			case XDI_GnssGroup:
-				if (fullType == XDI_GnssPvtPulse)
-					return deviceId().isRtk() ? XDI_MAX_FREQUENCY_VAL : 0;
 				return deviceId().isGnss() ? XDI_MAX_FREQUENCY_VAL : 0;
 			case XDI_PressureGroup:
-				return deviceId().isRugged() ? 0 : 100;
+				return (deviceId().isRugged() && !deviceId().isGnss()) ? 0 : 100;
 			case XDI_PositionGroup:
 				return deviceId().isGnss() ? 400 : 0;
 			case XDI_VelocityGroup:
@@ -235,6 +232,7 @@ uint32_t Mti8X0Mti9X0Device::supportedStatusFlags() const
 			| (deviceId().isGnss() ? XSF_FilterMode : 0)
 			| (deviceId().isGnss() ? XSF_HaveGnssTimePulse : 0)
 			| (deviceId().isRtk() ? XSF_RtkStatus : 0)
+			| (deviceId().isDualGnss() ? XSF_DualAntennaHeadingValid : 0)
 		);
 }
 
@@ -355,7 +353,7 @@ bool Mti8X0Mti9X0Device::setCanConfiguration(uint32_t config)
 */
 bool Mti8X0Mti9X0Device::setGnssLeverArm(const XsVector& arm)
 {
-	if (!deviceId().isRtk())
+	if (!deviceId().isGnss())
 		return false;
 
 	XsMessage snd(XMID_SetGnssLeverArm, 3 * sizeof(float));
@@ -375,7 +373,7 @@ bool Mti8X0Mti9X0Device::setGnssLeverArm(const XsVector& arm)
 */
 XsVector Mti8X0Mti9X0Device::gnssLeverArm() const
 {
-	if (!deviceId().isRtk())
+	if (!deviceId().isGnss())
 		return XsVector();
 
 	XsMessage snd(XMID_ReqGnssLeverArm), rcv;
@@ -405,7 +403,7 @@ XsUbloxGnssPlatform Mti8X0Mti9X0Device::ubloxGnssPlatform() const
 
 		//only read the value for u-blox devices
 		XsGnssReceiverType actualType = (XsGnssReceiverType)gnssReceiverModel;
-		if (actualType == XGRT_Ublox_Max_M8Q || actualType == XGRT_Ublox_Neo_M8P || actualType == XGRT_Ublox_ZED_F9P)
+		if (XsGnssReceiverType_isUblox(actualType))
 			platform = static_cast<XsUbloxGnssPlatform>(gnssReceiverOptions & 0xFFFF);
 	}
 	return platform;
@@ -427,7 +425,7 @@ bool Mti8X0Mti9X0Device::setUbloxGnssPlatform(XsUbloxGnssPlatform ubloxGnssPlatf
 
 		//only set the value for u-blox devices
 		XsGnssReceiverType actualType = (XsGnssReceiverType)gnssReceiverModel;
-		if (actualType == XGRT_Ublox_Max_M8Q || actualType == XGRT_Ublox_Neo_M8P || actualType == XGRT_Ublox_ZED_F9P)
+		if (XsGnssReceiverType_isUblox(actualType))
 		{
 			gnssReceivSett[3] = (int) ((((unsigned int)gnssReceiverOptions) & 0xFFFF0000U) | uint16_t(ubloxGnssPlatform));
 			result = setGnssReceiverSettings(gnssReceivSett);
@@ -462,7 +460,7 @@ XsVector Mti8X0Mti9X0Device::leverArm(XsLeverArmType type) const
 	if (deviceId().isImu())
 		return XsVector();
 
-	XsMessage snd(XMID_ReqLeverArm), rcv;
+	XsMessage snd(XMID_ReqLeverArm, 1), rcv;
 	snd.setDataByte((uint8_t)type, 0);
 	if (!doTransaction(snd, rcv))
 		return XsVector();
@@ -471,4 +469,40 @@ XsVector Mti8X0Mti9X0Device::leverArm(XsLeverArmType type) const
 	arm[1] = rcv.getDataFloat(1 * sizeof(float));
 	arm[2] = rcv.getDataFloat(2 * sizeof(float));
 	return arm;
+}
+
+/*! \copydoc XsDevice::setDualAntennaSettings
+*/
+bool Mti8X0Mti9X0Device::setDualAntennaSettings(XsDualAntennaMode mode, float angle)
+{
+	if (!deviceId().isDualGnss())
+		return false;
+
+	XsMessage snd(XMID_SetDualAntennaSettings, 1 + sizeof(float));
+	snd.setDataByte((uint8_t)mode, 0);
+	snd.setDataFloat(angle, 1);
+	XsMessage rcv;
+	if (!doTransaction(snd, rcv))
+		return false;
+	return true;
+}
+
+/*! \copydoc XsDevice::dualAntennaSettings
+*/
+XsDualAntennaMode Mti8X0Mti9X0Device::dualAntennaSettings(float* angle) const
+{
+	if (angle)
+		*angle = 0;
+
+	if (!deviceId().isDualGnss())
+		return XDAM_None;
+
+	XsMessage snd(XMID_ReqDualAntennaSettings), rcv;
+	if (!doTransaction(snd, rcv))
+		return XDAM_None;
+
+	XsDualAntennaMode mode = static_cast<XsDualAntennaMode>(rcv.getDataByte(0));
+	if (angle)
+		*angle = rcv.getDataFloat(1);
+	return mode;
 }

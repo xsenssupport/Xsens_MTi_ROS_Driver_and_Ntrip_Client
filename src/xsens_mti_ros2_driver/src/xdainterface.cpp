@@ -41,6 +41,9 @@
 #include <xstypes/xstypedefs.h>
 #include <xstypes/xsdatapacket.h>
 
+#include <cmath>
+#include <cstdio>
+
 #include "messagepublishers/packetcallback.h"
 #include "messagepublishers/accelerationpublisher.h"
 #include "messagepublishers/angularvelocitypublisher.h"
@@ -48,6 +51,7 @@
 #include "messagepublishers/freeaccelerationbodypublisher.h"
 #include "messagepublishers/gnsspublisher.h"
 #include "messagepublishers/gnsspvtpublisher.h"
+#include "messagepublishers/gnssheadingpublisher.h"
 #include "messagepublishers/gnssatinfopublisher.h"
 #include "messagepublishers/imupublisher.h"
 #include "messagepublishers/magneticfieldpublisher.h"
@@ -73,12 +77,14 @@
 #include "messagepublishers/odometrypublisher.h"
 #include "messagepublishers/shipmotionpublisher.h"
 #include "xsens_log_handler.h"
+#include "xsens_diagnostics.h"
+#include "serial_low_latency.h"
 
 #include <chrono>
 
 #define XS_DEFAULT_BAUDRATE (115200)
 
-XdaInterface::XdaInterface(rclcpp::Node::SharedPtr node)
+XdaInterface::XdaInterface(DriverNode::SharedPtr node)
     : m_device(nullptr), m_xdaCallback(node), m_node(node), m_productCode("")
 {
 	RCLCPP_INFO(node->get_logger(), "Creating XsControl object...");
@@ -94,12 +100,21 @@ XdaInterface::~XdaInterface()
 	m_control->destruct();
 }
 
+void XdaInterface::setDiagnostics(std::shared_ptr<XsensDiagnostics> diagnostics)
+{
+	m_diagnostics = diagnostics;
+	m_xdaCallback.setDiagnostics(diagnostics);
+}
+
 void XdaInterface::spinFor(std::chrono::milliseconds timeout)
 {
 	RosXsDataPacket rosPacket = m_xdaCallback.next(timeout);
 
 	if (!rosPacket.second.empty())
 	{
+		if (m_diagnostics)
+			m_diagnostics->recordPacket(rosPacket.second);
+
 		for (auto &cb : m_callbacks)
 		{
 			cb->operator()(rosPacket.second, rosPacket.first);
@@ -111,7 +126,8 @@ void XdaInterface::registerPublishers()
 {
 	bool should_publish;
 	bool isDeviceVruAhrs = m_device->deviceId().isAhrs() || m_device->deviceId().isVru();
-	bool isDeviceGnss = m_device->deviceId().isGnss();
+	// isRtk() is kept for clarity; since MT SDK 2026.4 isGnss() also matches Sirius/Avior RTK and Dual Antenna IDs.
+	bool isDeviceGnss = m_device->deviceId().isGnss() || m_device->deviceId().isRtk();
 	bool isDeviceGnssRtk = m_device->deviceId().isRtk();
 	bool isDeviceSiriusAvior = m_device->deviceId().isSirius() || m_device->deviceId().isAvior();
 
@@ -195,7 +211,12 @@ void XdaInterface::registerPublishers()
 		}
 		if (m_node->get_parameter("pub_transform", should_publish) && should_publish)
 		{
-			registerCallback(new TransformPublisher(m_node));
+			bool odometry_enabled = false;
+			m_node->get_parameter("pub_odometry", odometry_enabled);
+			if (isDeviceGnss && odometry_enabled)
+				RCLCPP_WARN(m_node->get_logger(), "pub_transform suppressed while pub_odometry is enabled; use pub_odometry_tf for standalone sensor TF");
+			else
+				registerCallback(new TransformPublisher(m_node));
 		}
 		//device is sirius or avior
 		if(isDeviceSiriusAvior)
@@ -250,6 +271,12 @@ void XdaInterface::registerPublishers()
 		{
 			registerCallback(new GnssPvtPublisher(m_node));
 		}
+		// Dual-antenna heading is only available on Sirius/Avior Dual Antenna models
+		if (m_device->deviceId().isDualGnss() &&
+			m_node->get_parameter("pub_gnss_heading", should_publish) && should_publish)
+		{
+			registerCallback(new GnssHeadingPublisher(m_node));
+		}
 		// Satellite info is only available on MTi-670(G), MTi-680(G), and MTi-G-710
 		if ((m_device->deviceId().isMti6X0() || m_device->deviceId().isMtig()) &&
 			m_node->get_parameter("pub_gnssatinfo", should_publish) && should_publish)
@@ -258,15 +285,16 @@ void XdaInterface::registerPublishers()
 		}
 	}
 
-	//For RTK GNSS/INS MTi-8, MTi-680(G), we need to subscribe to a rostopic /rtcm.
+	//For RTK GNSS/INS MTi-8, MTi-680(G), we need to subscribe to the rtcm rostopic.
+	//Relative name, so it resolves to /rtcm by default and follows the node namespace, like the ntrip node's rtcm publisher.
 	if(isDeviceGnssRtk)
 	{
 		m_rtcmSubscription = m_node->create_subscription<mavros_msgs::msg::RTCM>(
-			"/rtcm",
+			"rtcm",
 			100,
 			std::bind(&XdaInterface::rtcmCallback, this, std::placeholders::_1)
 		);
-		RCLCPP_INFO(m_node->get_logger(), "Subscribing to /rtcm rostopic");
+		RCLCPP_INFO(m_node->get_logger(), "Subscribing to %s rostopic", m_rtcmSubscription->get_topic_name());
 	}
 
 }
@@ -356,9 +384,19 @@ bool XdaInterface::connectDevice()
 
 	RCLCPP_INFO(m_node->get_logger(), "Found a device with ID: %s @ port: %s, baudrate: %d", mtPort.deviceId().toString().toStdString().c_str(), mtPort.portName().toStdString().c_str(), XsBaud::rateToNumeric(mtPort.baudrate()));
 
+	// Best-effort latency reduction, applied before XDA opens the port. A failure
+	// here is not fatal: the driver works at the port's default latency.
+	bool enableLowLatency = false;
+	if (m_node->get_parameter("enable_low_latency", enableLowLatency) && enableLowLatency)
+		xsens::setSerialLowLatency(mtPort.portName().toStdString(), m_node->get_logger());
+
 	RCLCPP_INFO(m_node->get_logger(), "Opening port %s ...", mtPort.portName().toStdString().c_str());
 	if (!m_control->openPort(mtPort))
 		return handleError("Could not open port");
+
+	// Remember the port so that close() can actually release it again, which the
+	// lifecycle 'cleanup' transition relies on.
+	m_port = mtPort;
 
 	m_device = m_control->device(mtPort.deviceId());
 	assert(m_device != 0);
@@ -412,11 +450,21 @@ bool XdaInterface::connectDevice()
 
 	m_device->addCallbackHandler(&m_xdaCallback);
 
+	if (m_diagnostics)
+	{
+		m_diagnostics->setDeviceInfo(m_productCode.toStdString(),
+									 m_device->deviceId().toString().toStdString(),
+									 firmwareVersion.toString().toStdString(),
+									 mtPort.portName().toStdString(),
+									 XsBaud::rateToNumeric(mtPort.baudrate()));
+		m_diagnostics->setConnected(true);
+	}
+
 	return true;
 }
 
 
-bool XdaInterface::prepare()
+bool XdaInterface::configureDevice()
 {
 	assert(m_device != 0);
 
@@ -448,12 +496,23 @@ bool XdaInterface::prepare()
 	if (!m_device->readEmtsAndDeviceConfiguration())
 		return handleError("Could not read device configuration");
 
+	return true;
+}
+
+
+bool XdaInterface::startMeasurement()
+{
+	assert(m_device != 0);
+
 	RCLCPP_INFO(m_node->get_logger(), "Measuring ..");
 	if (!m_device->gotoMeasurement())
 		return handleError("Could not put device into measurement mode");
 
+	if (m_diagnostics)
+		m_diagnostics->setMeasuring(true);
+
 	bool enable_logging = false;
-	
+
 	if(m_node->get_parameter("enable_logging", enable_logging) && enable_logging)
 	{
 		XsensLogHandler logHandler;
@@ -472,7 +531,7 @@ bool XdaInterface::prepare()
 
 	//delay 0.05 second, as the previous actions might take a little delay.
 	rclcpp::sleep_for(std::chrono::milliseconds(50));
-	
+
 	//in any case, send MGBE in the beginning for 6 seconds.
 	manualGyroBiasEstimation(0, 6);
 
@@ -480,6 +539,34 @@ bool XdaInterface::prepare()
     setupManualGyroBiasEstimation();
 
 	return true;
+}
+
+
+void XdaInterface::stopMeasurement()
+{
+	// Drop the periodic gyro bias estimation so it is not re-created on the next
+	// activation and does not talk to a device that is back in config mode.
+	m_manualGyroBiasTimer.reset();
+	m_manualGyroBiasSubscriber.reset();
+
+	if (m_device != nullptr)
+	{
+		m_device->stopRecording();
+		m_device->closeLogFile();
+
+		RCLCPP_INFO(m_node->get_logger(), "Leaving measurement mode ..");
+		if (!m_device->gotoConfig())
+			RCLCPP_WARN(m_node->get_logger(), "Could not put device back into config mode.");
+	}
+
+	if (m_diagnostics)
+		m_diagnostics->setMeasuring(false);
+}
+
+
+bool XdaInterface::prepare()
+{
+	return configureDevice() && startMeasurement();
 }
 
 
@@ -529,8 +616,11 @@ void XdaInterface::setupManualGyroBiasEstimation()
     bool enable_manual_gyro_bias = false;
 	//assign default value {10,3} to manual_gyro_bias_param
     std::vector<long int>  manual_gyro_bias_param = {10, 3};
-	m_node->declare_parameter("enable_manual_gyro_bias", enable_manual_gyro_bias);
-	m_node->declare_parameter("manual_gyro_bias_param",manual_gyro_bias_param);
+	// Guarded, because this runs again on every lifecycle activation.
+	if (!m_node->has_parameter("enable_manual_gyro_bias"))
+		m_node->declare_parameter("enable_manual_gyro_bias", enable_manual_gyro_bias);
+	if (!m_node->has_parameter("manual_gyro_bias_param"))
+		m_node->declare_parameter("manual_gyro_bias_param",manual_gyro_bias_param);
 
 	if(m_node->get_parameter("enable_manual_gyro_bias", enable_manual_gyro_bias) && m_node->get_parameter("manual_gyro_bias_param", manual_gyro_bias_param))
 	{
@@ -598,13 +688,26 @@ void XdaInterface::rtcmCallback(const mavros_msgs::msg::RTCM::SharedPtr msg)
 
 void XdaInterface::close()
 {
+	m_manualGyroBiasTimer.reset();
+	m_manualGyroBiasSubscriber.reset();
+	m_rtcmSubscription.reset();
+
 	if (m_device != nullptr)
 	{
 		m_device->stopRecording();
 		m_device->closeLogFile();
 		m_device->removeCallbackHandler(&m_xdaCallback);
+		m_device = nullptr;
 	}
 	m_control->closePort(m_port);
+
+	clearCallbacks();
+
+	if (m_diagnostics)
+	{
+		m_diagnostics->setMeasuring(false);
+		m_diagnostics->setConnected(false);
+	}
 }
 
 
@@ -614,10 +717,41 @@ void XdaInterface::registerCallback(PacketCallback *cb)
 	m_callbacks.push_back(cb);
 }
 
+void XdaInterface::clearCallbacks()
+{
+	for (auto &cb : m_callbacks)
+	{
+		delete cb;
+	}
+	m_callbacks.clear();
+}
+
 bool XdaInterface::handleError(std::string error)
 {
 	RCLCPP_ERROR(m_node->get_logger(), "%s", error.c_str());
 	return false;
+}
+
+/**
+ * \brief Logs whether a lever arm read back from the device matches the requested one.
+ *
+ * The device stores lever arms as float, so a difference below 0.1 mm counts as a match.
+ * An empty read-back (size != 3) means the request failed.
+ */
+static void reportLeverArmReadBack(const rclcpp::Logger& logger, const char* name,
+	const XsVector3& requested, const XsVector& readBack, const char* requestedText)
+{
+	bool matches = readBack.size() == 3;
+	for (XsSize i = 0; matches && i < 3; ++i)
+		matches = std::fabs(readBack[i] - requested[i]) < 1e-4;
+
+	if (matches)
+		RCLCPP_INFO(logger, "%s applied and confirmed by the device: %s", name, requestedText);
+	else if (readBack.size() == 3)
+		RCLCPP_WARN(logger, "%s read back as %.3f, %.3f, %.3f m; expected %s",
+			name, readBack[0], readBack[1], readBack[2], requestedText);
+	else
+		RCLCPP_WARN(logger, "Could not read back the %s; requested %s", name, requestedText);
 }
 
 
@@ -650,7 +784,7 @@ bool XdaInterface::configureSensorSettings()
 
 		XsVersion firmwareVersion = m_device->firmwareVersion();
 		XsDeviceId xsens_device_id = m_device->deviceId();
-		bool isDeviceGnssIns = xsens_device_id.isGnss();
+		bool isDeviceGnssIns = xsens_device_id.isGnss() || xsens_device_id.isRtk();
 		bool isDeviceVruAhrs = xsens_device_id.isAhrs() || xsens_device_id.isVru();
 		bool isMTiX = xsens_device_id.isMtiX(); // check if it is MTi-1/2/3/7/8
 
@@ -702,10 +836,26 @@ bool XdaInterface::configureSensorSettings()
 		//for theses output, always output.
 		configArray.push_back(XsOutputConfiguration(XDI_PacketCounter, 0));
 		configArray.push_back(XsOutputConfiguration(XDI_SampleTimeFine, 0));
-		configArray.push_back(XsOutputConfiguration(XDI_UtcTime, 0));
+		// UTC Time is configured when 'pub_utctime' asks for it, and also whenever
+		// 'time_option' is 0, because that option derives message stamps from the
+		// device's UTC clock and breaks without this output. Dropping UTC Time
+		// matters on bandwidth-limited setups: on an MTi-630 at 2 Mbps, acc_hr
+		// 2000 Hz + gyro_hr 1600 Hz + 400 Hz primary outputs overflows with it and
+		// is overflow-free without it.
+		bool configUtcTime = true;
+		m_node->get_parameter("pub_utctime", configUtcTime);
+		int timeOption = 0;
+		m_node->get_parameter("time_option", timeOption);
+		if (!configUtcTime && timeOption == 0)
+		{
+			RCLCPP_WARN(m_node->get_logger(), "pub_utctime is false but time_option is 0, which needs UTC Time from the device. Keeping UTC Time in the output configuration; set time_option to 1 or 2 to drop it.");
+			configUtcTime = true;
+		}
+		if (configUtcTime)
+			configArray.push_back(XsOutputConfiguration(XDI_UtcTime, 0));
 		//ROS_INFO print the config names and frequencies
-		RCLCPP_INFO(m_node->get_logger(), "XDI_PacketCounter, XDI_SampleTimeFine, XDI_UtcTime");
-		//use ros param to check pub_utctime, if yes, then push back it
+		RCLCPP_INFO(m_node->get_logger(), "XDI_PacketCounter, XDI_SampleTimeFine%s",
+			configUtcTime ? ", XDI_UtcTime" : " (UTC Time omitted, pub_utctime is false)");
 		bool should_config = false;
 		//for these data, all mti series have them.
 		if(m_node->get_parameter("pub_acceleration", should_config) && should_config)
@@ -850,6 +1000,15 @@ bool XdaInterface::configureSensorSettings()
 					RCLCPP_INFO(m_node->get_logger(), "XDI_HeavePosition and XDI_HeavePeriod, %dHz", ODRoptionLower);
 				}
 			}
+			//baro for Sirius/Avior/MTi-600 AHRS/VRU models, max 100Hz (GNSS/INS models are handled in the block below)
+			if (!isDeviceGnssIns && (xsens_device_id.isAvior() || xsens_device_id.isSirius() || xsens_device_id.isMti6X0()))
+			{
+				if (m_node->get_parameter("pub_pressure", should_config) && should_config)
+				{
+					configArray.push_back(XsOutputConfiguration(XDI_BaroPressure, ODRoptionLower));
+					RCLCPP_INFO(m_node->get_logger(), "XDI_BaroPressure, %dHz", ODRoptionLower);
+				}
+			}
 		}
 
 		if(isDeviceGnssIns)
@@ -918,11 +1077,30 @@ bool XdaInterface::configureSensorSettings()
 				}
 			}
 
-			//XDI_GnssPvtData output data rate is fixed at 4Hz
+			//XDI_GnssPvtData output data rate is fixed at 4Hz, 10Hz for dual-antenna modules
 			if (m_node->get_parameter("pub_gnss", should_config) && should_config)
 			{
-				configArray.push_back(XsOutputConfiguration(XDI_GnssPvtData, 4));
-				RCLCPP_INFO(m_node->get_logger(), "XDI_GnssPvtData, 4Hz");
+				// Check if the device is dual-antenna and set the output rate accordingly
+				if (xsens_device_id.isDualGnss())
+				{
+					configArray.push_back(XsOutputConfiguration(XDI_GnssPvtData, 10));
+					RCLCPP_INFO(m_node->get_logger(), "XDI_GnssPvtData, 10Hz");
+				}
+				else
+				{
+					configArray.push_back(XsOutputConfiguration(XDI_GnssPvtData, 4));
+					RCLCPP_INFO(m_node->get_logger(), "XDI_GnssPvtData, 4Hz");
+				}
+			}
+
+			// Dual-antenna relative position and heading (XDI_GnssHeading), Avior/Sirius Dual Antenna only.
+			// Comparable in content to u-blox NAV-RELPOSNED, but in Xsens units and flag bits;
+			// see the MT Low Level Communication Protocol.
+			// Output rate is fixed at 10Hz, the same as XDI_GnssPvtData on dual-antenna modules.
+			if (xsens_device_id.isDualGnss() && m_node->get_parameter("pub_gnss_heading", should_config) && should_config)
+			{
+				configArray.push_back(XsOutputConfiguration(XDI_GnssHeading, 10));
+				RCLCPP_INFO(m_node->get_logger(), "XDI_GnssHeading, 10Hz");
 			}
 
 
@@ -943,12 +1121,15 @@ bool XdaInterface::configureSensorSettings()
 		bool isMTi680 = false;
 		bool isMTiG710 = false;
 		bool isModernSensor = false;
-		bool isModernVruAhrs = false;
+		bool useFilterLabels = false;
 		isMTi670 = m_productCode.toStdString().substr(4, 3) == "670";
 		isMTi680 = m_productCode.toStdString().substr(4, 3) == "680";
 		isMTiG710 = xsens_device_id.isMtig();
 		isModernSensor = xsens_device_id.isAvior() || xsens_device_id.isSirius() || xsens_device_id.isMti6X0();
-		isModernVruAhrs = isModernSensor && isDeviceVruAhrs;
+		// Filter profiles are set by "<roll/pitch>/<yaw>" label on MTi-620/630 and on all Sirius/Avior models
+		// (VRU/AHRS as well as GNSS/INS, RTK and Dual Antenna, e.g. "General-INS/NoMag").
+		// MTi-670/680 select the profile by index (mti_filter_option).
+		useFilterLabels = isModernSensor && !isMTi670 && !isMTi680;
 
 
 		RCLCPP_INFO(m_node->get_logger(), "Configuring Option Flags.....");
@@ -989,7 +1170,8 @@ bool XdaInterface::configureSensorSettings()
 			if(m_node->get_parameter("enable_rotsensor_frame_config", enable_rotsensor_frame_config)&& enable_rotsensor_frame_config)
 			{
 				std::vector<double> rotsensor_rotation_euler = {0.0, 0.0, 0.0};
-				m_node->declare_parameter("rotsensor_rotation_euler",rotsensor_rotation_euler);
+				if (!m_node->has_parameter("rotsensor_rotation_euler"))
+					m_node->declare_parameter("rotsensor_rotation_euler",rotsensor_rotation_euler);
 				if(m_node->get_parameter("rotsensor_rotation_euler", rotsensor_rotation_euler))
 				{
 					//change sensor's RotSensor frame by euler angles, roll, pitch, yaw
@@ -1006,13 +1188,12 @@ bool XdaInterface::configureSensorSettings()
 					// Normalize the quaternion
 					rotsensor_quat.normalize();
 
-					// Apply the alignment rotation quaternion to the device
+					// Apply the alignment rotation quaternion to the device.
+					// Don't return here: the option flags, filter profile and baudrate below still need to be applied.
 					if (!m_device->setAlignmentRotationQuaternion(XAF_Sensor, rotsensor_quat)) {
 						RCLCPP_WARN(m_node->get_logger(), "Failed to set alignment rotation quaternion");
-						return false;
 					} else {
 						RCLCPP_INFO(m_node->get_logger(), "Successfully set alignment rotation from Euler angles");
-						return true;
 					}
 				}
 			}
@@ -1162,28 +1343,35 @@ bool XdaInterface::configureSensorSettings()
 
 
 		}
-		if (xsens_device_id.isGnss())
+		if (xsens_device_id.isGnss() || xsens_device_id.isRtk())
 		{
 			RCLCPP_INFO(m_node->get_logger(), "Configuring GNSS relevant Prameters...");
 		}
 		
 
-		// read yaml config for gnss lever arm, only for MTI-8 or MTI-680(G):
+		// read yaml config for gnss lever arm, only for RTK devices (MTi-8, MTi-680(G), Sirius/Avior RTK and Dual Antenna).
+		// On a Dual Antenna device this is the lever arm to the primary antenna (ANT1).
 		if (xsens_device_id.isRtk())
 		{
 			std::vector<double> gnssLeverArm = {0.0, 0.0, 0.0};
-			m_node->declare_parameter("GNSS_LeverArm",gnssLeverArm);
+			if (!m_node->has_parameter("GNSS_LeverArm"))
+				m_node->declare_parameter("GNSS_LeverArm",gnssLeverArm);
 			if(m_node->get_parameter("GNSS_LeverArm", gnssLeverArm))
 			{
 				if (gnssLeverArm.size() != 3)
 					return handleError("Invalid GNSS_LeverArm parameter");
+				if (!std::isfinite(gnssLeverArm[0]) || !std::isfinite(gnssLeverArm[1]) || !std::isfinite(gnssLeverArm[2]))
+					return handleError("Invalid GNSS_LeverArm parameter, the values must be finite numbers");
 				XsVector3 leverArm;
 				leverArm[0] = gnssLeverArm[0];
 				leverArm[1] = gnssLeverArm[1];
 				leverArm[2] = gnssLeverArm[2];
-				RCLCPP_INFO(m_node->get_logger(), "Setting GNSS lever arm to: %f, %f, %f", leverArm[0], leverArm[1], leverArm[2]);
+				char leverArmText[96];
+				snprintf(leverArmText, sizeof(leverArmText), "%.3f, %.3f, %.3f m (from GNSS_LeverArm)", leverArm[0], leverArm[1], leverArm[2]);
 				if (!m_device->setGnssLeverArm(leverArm))
-					return handleError("Could not set GNSS lever arm");
+					return handleError(std::string("Device rejected the requested GNSS lever arm: ") + leverArmText);
+
+				reportLeverArmReadBack(m_node->get_logger(), "GNSS lever arm", leverArm, m_device->gnssLeverArm(), leverArmText);
 			}
 			else
 			{
@@ -1192,7 +1380,17 @@ bool XdaInterface::configureSensorSettings()
 
 		}
 
+		// Avior/Sirius Dual Antenna: baseline mode, secondary antenna (ANT2) lever arm and baseline angle.
+		// A failure only skips the dual-antenna settings, the rest of the configuration continues.
+		if (xsens_device_id.isDualGnss())
+		{
+			if (!configureDualAntenna())
+				RCLCPP_WARN(m_node->get_logger(), "Dual-antenna configuration skipped, continuing with the remaining device configuration.");
+		}
 
+
+		// u-blox platform and BeiDou settings. Since MT SDK 2026.4, isGnss() also matches
+		// Sirius/Avior RTK and Dual Antenna IDs, so these devices receive these settings as well.
 		if (xsens_device_id.isGnss())
 		{
 			// Set the GNSS platform
@@ -1202,8 +1400,10 @@ bool XdaInterface::configureSensorSettings()
 			{
 				platform = (XsUbloxGnssPlatform)platformParam;
 				RCLCPP_INFO(m_node->get_logger(), "Setting GNSS platform to: %d", platform);
+				// The SDK returns false when the receiver is not a u-blox receiver or the device rejects the
+				// setting. Don't abort: the remaining configuration (BeiDou, filter profile, ...) must still be applied.
 				if (!m_device->setUbloxGnssPlatform(platform))
-					return handleError("Could not set GNSS platform");
+					RCLCPP_WARN(m_node->get_logger(), "GNSS platform was NOT set: the GNSS receiver is not a u-blox receiver or rejected the setting. Continuing with the remaining device configuration.");
 			}
 			else
 			{
@@ -1266,7 +1466,7 @@ bool XdaInterface::configureSensorSettings()
 				std::string rollpitchLabel = "Robust";
 				std::string yawLabel = "VRUAHS";
 				bool isGotFilterParam = false;
-				if(isModernVruAhrs)
+				if(useFilterLabels)
 				{
 					if(m_node->get_parameter("filter_label_rollpitch", rollpitchLabel) && m_node->get_parameter("filter_label_yaw", yawLabel))
 					{
@@ -1458,6 +1658,136 @@ bool XdaInterface::configureSensorSettings()
 }
 
 
+static const char* dualAntennaModeName(XsDualAntennaMode mode)
+{
+	switch (mode)
+	{
+		case XDAM_None:		return "None";
+		case XDAM_Leverarm:	return "LeverArm";
+		case XDAM_Angle:	return "Angle";
+		default:			return "Unknown";
+	}
+}
+
+/**
+ * \brief Reads the dual-antenna mode and angle from the device.
+ *
+ * XsDevice::dualAntennaSettings() returns XDAM_None both when the device is in None mode and when the
+ * request fails. This sends the request itself so that a failed request or an incomplete reply can be
+ * told apart from a device in None mode.
+ *
+ * \return true if the device replied with mode and angle; \a mode and \a angle are only set in that case.
+ */
+static bool readDualAntennaSettings(XsDevice* device, XsDualAntennaMode& mode, float& angle)
+{
+	XsMessage snd(XMID_ReqDualAntennaSettings), rcv;
+	if (!device->sendCustomMessage(snd, true, rcv))
+		return false;
+	if (rcv.getDataSize() < 1 + sizeof(float))
+		return false;
+	mode = static_cast<XsDualAntennaMode>(rcv.getDataByte(0));
+	angle = rcv.getDataFloat(1);
+	return true;
+}
+
+/**
+ * \brief Configures the dual-antenna settings of an Avior/Sirius Dual Antenna GNSS/INS.
+ *
+ * The primary antenna (ANT1) lever arm is set from 'GNSS_LeverArm' together with the
+ * other RTK devices. This function sets the baseline mode from 'dual_antenna_mode':
+ *   -1: keep the device's current settings (only logged)
+ *    0: None, single-antenna operation
+ *    1: LeverArm, baseline derived from the ANT1 and ANT2 lever arms ('GNSS_LeverArm_Ant2')
+ *    2: Angle, baseline derived from 'dual_antenna_angle' (deg, -180..180)
+ * Must be called in config mode.
+ *
+ * \return true on success, false if a parameter is invalid or the device rejects a setting.
+ *         The error is logged; the caller continues with the rest of the configuration.
+ */
+bool XdaInterface::configureDualAntenna()
+{
+	int modeParam = -1;
+	m_node->get_parameter("dual_antenna_mode", modeParam);
+
+	if (modeParam == -1)
+	{
+		XsDualAntennaMode currentMode = XDAM_None;
+		float currentAngle = 0.0f;
+		if (!readDualAntennaSettings(m_device, currentMode, currentAngle))
+		{
+			RCLCPP_WARN(m_node->get_logger(), "dual_antenna_mode is -1, keeping the device's dual-antenna settings, but they could not be read from the device.");
+			return true;
+		}
+		RCLCPP_INFO(m_node->get_logger(), "dual_antenna_mode is -1, keeping the device's dual-antenna settings: mode %s, angle %.2f deg%s",
+			dualAntennaModeName(currentMode), currentAngle,
+			currentMode == XDAM_Angle ? "" : " (angle is only used in Angle mode, reported as 0 in this mode)");
+		return true;
+	}
+
+	if (modeParam < XDAM_None || modeParam > XDAM_Angle)
+		return handleError("Invalid dual_antenna_mode " + std::to_string(modeParam) +
+			", use -1 (keep device setting), 0 (None), 1 (LeverArm) or 2 (Angle)");
+	XsDualAntennaMode mode = static_cast<XsDualAntennaMode>(modeParam);
+
+	double angle = 0.0;
+	if (mode == XDAM_Angle)
+	{
+		rclcpp::Parameter angleParam;
+		if (m_node->get_parameter("dual_antenna_angle", angleParam))
+		{
+			if (angleParam.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER)
+				angle = static_cast<double>(angleParam.as_int());
+			else if (angleParam.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE)
+				angle = angleParam.as_double();
+			else
+				return handleError("Invalid dual_antenna_angle parameter, must be a number in degrees");
+		}
+		// isfinite() first: every comparison with NaN is false, so NaN would pass the range check.
+		if (!std::isfinite(angle) || angle < -180.0 || angle > 180.0)
+			return handleError("Invalid dual_antenna_angle " + std::to_string(angle) + ", must be a finite number between -180 and 180 degrees");
+	}
+
+	if (mode == XDAM_Leverarm)
+	{
+		std::vector<double> ant2LeverArm = {0.0, 0.0, 0.0};
+		m_node->get_parameter("GNSS_LeverArm_Ant2", ant2LeverArm);
+		if (ant2LeverArm.size() != 3)
+			return handleError("Invalid GNSS_LeverArm_Ant2 parameter");
+		if (!std::isfinite(ant2LeverArm[0]) || !std::isfinite(ant2LeverArm[1]) || !std::isfinite(ant2LeverArm[2]))
+			return handleError("Invalid GNSS_LeverArm_Ant2 parameter, the values must be finite numbers");
+		XsVector3 leverArm;
+		leverArm[0] = ant2LeverArm[0];
+		leverArm[1] = ant2LeverArm[1];
+		leverArm[2] = ant2LeverArm[2];
+		char leverArmText[96];
+		snprintf(leverArmText, sizeof(leverArmText), "%.3f, %.3f, %.3f m (from GNSS_LeverArm_Ant2)", leverArm[0], leverArm[1], leverArm[2]);
+		if (!m_device->setLeverArm(XLAT_Antenna2, leverArm))
+			return handleError(std::string("Device rejected the requested secondary antenna (ANT2) lever arm: ") + leverArmText);
+
+		// No read-back: XsDevice::leverArm() in MT SDK 2026.4 reads the reply floats one byte too early
+		// (it skips the lever arm type byte), so it returns wrong values although the device stores them correctly.
+		RCLCPP_INFO(m_node->get_logger(), "Secondary antenna (ANT2) lever arm applied: %s", leverArmText);
+	}
+
+	char settingsText[160];
+	snprintf(settingsText, sizeof(settingsText), "mode %s, angle %.2f deg%s", dualAntennaModeName(mode), angle,
+		mode == XDAM_Angle ? " (from dual_antenna_angle)" : " (angle is only used in Angle mode, sent as 0 in this mode)");
+	if (!m_device->setDualAntennaSettings(mode, static_cast<float>(angle)))
+		return handleError(std::string("Device rejected the requested dual-antenna settings: ") + settingsText);
+
+	// Read back, the device may silently ignore unsupported values.
+	XsDualAntennaMode readMode = XDAM_None;
+	float readAngle = 0.0f;
+	if (!readDualAntennaSettings(m_device, readMode, readAngle))
+		RCLCPP_WARN(m_node->get_logger(), "Dual-antenna settings applied, but they could not be read back from the device to confirm them: %s", settingsText);
+	else if (readMode != mode || (mode == XDAM_Angle && (!std::isfinite(readAngle) || std::fabs(readAngle - angle) > 0.01)))
+		RCLCPP_WARN(m_node->get_logger(), "Dual-antenna settings read back as mode %s, angle %.2f deg; expected mode %s, angle %.2f deg",
+			dualAntennaModeName(readMode), readAngle, dualAntennaModeName(mode), angle);
+	else
+		RCLCPP_INFO(m_node->get_logger(), "Dual-antenna settings applied and confirmed by the device: %s", settingsText);
+
+	return true;
+}
 
 
 void XdaInterface::declareCommonParameters()
@@ -1469,12 +1799,18 @@ void XdaInterface::declareCommonParameters()
 		m_node->declare_parameter("port", "/dev/ttyUSB0");
 	if (!m_node->has_parameter("baudrate"))
 		m_node->declare_parameter("baudrate", 115200);
+	if (!m_node->has_parameter("enable_low_latency"))
+		m_node->declare_parameter("enable_low_latency", false);
 	if (!m_node->has_parameter("device_id"))
 		m_node->declare_parameter("device_id", "");
 	if (!m_node->has_parameter("publisher_queue_size"))
 		m_node->declare_parameter("publisher_queue_size", 5);
 	if (!m_node->has_parameter("enable_logging"))
 		m_node->declare_parameter("enable_logging", false);
+	if (!m_node->has_parameter("odometry_frame_id"))
+		m_node->declare_parameter("odometry_frame_id", "local_enu");
+	if (!m_node->has_parameter("pub_odometry_tf"))
+		m_node->declare_parameter("pub_odometry_tf", false);
 	std::string frame_id = DEFAULT_FRAME_ID;
 	if (!m_node->has_parameter("frame_id"))
 		m_node->declare_parameter("frame_id", frame_id);
@@ -1585,4 +1921,18 @@ void XdaInterface::declareCommonParameters()
 		m_node->declare_parameter("port_config_hardware_flow_control", should_publish);	
 	if (!m_node->has_parameter("pub_ship_motion"))
 		m_node->declare_parameter("pub_ship_motion", should_publish);
+	if (!m_node->has_parameter("pub_gnss_heading"))
+		m_node->declare_parameter("pub_gnss_heading", should_publish);
+	// Dual Antenna (Avior/Sirius): -1 keeps the device's current settings.
+	if (!m_node->has_parameter("dual_antenna_mode"))
+		m_node->declare_parameter("dual_antenna_mode", -1);
+	if (!m_node->has_parameter("dual_antenna_angle"))
+	{
+		// Dynamic typing so that a whole number like '90' in the yaml is accepted as well as '90.0'.
+		rcl_interfaces::msg::ParameterDescriptor angleDescriptor;
+		angleDescriptor.dynamic_typing = true;
+		m_node->declare_parameter("dual_antenna_angle", rclcpp::ParameterValue(0.0), angleDescriptor);
+	}
+	if (!m_node->has_parameter("GNSS_LeverArm_Ant2"))
+		m_node->declare_parameter("GNSS_LeverArm_Ant2", std::vector<double>{0.0, 0.0, 0.0});
 }

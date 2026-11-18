@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -32,6 +32,7 @@
 
 #include "datapoller.h"
 #include "dataparser.h"
+#include <exception>
 
 /*! \brief Create a DataPoller with a \a parser */
 
@@ -72,7 +73,7 @@ void DataPoller::initFunction()
 	setPriority(XS_THREAD_PRIORITY_HIGHER);
 	char buffer[128];
 	sprintf(buffer, "XDA %s Poller %p", m_parser.parserType(), &m_parser);
-	xsNameThisThread(buffer);
+	JLNAMETHISTHREAD(buffer);
 }
 
 /*! \brief Clean up the DataPoller */
@@ -87,14 +88,41 @@ void DataPoller::cleanup()
 */
 int32_t DataPoller::innerFunction(void)
 {
-	m_readbuffer.assign(0, NULL);
+	try
+	{
+		m_readbuffer.assign(0, nullptr);
 
-	if (m_parser.readDataToBuffer(m_readbuffer) != XRV_OK)
+		if (auto const rv = m_parser.readDataToBuffer(m_readbuffer); rv != XRV_OK)
+		{
+			// On a hard (non-timeout) error, request this thread to stop.
+			// We also ignore NOPORTOPEN to prevent a race condition at startup:
+			// the thread already runs before the port is fully ready.
+			if (rv != XRV_TIMEOUT && rv != XRV_TIMEOUTNODATA && rv != XRV_NOPORTOPEN)
+				signalStopThread();
+			return 1;
+		}
+
+		int32_t retval = conjureUpWaitTime(m_readbuffer);
+		if (m_readbuffer.size())
+			m_parser.addRawData(m_readbuffer);
+
+		return retval;
+	}
+	catch (std::exception const& e)
+	{
+		// A serial/parse failure must never escape the worker thread: an
+		// exception leaving the thread entry function calls std::terminate()
+		// and aborts the whole host process (e.g. the entire ROS node). Log,
+		// request stop, and let cleanup() join us normally.
+		JLALERTG("Exception in DataPoller::innerFunction: " << e.what());
+		(void)e;	// JLALERTG compiles to a no-op in some configs (firmwareupdate_core) -> avoid C4101
+		signalStopThread();
 		return 1;
-
-	int32_t retval = conjureUpWaitTime(m_readbuffer);
-	if (m_readbuffer.size())
-		m_parser.addRawData(m_readbuffer);
-
-	return retval;
+	}
+	catch (...)
+	{
+		JLALERTG("Unknown exception in DataPoller::innerFunction");
+		signalStopThread();
+		return 1;
+	}
 }

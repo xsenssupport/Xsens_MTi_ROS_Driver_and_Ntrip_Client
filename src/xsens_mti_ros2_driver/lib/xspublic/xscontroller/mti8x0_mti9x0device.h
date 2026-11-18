@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -74,6 +74,9 @@ public:
 
 	bool setLeverArm(XsLeverArmType type, const XsVector& arm) override;
 	XsVector leverArm(XsLeverArmType type) const override;
+
+	bool setDualAntennaSettings(XsDualAntennaMode mode, float angle = 0) override;
+	XsDualAntennaMode dualAntennaSettings(float* angle = nullptr) const override;
 
 protected:
 	uint8_t syncLine(const XsSyncSetting& setting) const override;

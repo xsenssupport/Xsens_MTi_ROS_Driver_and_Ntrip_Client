@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -47,7 +47,13 @@ enum XsUbloxGnssPlatform
 	XGP_Airborne1g				= 6,
 	XGP_Airborne2g				= 7,
 	XGP_Airborne4g				= 8,	//!< Airborne with <4g Acceleration
-	XGP_Wrist					= 9
+	XGP_Wrist					= 9,
+	XGP_Bike					= 10,
+	XGP_Mower					= 11,
+	XGP_Escooter				= 12,
+	XGP_Rail					= 13,
+	XGP_WristSwim				= 14,
+	XGP_WristLp					= 15
 };
 
 typedef enum XsUbloxGnssPlatform XsUbloxGnssPlatform;

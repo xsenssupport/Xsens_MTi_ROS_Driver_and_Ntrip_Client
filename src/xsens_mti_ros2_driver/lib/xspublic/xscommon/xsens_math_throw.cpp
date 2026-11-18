@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -41,16 +41,14 @@
 	#include <fenv.h>
 #endif
 
-namespace xsens
-{
-namespace DebugTools
+namespace xsens::DebugTools
 {
 
 // please note that this will never be called in full release builds!
 void mathThrowBreakFunc()
 {
 	// volatile to prevent the function being optimized away
-	volatile int putMathBreakPointHere = 0;
+	volatile int putMathBreakPointHere = 0; // NOSONAR cpp:S3687 - deliberate breakpoint anchor; volatile is what stops the optimiser removing it
 	(void)putMathBreakPointHere;
 }
 
@@ -100,6 +98,4 @@ void TimeoutChecker::warning(int64_t t)
 }
 #endif
 
-} // namespace DebugTools
-
-} // namespace xsens
+} // namespace xsens::DebugTools

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -106,7 +106,7 @@ int64_t PacketStamper::stampPacket(XsDataPacket& pack, XsDataPacket const& highe
 	pack.setTimeOfArrival(XsTimeStamp::now());
 	int64_t newCounter, lastCounter = -1;
 
-	if (!highestPacket.empty())
+	if (highestPacket.packetId() >= 0)
 		lastCounter = highestPacket.packetId();
 
 	if (pack.packetId() > 0)

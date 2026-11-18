@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -44,7 +44,7 @@
 ConsoleLogger::ConsoleLogger(JournalLogLevel logLevel, JournalLogLevel errLevel)
 	: AdditionalLoggerBase(logLevel)
 {
-	setDebugLevel(errLevel);
+	AdditionalLoggerBase::setDebugLevel(errLevel);
 }
 
 /*! \brief Write a log line to the console

@@ -42,14 +42,14 @@
 
 struct GnssPublisher : public PacketCallback
 {
-    rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr pub;
+    DriverPublisher<sensor_msgs::msg::NavSatFix> pub;
     std::string frame_id = DEFAULT_FRAME_ID;
 
-    GnssPublisher(rclcpp::Node::SharedPtr node)
+    GnssPublisher(DriverNode::SharedPtr node)
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);
-        pub = node->create_publisher<sensor_msgs::msg::NavSatFix>("/gnss", pub_queue_size);
+        pub = node->create_publisher<sensor_msgs::msg::NavSatFix>("gnss", pub_queue_size);
         node->get_parameter("frame_id", frame_id);
     }
 

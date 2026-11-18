@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -48,93 +48,26 @@
 #include "datapacketcache.h"
 #include <xstypes/xsdeviceoptionflag.h>
 #include <xstypes/xsoutputconfigurationarray.h>
+#include <xstypes/xsvector.h>
 #include "lastresultmanager.h"
 #include "xsgnssplatform.h"
 #include <functional>
 #include "xsoperationalmode.h"
 #include "xsleverarmtype.h"
+#include "xsdualantennamode.h"
+#include "ixsdevice.h"
 
-class XSNOEXPORT MtContainer;
-class XSNOEXPORT DataLogger;
-class XSNOEXPORT PacketProcessor;
-
-//AUTO namespace xstypes {
-struct XsString;
-struct XsDeviceId;
-struct XsPortInfo;
-struct XsDataPacket;
-struct XsSyncSetting;
-struct XsVersion;
-struct XsScrData;
-struct XsCalibratedData;
-struct XsTimeInfo;
-struct XsOutputConfigurationArray;
-struct XsCanOutputConfigurationArray;
-struct XsIntArray;
-struct XsMatrix3x3;
-struct XsDeviceIdArray;
-struct XsDataPacket;
-struct XsMessage;
-struct XsSyncSettingArray;
-struct XsMatrix;
-struct XsVector;
-struct XsStringArray;
-struct XsQuaternion;
-struct XsFilterProfileArray;
-struct XsOutputConfiguration;
-struct XsStringOutputTypeArray;
-//AUTO+chdr struct XsException;
-//AUTO }
-
-//AUTO namespace xscontroller {
-struct XsCallbackPlainC;
-struct XsSelfTestResult;
-struct XsDeviceParameter;
-struct XsIccRepMotionResult;
-//AUTO }
+/*! \private */ class MtContainer;
+/*! \private */ class DataLogger;
+/*! \private */ class PacketProcessor;
 
 #define DebugFileType FILE		// required for autogenerate to correctly parse this
 #define NOEXCEPT	noexcept	// required for autogenerate to correctly parse this
 
-//AUTO namespace xstypes {
-struct XsFilterProfile;
-//AUTO enum XsBaud;
-//AUTO enum XsResultValue;
-//AUTO enum XsSyncRole;
-//AUTO struct XsIntArray;
-//AUTO struct XsOutputConfigurationArray;
-//AUTO struct XsCanOutputConfigurationArray;
-//AUTO struct XsSyncSettingArray;
-//AUTO enum XsXbusMessageId;
-//AUTO enum XsFilePos;
-//AUTO struct XsFilterProfileArray;
-//AUTO enum XsDeviceOptionFlag;
-//AUTO enum XsResetMethod;
-//AUTO enum XsOption;
-//AUTO }
-
-//AUTO namespace xscontroller {
-//AUTO struct XsDevicePtrArray;
-//AUTO enum XsDeviceState;
-//AUTO enum XsErrorMode;
-//AUTO struct XsDeviceConfiguration;
-//AUTO enum XsProtocolType;
-//AUTO enum XsRejectReason;
-//AUTO enum XsAlignmentFrame;
-//AUTO enum XsOperationalMode;
-//AUTO enum XsAccessControlMode;
-//AUTO struct XsDeviceParameter;
-//AUTO enum XsUbloxGnssPlatform;
-//AUTO struct XsIccRepMotionResult;
-//AUTO enum XsLeverArmType;
-//AUTO }
-
-//AUTO struct XdaConfig;
-
-struct XsDevice : public CallbackManagerXda
+struct XsDevice : public IXsDevice, public CallbackManagerXda
 {
 public:
-	XSNOEXPORT virtual ~XsDevice();
+	/*! \private */ virtual ~XsDevice();
 
 	virtual void addRef();
 	virtual void removeRef();
@@ -157,8 +90,8 @@ public:
 	const XsDevice* deviceAtBusIdConst(int busid) const;
 	virtual XsDevice* deviceAtBusId(int busid);
 
-	Communicator XSNOEXPORT* communicator() const;
-	virtual DataLogger XSNOEXPORT* logFileInterface(std::unique_ptr<xsens::Lock>& myLock) const;
+	/*! \private */ Communicator* communicator() const;
+	/*! \private */ virtual DataLogger* logFileInterface(std::unique_ptr<xsens::Lock>& myLock) const;
 	virtual XsResultValue updatePortInfo(XsPortInfo const& newInfo);
 
 	void setGotoConfigOnClose(bool gotoConfigOnClose);
@@ -170,7 +103,7 @@ public:
 	virtual bool isRecording() const;
 	virtual bool isReadingFromFile() const;
 
-	virtual void XSNOEXPORT checkDataCache();
+	/*! \private */ virtual void checkDataCache();
 	virtual void restartFilter();
 
 	XsResultValue lastResult() const;
@@ -185,12 +118,23 @@ public:
 	static bool isCompatibleSyncSetting(XsDeviceId const& deviceId, XsSyncSetting const& setting1, XsSyncSetting const& setting2);
 	static unsigned int syncSettingsTimeResolutionInMicroSeconds(XsDeviceId const& deviceId);
 
-#ifdef DOXYGEN
-	// Explicit inheritance for generator
-	void XSNOCOMEXPORT clearCallbackHandlers(bool chain = true);
-	void XSNOCOMEXPORT addCallbackHandler(XsCallbackPlainC* cb, bool chain = true);
-	void XSNOCOMEXPORT removeCallbackHandler(XsCallbackPlainC* cb, bool chain = true);
-#endif
+	// IXsDevice declares these; the implementations live in the sibling CallbackManagerXda base,
+	// which does not override across bases, so forward them explicitly.
+	// The body must stay on its own lines: the interface generator parses this header line by
+	// line, taking a declaration to span the first '(' to the last ')', so a same-line body
+	// contributes its own call arguments as extra parameters and generation fails.
+	void clearCallbackHandlers(bool chain = true) override
+	{
+		CallbackManagerXda::clearCallbackHandlers(chain);
+	}
+	void addCallbackHandler(XsCallbackPlainC* cb, bool chain = true) override
+	{
+		CallbackManagerXda::addCallbackHandler(cb, chain);
+	}
+	void removeCallbackHandler(XsCallbackPlainC* cb, bool chain = true) override
+	{
+		CallbackManagerXda::removeCallbackHandler(cb, chain);
+	}
 
 	//! \brief Compare device ID with that of \a dev \param dev Device to compare against \returns true if \a dev has a higher device ID \sa deviceId()
 	bool operator < (const XsDevice& dev) const
@@ -214,18 +158,18 @@ public:
 	}
 
 	XsDeviceConfiguration deviceConfiguration() const;
-	XsDeviceConfiguration& XSNOEXPORT deviceConfigurationRef();
-	virtual XsDeviceConfiguration const& XSNOEXPORT deviceConfigurationConst() const;
+	/*! \private */ XsDeviceConfiguration& deviceConfigurationRef();
+	/*! \private */ virtual XsDeviceConfiguration const& deviceConfigurationConst() const;
 
 	//! \internal
-	XSNOEXPORT template <typename T> T* toType()
+	/*! \private */ template <typename T> T* toType()
 	{
 		return dynamic_cast<T*>(this);
 	}
 
-	virtual bool XSNOEXPORT initialize();
-	virtual bool XSNOEXPORT initializeSoftwareCalibration();
-	virtual void XSNOEXPORT deinitializeSoftwareCalibration();
+	/*! \private */ virtual bool initialize();
+	/*! \private */ virtual bool initializeSoftwareCalibration();
+	/*! \private */ virtual void deinitializeSoftwareCalibration();
 
 	virtual int batteryLevel() const;
 	virtual int secondaryBatteryLevel() const;
@@ -244,7 +188,7 @@ public:
 	virtual XsVersion hardwareVersion() const;
 	virtual XsString hardwareId() const;
 #ifndef XSENS_NO_PORT_NUMBERS
-	virtual int XSNOLINUXEXPORT portNumber() const;
+	virtual int portNumber() const;
 #endif
 	virtual bool startRecording();
 	virtual bool triggerStartRecording();
@@ -259,17 +203,17 @@ public:
 	virtual bool sendCustomMessage(const XsMessage& messageSend, bool waitForResult, XsMessage& messageReceive, int timeout = 0);
 	virtual bool sendRawMessage(const XsMessage& message);
 
-	XSNOEXPORT virtual bool sendCustomMessage(const XsMessage& messageSend, bool waitForResult, XsXbusMessageId messageId, XsMessage& messageReceive, int timeout = 0);
-	XSNOEXPORT virtual bool waitForCustomMessage(XsXbusMessageId messageId, XsMessage& messageReceive, int timeout = 0);
-	XSNOEXPORT virtual bool waitForCustomMessage(std::shared_ptr<ReplyObject> reply, XsMessage& messageReceive, int timeout);
+	/*! \private */ virtual bool sendCustomMessage(const XsMessage& messageSend, bool waitForResult, XsXbusMessageId messageId, XsMessage& messageReceive, int timeout = 0);
+	/*! \private */ virtual bool waitForCustomMessage(XsXbusMessageId messageId, XsMessage& messageReceive, int timeout = 0);
+	/*! \private */ virtual bool waitForCustomMessage(std::shared_ptr<ReplyObject> reply, XsMessage& messageReceive, int timeout);
 	virtual std::shared_ptr<ReplyObject> addReplyObject(XsXbusMessageId messageId, uint8_t data);
 
-	XSNOEXPORT virtual void handleMessage(const XsMessage& msg);
-	XSNOEXPORT virtual void handleDataPacket(const XsDataPacket& packet);
-	XSNOEXPORT virtual void handleNonDataMessage(const XsMessage& msg);
-	XSNOEXPORT virtual void handleErrorMessage(const XsMessage& msg);
-	XSNOEXPORT virtual void handleWarningMessage(const XsMessage& msg);
-	XSNOEXPORT virtual void handleWakeupMessage(const XsMessage& msg);
+	/*! \private */ virtual void handleMessage(const XsMessage& msg);
+	/*! \private */ virtual void handleDataPacket(const XsDataPacket& packet);
+	/*! \private */ virtual void handleNonDataMessage(const XsMessage& msg);
+	/*! \private */ virtual void handleErrorMessage(const XsMessage& msg);
+	/*! \private */ virtual void handleWarningMessage(const XsMessage& msg);
+	/*! \private */ virtual void handleWakeupMessage(const XsMessage& msg);
 
 	virtual bool setSerialBaudRate(XsBaudRate baudrate);
 
@@ -320,7 +264,7 @@ public:
 	virtual bool restoreFactoryDefaults();
 
 	virtual bool reset();
-	XSNOEXPORT virtual bool reset(bool skipDeviceIdCheck);
+	/*! \private */ virtual bool reset(bool skipDeviceIdCheck);
 
 	virtual bool reopenPort(bool gotoConfig, bool skipDeviceIdCheck = false);
 
@@ -367,7 +311,7 @@ public:
 	virtual void discardRetransmissions(int64_t firstNewPacketId);
 
 	//virtual int radioQualityIndication() const;
-	XSNOEXPORT virtual void handleMasterIndication(const XsMessage& message);
+	/*! \private */ virtual void handleMasterIndication(const XsMessage& message);
 	virtual bool abortFlushing();
 	virtual bool setDeviceAccepted(const XsDeviceId& deviceId);
 	virtual bool setDeviceRejected(const XsDeviceId& deviceId);
@@ -378,8 +322,8 @@ public:
 	virtual XsResultValue setDeviceParameter(XsDeviceParameter const& parameter);
 	virtual XsResultValue deviceParameter(XsDeviceParameter& parameter) const;
 
-	XSNOEXPORT XSDEPRECATED XsGnssPlatform gnssPlatform() const;
-	XSNOEXPORT XSDEPRECATED virtual bool setGnssPlatform(XsGnssPlatform gnssPlatform);
+	/*! \private */ XSDEPRECATED XsGnssPlatform gnssPlatform() const;
+	/*! \private */ XSDEPRECATED virtual bool setGnssPlatform(XsGnssPlatform gnssPlatform);
 	virtual XsUbloxGnssPlatform ubloxGnssPlatform() const;
 	virtual bool setUbloxGnssPlatform(XsUbloxGnssPlatform ubloxGnssPlatform);
 	virtual XsIntArray gnssReceiverSettings() const;
@@ -397,7 +341,7 @@ public:
 	virtual bool setTransportMode(bool transportModeEnabled);
 	virtual bool transportMode();
 	virtual int16_t lastKnownRssi() const;
-	XSNOEXPORT virtual void setPacketErrorRate(int per);
+	/*! \private */ virtual void setPacketErrorRate(int per);
 	virtual int packetErrorRate() const;
 
 	virtual bool isBlueToothEnabled() const;
@@ -409,6 +353,7 @@ public:
 	virtual bool setErrorMode(XsErrorMode errormode);
 
 	// MT device
+	virtual bool setInitialHeading(double heading);
 	virtual bool setHeadingOffset(double offset);
 	virtual double headingOffset() const;
 	virtual bool setLocationId(int id);
@@ -441,12 +386,16 @@ public:
 	virtual bool startRepresentativeMotion();
 	virtual bool representativeMotionState();
 	virtual XsIccRepMotionResult stopRepresentativeMotion();
+	virtual XsIccRepMotionResult getIccState();
 	virtual bool storeIccResults();
 	virtual uint16_t rs485TransmissionDelay() const;
 	virtual bool setRs485TransmissionDelay(uint16_t delay);
 	virtual XsSelfTestResult runSelfTest();
 	virtual bool requestData();
 	virtual bool storeFilterState();
+	virtual uint16_t deadReckoningDuration() const;
+	virtual bool setDeadReckoningDuration(uint16_t seconds);
+	virtual XsVector modelingParameters(uint8_t sensingElement) const;
 
 	virtual XsDataPacket getDataPacketByIndex(XsSize index) const;
 	XsSize getDataPacketCount() const;
@@ -471,6 +420,8 @@ public:
 	// Sirius/Avior devices
 	virtual bool setLeverArm(XsLeverArmType type, const XsVector& arm);
 	virtual XsVector leverArm(XsLeverArmType type) const;
+	virtual bool setDualAntennaSettings(XsDualAntennaMode mode, float angle = 0);
+	virtual XsDualAntennaMode dualAntennaSettings(float* angle = nullptr) const;
 
 	//! \returns The device mutex.
 	xsens::GuardedMutex* mutex() const
@@ -483,21 +434,21 @@ public:
 	bool isLoadLogFileInProgress() const;
 	void waitForLoadLogFileDone() const;
 
-	XSNOEXPORT virtual bool messageLooksSane(const XsMessage& msg) const;
-	XSNOEXPORT virtual void prepareForTermination();
+	/*! \private */ virtual bool messageLooksSane(const XsMessage& msg) const;
+	/*! \private */ virtual void prepareForTermination();
 
 	// MTi with RTK support
 	virtual bool setGnssLeverArm(const XsVector& arm);
 	virtual XsVector gnssLeverArm() const;
-	XSNOEXPORT virtual bool requestUtcTime();
+	/*! \private */ virtual bool requestUtcTime();
 
 	// Snapshot related
-	XSNOEXPORT virtual void handleUnavailableData(int64_t frameNumber);
+	/*! \private */ virtual void handleUnavailableData(int64_t frameNumber);
 
-	XSNOEXPORT virtual bool writeEmtsPage(uint8_t const* data, int pageNr, int bankNr);
-	XSNOEXPORT void setSkipEmtsReadOnInit(bool skip);
+	/*! \private */ virtual bool writeEmtsPage(uint8_t const* data, int pageNr, int bankNr);
+	/*! \private */ void setSkipEmtsReadOnInit(bool skip);
 
-	XSNOEXPORT virtual bool readEmtsAndDeviceConfiguration();
+	/*! \private */ virtual bool readEmtsAndDeviceConfiguration();
 
 	virtual uint32_t supportedStatusFlags() const;
 	virtual XsByteArray readMetaDataFromLogFile();
@@ -600,15 +551,15 @@ protected:
 	virtual XsResultValue setOutputConfigurationInternal(XsOutputConfigurationArray& config);
 
 public:
-	XSNOEXPORT virtual void onMessageSent(const XsMessage& message);
-	XSNOEXPORT virtual void onMessageReceived(const XsMessage& message);
-	XSNOEXPORT virtual void onMessageDetected2(XsProtocolType type, const XsByteArray& rawMessage);
+	/*! \private */ virtual void onMessageSent(const XsMessage& message);
+	/*! \private */ virtual void onMessageReceived(const XsMessage& message);
+	/*! \private */ virtual void onMessageDetected2(XsProtocolType type, const XsByteArray& rawMessage);
 
-	XSNOEXPORT virtual void onSessionRestarted();
-	XSNOEXPORT virtual void onConnectionLost();
-	XSNOEXPORT virtual void onEofReached();
-	XSNOEXPORT virtual void onWirelessConnectionLost();
-	XSNOEXPORT virtual int64_t deviceRecordingBufferItemCount(int64_t& lastCompletePacketId) const;
+	/*! \private */ virtual void onSessionRestarted();
+	/*! \private */ virtual void onConnectionLost();
+	/*! \private */ virtual void onEofReached();
+	/*! \private */ virtual void onWirelessConnectionLost();
+	/*! \private */ virtual int64_t deviceRecordingBufferItemCount(int64_t& lastCompletePacketId) const;
 
 protected:
 	bool doTransaction(const XsMessage& snd) const;

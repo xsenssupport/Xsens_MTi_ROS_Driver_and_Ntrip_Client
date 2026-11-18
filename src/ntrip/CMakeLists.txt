@@ -21,17 +21,7 @@ add_library(${PROJECT_NAME}_lib
   src/rtcm_parser.cpp
 )
 
-if(TARGET rclcpp::rclcpp)
-  target_link_libraries(${PROJECT_NAME}_lib
-    ${diagnostic_msgs_TARGETS}
-    ${mavros_msgs_TARGETS}
-    ${nmea_msgs_TARGETS}
-    ${std_msgs_TARGETS}
-    rclcpp::rclcpp
-    Boost::system
-    Boost::thread
-  )
-else()
+if(COMMAND ament_target_dependencies)
   ament_target_dependencies(${PROJECT_NAME}_lib
     rclcpp
     nmea_msgs
@@ -39,25 +29,36 @@ else()
     diagnostic_msgs
     std_msgs
   )
+else()
+  # ament_target_dependencies() was removed on newer ROS releases in favour of
+  # linking the exported CMake targets directly.
   target_link_libraries(${PROJECT_NAME}_lib
-    Boost::system
-    Boost::thread
+    rclcpp::rclcpp
+    ${nmea_msgs_TARGETS}
+    ${mavros_msgs_TARGETS}
+    ${diagnostic_msgs_TARGETS}
+    ${std_msgs_TARGETS}
   )
 endif()
 
+target_link_libraries(${PROJECT_NAME}_lib
+  Boost::system
+  Boost::thread
+)
+
 # Create the node executable
 add_executable(ntrip src/ntrip_client_node.cpp)
-if(TARGET rclcpp::rclcpp)
-  target_link_libraries(ntrip
-    ${PROJECT_NAME}_lib
-    rclcpp::rclcpp
+target_link_libraries(ntrip
+  ${PROJECT_NAME}_lib
+)
+
+if(COMMAND ament_target_dependencies)
+  ament_target_dependencies(ntrip
+    rclcpp
   )
 else()
   target_link_libraries(ntrip
-    ${PROJECT_NAME}_lib
-  )
-  ament_target_dependencies(ntrip
-    rclcpp
+    rclcpp::rclcpp
   )
 endif()
 

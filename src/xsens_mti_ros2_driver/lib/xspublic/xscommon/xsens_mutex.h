@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -40,6 +40,7 @@
 #include <deque>
 
 #ifndef __GNUC__
+	#pragma warning(push)
 	#pragma warning(disable: 4127)
 #endif
 
@@ -95,7 +96,16 @@ class WaitCondition;
 enum LockState { LS_Unlocked, LS_Read, LS_Write, LS_SuspendedWrite };
 
 /*! \class Mutex
-	\brief A base mutex class
+	\brief A recursive mutex
+	\details A critical section, or a plain (non-recursive) pthread mutex, plus the owner thread id and
+	a claim count kept here: a thread that already owns the mutex only bumps the count and never
+	re-enters the native lock. The native lock is therefore taken and released exactly once per
+	ownership, which is what WaitCondition relies on. m_lockedBy is written by the owner only; other
+	threads read it to see that they are not the owner, so the race on that read is benign.
+
+	Keep the default critical section. Measured on XME reprocessing with concurrent pose() readers:
+	an SRWLOCK convoys (four readers made a Fast reprocess 2-4x slower) and an explicit spin count of
+	4000 costs 10-50 % wall time, because spinning contenders take cores from the fusion threads.
 */
 class Mutex
 {
@@ -103,13 +113,55 @@ private:
 #if !XSENS_USE_POSIX_LOCKING
 	CRITICAL_SECTION m_mutex;
 #else
-	pthread_mutexattr_t m_attr;
 	pthread_mutex_t m_mutex;
 #endif
-	XsThreadId m_lockedBy;
-	volatile std::atomic_int m_lockCount;
+	std::atomic<XsThreadId> m_lockedBy;
+	std::atomic_int m_lockCount;	//!< Claims by the owner; written by the owner only, read racily by isLocked()
 	friend class Lock;
 	friend class WaitCondition;
+
+	//! The owner bookkeeping a condition wait parks while the native lock is released
+	struct Ownership
+	{
+		XsThreadId m_owner;
+		int m_lockCount;
+	};
+
+	//! Hand the native lock and the bookkeeping to a condition wait; the caller must own the mutex, and hold exactly one claim
+	inline Ownership suspendOwnership()
+	{
+		assert(m_lockedBy.load(std::memory_order_relaxed) == xsGetCurrentThreadId());
+		assert(m_lockCount.load(std::memory_order_relaxed) == 1);
+		Ownership parked;
+		parked.m_owner = m_lockedBy.load(std::memory_order_relaxed);
+		parked.m_lockCount = m_lockCount.load(std::memory_order_relaxed);
+		m_lockCount.store(0, std::memory_order_relaxed);
+		m_lockedBy.store(0, std::memory_order_relaxed);
+		return parked;
+	}
+
+	/*! \brief Restore the bookkeeping parked by suspendOwnership(), after the wait re-acquired the native lock
+		\details The parked count comes back verbatim: restoring a constant 1 would let a nested claimant's next
+		release unlock the native mutex while it still believes it holds its outer claim.
+	*/
+	inline void resumeOwnership(Ownership const& parked)
+	{
+		m_lockedBy.store(parked.m_owner, std::memory_order_relaxed);	// NOSONAR cpp:S8417 - ordered by the native lock; see the class comment
+		m_lockCount.store(parked.m_lockCount, std::memory_order_relaxed);
+	}
+
+	//! Record \a me as the owner with one claim, after taking the native lock
+	inline void takeOwnership(XsThreadId me)
+	{
+		m_lockedBy.store(me, std::memory_order_relaxed);	// NOSONAR cpp:S8417 - ordered by the native lock; see the class comment
+		m_lockCount.store(1, std::memory_order_relaxed);
+	}
+
+	inline void bumpLockCount(int delta)
+	{
+		m_lockCount.store(m_lockCount.load(std::memory_order_relaxed) + delta, std::memory_order_relaxed);
+	}
+
 public:
 	Mutex()
 		: m_lockedBy(0)
@@ -118,10 +170,7 @@ public:
 #if !XSENS_USE_POSIX_LOCKING
 		::InitializeCriticalSection(&m_mutex);
 #else
-		// this is required to get the same behaviour we have in windows
-		pthread_mutexattr_init(&m_attr);
-		pthread_mutexattr_settype(&m_attr, PTHREAD_MUTEX_RECURSIVE);
-		pthread_mutex_init(&m_mutex, &m_attr);
+		pthread_mutex_init(&m_mutex, nullptr);
 #endif
 	}
 	~Mutex()
@@ -132,7 +181,6 @@ public:
 		::DeleteCriticalSection(&m_mutex);
 #else
 		pthread_mutex_destroy(&m_mutex);
-		pthread_mutexattr_destroy(&m_attr);
 #endif
 	}
 	Mutex(Mutex const&) = delete;
@@ -145,13 +193,18 @@ public:
 	*/
 	inline bool claimMutex()
 	{
+		XsThreadId const me = xsGetCurrentThreadId();
+		if (m_lockedBy.load(std::memory_order_relaxed) == me)
+		{
+			bumpLockCount(1);
+			return true;
+		}
 #if !XSENS_USE_POSIX_LOCKING
 		::EnterCriticalSection(&m_mutex);
 #else
 		pthread_mutex_lock(&m_mutex);
 #endif
-		++m_lockCount;
-		m_lockedBy = xsGetCurrentThreadId();
+		takeOwnership(me);
 		return true;
 	}
 
@@ -160,13 +213,18 @@ public:
 	*/
 	inline bool releaseMutex()
 	{
-		if (!--m_lockCount)
-			m_lockedBy = 0;
+		assert(m_lockedBy.load(std::memory_order_relaxed) == xsGetCurrentThreadId());
+		assert(m_lockCount.load(std::memory_order_relaxed) > 0);
+		bumpLockCount(-1);
+		if (m_lockCount.load(std::memory_order_relaxed) == 0)
+		{
+			m_lockedBy.store(0, std::memory_order_relaxed);
 #if !XSENS_USE_POSIX_LOCKING
-		::LeaveCriticalSection(&m_mutex);
+			::LeaveCriticalSection(&m_mutex);
 #else
-		pthread_mutex_unlock(&m_mutex);
+			pthread_mutex_unlock(&m_mutex);
 #endif
+		}
 		return true;
 	}
 
@@ -175,24 +233,28 @@ public:
 	*/
 	inline bool tryClaimMutex()
 	{
-		// *CriticalSection returns true on success, pthread_* returns 0 on success.
-#if !XSENS_USE_POSIX_LOCKING
-		if (::TryEnterCriticalSection(&m_mutex))
-#else
-		if (pthread_mutex_trylock(&m_mutex) == 0)
-#endif
+		XsThreadId const me = xsGetCurrentThreadId();
+		if (m_lockedBy.load(std::memory_order_relaxed) == me)
 		{
-			++m_lockCount;
-			m_lockedBy = xsGetCurrentThreadId();
+			bumpLockCount(1);
 			return true;
 		}
-		return false;
+		// TryEnterCriticalSection returns nonzero on success, pthread_mutex_trylock returns 0 on success.
+#if !XSENS_USE_POSIX_LOCKING
+		if (!::TryEnterCriticalSection(&m_mutex))
+			return false;
+#else
+		if (pthread_mutex_trylock(&m_mutex) != 0)
+			return false;
+#endif
+		takeOwnership(me);
+		return true;
 	}
 #ifdef XSENS_DEBUG
 	// this function is only intended as a debug function for use in assert statements
 	inline bool haveLock() const
 	{
-		return m_lockedBy == xsGetCurrentThreadId();
+		return m_lockedBy.load(std::memory_order_relaxed) == xsGetCurrentThreadId();
 	}
 #endif
 
@@ -200,10 +262,82 @@ public:
 	*/
 	inline bool isLocked() const volatile
 	{
-		return m_lockCount > 0;
+		return m_lockCount.load(std::memory_order_relaxed) > 0;
 	}
 };
 
+/*! \class WaitCondition
+	\brief A platform independent wait condition implementation
+
+	Wait conditions are used to halt consumer threads until changes are made to data they operate on.
+
+	Creating the wait condition:
+	\code
+	Mutex mut;
+	WaitCondition wc(&mut);
+	\endcode
+
+	Consumer thread:
+	\code
+	void func()
+	{
+		Lock locker(&mut);
+
+		if (!wc.wait()) // unlocks the mutex and waits for a signal
+			// the mutex is claimed
+			return;
+
+		// mutex is claimed
+		// copy data
+		lock.unlock();
+		// work with data
+	}
+	\endcode
+
+	Feeder thread:
+	\code
+	void func()
+	{
+		Lock locker(&mut);
+
+		// update data
+		wc.signal(); // signal that changes have been made
+		// alternatively, use wc.broadcast() to allow multiple consumers to handle the data
+	}
+	\endcode
+
+	\note wait() releases exactly one claim on the mutex. The caller must hold the mutex exactly once,
+	a nested claim would keep it held while sleeping.
+*/
+class WaitCondition
+{
+	WaitCondition(WaitCondition const&) = delete;
+	WaitCondition& operator=(WaitCondition const&) = delete;
+	WaitCondition(WaitCondition&&) = delete;
+	WaitCondition& operator=(WaitCondition&&) = delete;
+
+public:
+	explicit WaitCondition(Mutex& m);
+	~WaitCondition();
+
+	void signal();
+	void broadcast();
+	bool wait();
+	bool wait(uint32_t timeout);
+private:
+#ifdef _WIN32
+	CONDITION_VARIABLE m_cond;
+#else
+	pthread_cond_t m_cond;
+	pthread_condattr_t m_condattr;
+#ifdef __APPLE__
+	int m_clockId;
+#else
+	clockid_t m_clockId;
+#endif
+#endif
+	Mutex& m_mutex;
+};
 
 /*! \class MutexReadWrite
 	\brief A readers-writer mutex class.
@@ -212,11 +346,15 @@ public:
 	no more read claims exist and the write claim has been completed (released). Recursive read claims
 	within a thread that already has a read or write claim for this mutex will be granted to prevent
 	deadlocks.
+
+	A claimant that cannot proceed blocks on a condition variable until another thread releases,
+	downgrades or otherwise changes the lock state; nothing spins.
 */
 class MutexReadWrite
 {
 private:
 	Mutex m_access;
+	WaitCondition m_stateChanged;	//!< Broadcast after every state change that can admit a blocked claimant
 	volatile std::atomic_int m_writeRef;
 	volatile std::atomic<XsThreadId> m_writeLocked;
 	volatile std::atomic_int m_writeLocksPending;
@@ -232,7 +370,8 @@ private:
 
 public:
 	inline MutexReadWrite()
-		: m_writeRef(0)
+		: m_stateChanged(m_access)
+		, m_writeRef(0)
 		, m_writeLocked(0)
 		, m_writeLocksPending(0)
 	{
@@ -258,6 +397,21 @@ private:
 		m_readLocked[m_readLockCount++] = cid;
 	}
 
+	//! Drop the most recent read claim of \a cid, if it has one
+	inline void removeReadLock(XsThreadId cid)
+	{
+		for (int i = m_readLockCount - 1; i >= 0; --i)
+		{
+			if (m_readLocked[i] == cid)
+			{
+				for (int j = i + 1; j < m_readLockCount; ++j)
+					m_readLocked[j - 1] = m_readLocked[j];
+				--m_readLockCount;
+				return;
+			}
+		}
+	}
+
 	inline void enterAtomic()
 	{
 		m_access.claimMutex();
@@ -268,73 +422,82 @@ private:
 		m_access.releaseMutex();
 	}
 
+	/*! \brief Block until another thread changes the lock state
+		\details Call with m_access claimed exactly once: the wait releases that single claim and has
+		re-taken it when it returns. The caller re-evaluates its condition afterwards.
+	*/
+	inline void waitForStateChange()
+	{
+		m_stateChanged.wait();
+	}
+
+	/*! \brief Timed variant of waitForStateChange()
+		\param timeToEnd Deadline in the XsTimeStamp_now() time base (ms)
+		\returns False when the deadline has passed, so the caller must give up
+	*/
+	inline bool waitForStateChange(long long timeToEnd)
+	{
+		long long const remaining = timeToEnd - XsTimeStamp_now(nullptr);
+		if (remaining <= 0)
+			return false;
+		m_stateChanged.wait((uint32_t) remaining);
+		return true;
+	}
+
+	/*! \brief Wake every blocked claimant so it re-evaluates. Call with m_access claimed, before leaveAtomic()
+		\details Broadcasting after the release leaves a window in which another thread can claim, release and
+		destroy the mutex before the broadcast touches it, a use the std mutex contracts allow.
+	*/
+	inline void notifyStateChanged()
+	{
+		m_stateChanged.broadcast();
+	}
+
+	//! True when \a cid may take a write claim now: it holds one already, or no other thread holds any claim. Call with m_access claimed
+	inline bool writeClaimAvailable(XsThreadId cid) const
+	{
+		if (m_writeLocked == cid)
+			return true;
+		if (m_writeLocked != 0)
+			return false;
+		for (int i = 0; i < m_readLockCount; ++i)
+			if (m_readLocked[i] != cid)
+				return false;
+		return true;
+	}
+
+	//! True when \a cid may take a read claim now: no writer holds or awaits the mutex, or \a cid already holds a claim. Call with m_access claimed
+	inline bool readClaimAvailable(XsThreadId cid) const
+	{
+		if ((m_writeLocked == 0 && m_writeLocksPending == 0) || m_writeLocked == cid)
+			return true;
+		for (int i = 0; i < m_readLockCount; ++i)
+			if (m_readLocked[i] == cid)
+				return true;
+		return false;
+	}
+
 	inline bool claimMutex(bool write)
 	{
 		XsThreadId cid = xsGetCurrentThreadId();
-		// write lock
+		enterAtomic();
 		if (write)
 		{
-			enterAtomic();
 			++m_writeLocksPending;
-			while (1)
-			{
-				bool readFail = false;
-				if (m_writeLocked == 0)
-				{
-					for (int i = 0; i < m_readLockCount; ++i)
-					{
-						if (m_readLocked[i] != cid)
-						{
-							readFail = true;
-							break;
-						}
-					}
-				}
-
-				if (m_writeLocked != cid && (m_writeLocked != 0 || readFail))
-				{
-					leaveAtomic();
-					xsYield();	// wait for other locks to end
-					enterAtomic();
-				}
-				else
-				{
-					++m_writeRef;
-					--m_writeLocksPending;
-					m_writeLocked = cid;
-					leaveAtomic();
-					return true;
-				}
-			}
+			while (!writeClaimAvailable(cid))
+				waitForStateChange();
+			++m_writeRef;
+			--m_writeLocksPending;
+			m_writeLocked = cid;
 		}
-		// read lock
 		else
 		{
-			while (true)
-			{
-				enterAtomic();
-				bool readGot = false;
-				if ((m_writeLocked == 0 && m_writeLocksPending == 0) || m_writeLocked == cid)
-					readGot = true;
-				else
-					for (int i = 0; i < m_readLockCount; ++i)
-						if (m_readLocked[i] == cid)
-						{
-							readGot = true;
-							break;
-						}
-
-				if (readGot)
-				{
-					addReadLock(cid);
-					leaveAtomic();
-					return true;
-				}
-				leaveAtomic();
-				// wait for write lock to end
-				xsYield();
-			}
+			while (!readClaimAvailable(cid))
+				waitForStateChange();
+			addReadLock(cid);
 		}
+		leaveAtomic();
+		return true;
 	}
 
 	/*! \brief Downgrade an existing write lock to a read lock */
@@ -342,34 +505,36 @@ private:
 	{
 		XsThreadId cid = xsGetCurrentThreadId();
 		enterAtomic();
-		if (m_writeLocked == cid)
+		if (m_writeLocked != cid)
 		{
-			if (--m_writeRef == 0)
-				m_writeLocked = 0;
-			addReadLock(cid);
 			leaveAtomic();
-			return true;
+			return false;
 		}
+		bool const writeReleased = (--m_writeRef == 0);
+		if (writeReleased)
+			m_writeLocked = 0;
+		addReadLock(cid);
+		if (writeReleased)
+			notifyStateChanged();
 		leaveAtomic();
-		return false;
+		return true;
 	}
 
 	inline bool releaseMutex(bool write)
 	{
 		XsThreadId cid = xsGetCurrentThreadId();
 		enterAtomic();
+		bool unblocks;
 		if (write)
 		{
-			if (m_writeLocked == cid)
-			{
-				if (--m_writeRef == 0)
-					m_writeLocked = 0;
-			}
-			else
+			if (m_writeLocked != cid)
 			{
 				leaveAtomic();
 				return false;
 			}
+			unblocks = (--m_writeRef == 0);
+			if (unblocks)
+				m_writeLocked = 0;
 		}
 		else
 		{
@@ -378,17 +543,12 @@ private:
 				leaveAtomic();
 				return false;
 			}
-			for (int i = m_readLockCount - 1; i >= 0; --i)
-			{
-				if (m_readLocked[i] == cid)
-				{
-					for (int j = i + 1; j < m_readLockCount; ++j)
-						m_readLocked[j - 1] = m_readLocked[j];
-					--m_readLockCount;
-					break;
-				}
-			}
+			removeReadLock(cid);
+			// Readers block only behind a held or pending write claim, which a read release leaves in place, so only a pending writer can be admitted
+			unblocks = (m_writeLocksPending != 0);
 		}
+		if (unblocks)
+			notifyStateChanged();
 		leaveAtomic();
 		return true;
 	}
@@ -396,82 +556,39 @@ private:
 	inline bool tryClaimMutex(bool write, uint32_t timeout)
 	{
 		XsThreadId cid = xsGetCurrentThreadId();
-		long long timeToEnd = XsTimeStamp_now(0) + timeout;
-
-		// write lock
+		long long const timeToEnd = XsTimeStamp_now(nullptr) + timeout;
+		enterAtomic();
 		if (write)
 		{
-			enterAtomic();
 			++m_writeLocksPending;
-			leaveAtomic();
-			do
+			while (!writeClaimAvailable(cid))
 			{
-				enterAtomic();
-				bool readFail = false;
-				if (m_writeLocked == 0)
+				if (!waitForStateChange(timeToEnd))
 				{
-					for (int i = 0; i < m_readLockCount; ++i)
-					{
-						if (m_readLocked[i] != cid)
-						{
-							readFail = true;
-							break;
-						}
-					}
-				}
-
-				if (m_writeLocked != cid && (m_writeLocked != 0 || readFail))
-				{
-					leaveAtomic();
-					// wait for other locks to end
-					xsYield();
-				}
-				else
-				{
-					++m_writeRef;
 					--m_writeLocksPending;
-					m_writeLocked = cid;
+					notifyStateChanged();	// readers held back by this pending write claim may continue
 					leaveAtomic();
-					return true;
+					return false;
 				}
-			} while (XsTimeStamp_now(0) >= timeToEnd);
-			enterAtomic();
+			}
+			++m_writeRef;
 			--m_writeLocksPending;
-			leaveAtomic();
-			return false;
+			m_writeLocked = cid;
 		}
-		// read lock
-		// else
-		do
+		else
 		{
-			enterAtomic();
-
-			bool readGot = false;
-			if ((m_writeLocked == 0 && m_writeLocksPending == 0) || m_writeLocked == cid)
-				readGot = true;
-			else
+			while (!readClaimAvailable(cid))
 			{
-				for (int i = 0; i < m_readLockCount; ++i)
+				if (!waitForStateChange(timeToEnd))
 				{
-					if (m_readLocked[i] == cid)
-					{
-						readGot = true;
-						break;
-					}
+					leaveAtomic();
+					return false;
 				}
 			}
-
-			if (readGot)
-			{
-				addReadLock(cid);
-				leaveAtomic();
-				return true;
-			}
-			leaveAtomic();
-			// wait for write lock to end
-			xsYield();
-		} while (XsTimeStamp_now(0) <= timeToEnd);
-		return false;
+			addReadLock(cid);
+		}
+		leaveAtomic();
+		return true;
 	}
 
 #ifdef XSENS_DEBUG
@@ -528,11 +645,16 @@ enum MutexStatusFlags : int
 
 /*! \class MutexReadWriteSuspendable
 	\brief A readers-writer mutex class that is able to be suspended
+	\details Like MutexReadWrite, a claimant that cannot proceed blocks on a condition variable until
+	the lock state changes; nothing spins. A suspended write claim admits readers but no other writers.
+	While its holder reclaims exclusivity (resume, or a nested write claim) no new readers are admitted,
+	so overlapping readers cannot starve it.
 */
 class MutexReadWriteSuspendable
 {
 private:
 	Mutex m_access;
+	WaitCondition m_stateChanged;	//!< Broadcast after every state change that can admit a blocked claimant
 	volatile std::atomic_int m_writeRef;
 	volatile std::atomic<XsThreadId> m_writeLocked;
 	volatile std::atomic_int m_writeLocksPending;
@@ -541,6 +663,7 @@ private:
 
 	int m_readLockMax;
 	int m_readLockCount;
+	bool m_holderUpgrading = false;	//!< The suspended-write holder waits for an exclusive claim; admits no new readers
 	friend class LockSuspendable;
 	MutexReadWriteSuspendable(MutexReadWriteSuspendable const&) = delete;
 	MutexReadWriteSuspendable& operator=(MutexReadWriteSuspendable const&) = delete;
@@ -558,7 +681,8 @@ public:
 	};
 
 	inline MutexReadWriteSuspendable()
-		: m_writeRef(0)
+		: m_stateChanged(m_access)
+		, m_writeRef(0)
 		, m_writeLocked(0)
 		, m_writeLocksPending(0)
 		, m_writeLockSuspendCount(0)
@@ -586,6 +710,21 @@ private:
 		m_readLocked[m_readLockCount++] = cid;
 	}
 
+	//! Drop the most recent read claim of \a cid, if it has one
+	inline void removeReadLock(XsThreadId cid)
+	{
+		for (int i = m_readLockCount - 1; i >= 0; --i)
+		{
+			if (m_readLocked[i] == cid)
+			{
+				for (int j = i + 1; j < m_readLockCount; ++j)
+					m_readLocked[j - 1] = m_readLocked[j];
+				--m_readLockCount;
+				return;
+			}
+		}
+	}
+
 	inline void enterAtomic()
 	{
 		m_access.claimMutex();
@@ -594,6 +733,66 @@ private:
 	inline void leaveAtomic()
 	{
 		m_access.releaseMutex();
+	}
+
+	/*! \brief Block until another thread changes the lock state
+		\details Call with m_access claimed exactly once: the wait releases that single claim and has
+		re-taken it when it returns. The caller re-evaluates its condition afterwards.
+	*/
+	inline void waitForStateChange()
+	{
+		m_stateChanged.wait();
+	}
+
+	//! Wake every blocked claimant so it re-evaluates. Call with m_access claimed, before leaveAtomic(); see MutexReadWrite::notifyStateChanged()
+	inline void notifyStateChanged()
+	{
+		m_stateChanged.broadcast();
+	}
+
+	//! True while every write claim is suspended, which admits readers. Call with m_access claimed
+	inline bool writeSuspended() const
+	{
+		return m_writeLockSuspendCount != 0 && m_writeLockSuspendCount == m_writeRef;
+	}
+
+	//! True when no thread other than \a cid holds a read claim. Call with m_access claimed
+	inline bool noForeignReaders(XsThreadId cid) const
+	{
+		for (int i = 0; i < m_readLockCount; ++i)
+			if (m_readLocked[i] != cid)
+				return false;
+		return true;
+	}
+
+	//! True when \a cid holds a read claim. Call with m_access claimed
+	inline bool holdsReadClaim(XsThreadId cid) const
+	{
+		for (int i = 0; i < m_readLockCount; ++i)
+			if (m_readLocked[i] == cid)
+				return true;
+		return false;
+	}
+
+	/*! \brief True when \a cid may take an exclusive write claim now. Call with m_access claimed
+		\details Another thread's write claim, suspended or not, excludes it. Its own suspended write
+		claim, or no write claim at all, admits it once no other thread holds a read claim.
+	*/
+	inline bool writeClaimAvailable(XsThreadId cid) const
+	{
+		if (m_writeLocked != 0 && m_writeLocked != cid)
+			return false;
+		if (m_writeLocked == cid && !writeSuspended())
+			return true;
+		return noForeignReaders(cid);
+	}
+
+	//! True when \a cid may take a read claim now. Call with m_access claimed
+	inline bool readClaimAvailable(XsThreadId cid) const
+	{
+		if ((m_writeLocked == 0 && m_writeLocksPending == 0) || m_writeLocked == cid || (writeSuspended() && !m_holderUpgrading))
+			return true;
+		return holdsReadClaim(cid);
 	}
 
 protected:
@@ -605,105 +804,50 @@ protected:
 	inline bool claimMutex(Mode mode)
 	{
 		XsThreadId cid = xsGetCurrentThreadId();
-		// write lock
+		enterAtomic();
 		switch (mode)
 		{
 			case Mode::Write:
-				enterAtomic();
+			{
 				++m_writeLocksPending;
-				while (true)
-				{
-					bool readFail = false;
-					if (m_writeLocked == 0 || (m_writeLockSuspendCount && m_writeLockSuspendCount == m_writeRef))
-					{
-						for (int i = 0; i < m_readLockCount; ++i)
-						{
-							if (m_readLocked[i] != cid)
-							{
-								readFail = true;
-								break;
-							}
-						}
-					}
-
-					if ((m_writeLocked != cid && (m_writeLocked != 0 || readFail))
-						|| (readFail && m_writeLockSuspendCount && m_writeLockSuspendCount == m_writeRef))
-					{
-						leaveAtomic();
-						xsYield();	// wait for other locks to end
-						enterAtomic();
-					}
-					else
-					{
-						++m_writeRef;
-						--m_writeLocksPending;
-						m_writeLocked = cid;
-						leaveAtomic();
-						return true;
-					}
-				}
-				break;
+				bool const upgrading = (m_writeLocked == cid);
+				if (upgrading)
+					m_holderUpgrading = true;
+				while (!writeClaimAvailable(cid))
+					waitForStateChange();
+				if (upgrading)
+					m_holderUpgrading = false;
+				++m_writeRef;
+				--m_writeLocksPending;
+				m_writeLocked = cid;
+				leaveAtomic();
+				return true;
+			}
 
 			case Mode::Read:
-				while (true)
-				{
-					enterAtomic();
-					bool readGot = false;
-					if ((m_writeLocked == 0 && m_writeLocksPending == 0)
-						|| m_writeLocked == cid
-						|| (m_writeLockSuspendCount && m_writeLockSuspendCount == m_writeRef))
-						readGot = true;
-					else
-					{
-						for (int i = 0; i < m_readLockCount; ++i)
-						{
-							if (m_readLocked[i] == cid)
-							{
-								readGot = true;
-								break;
-							}
-						}
-					}
-
-					if (readGot)
-					{
-						addReadLock(cid);
-						leaveAtomic();
-						return true;
-					}
-					leaveAtomic();
-					// wait for write lock to end
-					xsYield();
-				}
-				break;
+				while (!readClaimAvailable(cid))
+					waitForStateChange();
+				addReadLock(cid);
+				leaveAtomic();
+				return true;
 
 			case Mode::SuspendedWrite:
-				enterAtomic();
 				++m_writeLocksPending;
-				while (1)
-				{
-					if (m_writeLocked != cid && m_writeLocked != 0)
-					{
-						leaveAtomic();
-						xsYield();	// wait for other write locks to end
-						enterAtomic();
-					}
-					else
-					{
-						++m_writeRef;
-						--m_writeLocksPending;
-						m_writeLocked = cid;
-						++m_writeLockSuspendCount;
-						leaveAtomic();
-						return true;
-					}
-				}
-				break;
+				while (m_writeLocked != cid && m_writeLocked != 0)
+					waitForStateChange();
+				++m_writeRef;
+				--m_writeLocksPending;
+				m_writeLocked = cid;
+				++m_writeLockSuspendCount;
+				notifyStateChanged();	// readers are admitted while every write claim is suspended
+				leaveAtomic();
+				return true;
 
 			default:
 				break;
 		}
 
+		leaveAtomic();
 		assert(0);
 		return false;
 	}
@@ -724,21 +868,23 @@ protected:
 	{
 		XsThreadId cid = xsGetCurrentThreadId();
 		enterAtomic();
-		if (m_writeLocked == cid)
+		if (m_writeLocked != cid)
 		{
-			if (decreaseSuspend)
-				--m_writeLockSuspendCount;
-			if (--m_writeRef == 0)
-			{
-				m_writeLocked = 0;
-				m_writeLockSuspendCount = 0;
-			}
-			addReadLock(cid);
 			leaveAtomic();
-			return true;
+			return false;
 		}
+		if (decreaseSuspend)
+			--m_writeLockSuspendCount;
+		if (--m_writeRef == 0)
+		{
+			m_writeLocked = 0;
+			m_writeLockSuspendCount = 0;
+		}
+		addReadLock(cid);
+		if ((m_writeRef == 0) || writeSuspended())
+			notifyStateChanged();
 		leaveAtomic();
-		return false;
+		return true;
 	}
 
 	/*! \brief Suspend an existing write lock so read locks are allowed, but do not allow other write locks
@@ -747,54 +893,37 @@ protected:
 	{
 		XsThreadId cid = xsGetCurrentThreadId();
 		enterAtomic();
-		if (m_writeLocked == cid)
+		if (m_writeLocked != cid)
 		{
-			++m_writeLockSuspendCount;
 			leaveAtomic();
-			return true;
+			return false;
 		}
+		++m_writeLockSuspendCount;
+		if (writeSuspended())
+			notifyStateChanged();
 		leaveAtomic();
-		return false;
+		return true;
 	}
 
 	/*! \brief Resumes an existing write lock so read locks are no longer allowed
+		\details Returns only when no other thread holds a read claim any more
 	*/
 	inline bool resumeWriteLock()
 	{
 		XsThreadId cid = xsGetCurrentThreadId();
 		enterAtomic();
-		if (m_writeLocked == cid)
+		if (m_writeLocked != cid)
 		{
-			if (m_writeLockSuspendCount-- == m_writeRef)
-			{
-				// wait for all read locks to end
-				while (true)
-				{
-					bool stillReading = false;
-					for (int i = 0; i < m_readLockCount; ++i)
-					{
-						if (m_readLocked[i] != cid)
-						{
-							stillReading = true;
-							break;
-						}
-					}
-
-					if (!stillReading)
-					{
-						leaveAtomic();
-						return true;
-					}
-					leaveAtomic();
-					xsYield();
-					enterAtomic();
-				}
-			}
 			leaveAtomic();
-			return true;
+			return false;
+		}
+		if (m_writeLockSuspendCount-- == m_writeRef)
+		{
+			while (!noForeignReaders(cid))
+				waitForStateChange();
 		}
 		leaveAtomic();
-		return false;
+		return true;
 	}
 
 	/*! \brief Releases (unlocks) a mutex for read or write modes
@@ -806,24 +935,24 @@ protected:
 	{
 		XsThreadId cid = xsGetCurrentThreadId();
 		enterAtomic();
+		bool unblocks;
 		if (write)
 		{
-			if (m_writeLocked == cid)
-			{
-				if (decreaseSuspendCount)
-					--m_writeLockSuspendCount;
-
-				if (--m_writeRef == 0)
-				{
-					m_writeLockSuspendCount = 0;
-					m_writeLocked = 0;
-				}
-			}
-			else
+			if (m_writeLocked != cid)
 			{
 				leaveAtomic();
 				return false;
 			}
+			if (decreaseSuspendCount)
+				--m_writeLockSuspendCount;
+
+			if (--m_writeRef == 0)
+			{
+				m_writeLockSuspendCount = 0;
+				m_writeLocked = 0;
+			}
+			// Dropping a nested exclusive claim can leave only suspended ones, which admits readers again
+			unblocks = (m_writeRef == 0) || writeSuspended();
 		}
 		else
 		{
@@ -832,17 +961,12 @@ protected:
 				leaveAtomic();
 				return false;
 			}
-			for (int i = m_readLockCount - 1; i >= 0; --i)
-			{
-				if (m_readLocked[i] == cid)
-				{
-					for (int j = i + 1; j < m_readLockCount; ++j)
-						m_readLocked[j - 1] = m_readLocked[j];
-					--m_readLockCount;
-					break;
-				}
-			}
+			removeReadLock(cid);
+			// Only a pending writer, or the write claim holder waiting in resumeWriteLock(), can be admitted by a read release
+			unblocks = (m_writeLocksPending != 0) || (m_writeLocked != 0);
 		}
+		if (unblocks)
+			notifyStateChanged();
 		leaveAtomic();
 		return true;
 	}
@@ -916,19 +1040,19 @@ class Lock
 {
 private:
 	Mutex* m_mutex;
-	volatile std::atomic_bool m_locked;
+	bool m_locked;	//!< Touched by the owning thread only, like the Lock object itself
 	CHECK_LOCK_DEFINE();
 
 	Lock(Lock const&) = delete;
 	Lock& operator=(Lock const&) = delete;
-	Lock(Lock&& rhs)
+	Lock(Lock&& rhs) noexcept
 		: m_mutex(rhs.m_mutex)
 		, m_locked(rhs.m_locked)
 	{
 		rhs.m_mutex = nullptr;
 		rhs.m_locked = false;
 	}
-	Lock& operator=(Lock&& rhs)
+	Lock& operator=(Lock&& rhs) noexcept
 	{
 		if (this != &rhs)
 		{
@@ -1059,8 +1183,8 @@ class LockReadWrite
 {
 private:
 	MutexReadWrite* m_mutex;
-	volatile std::atomic_bool m_lockedR;
-	volatile std::atomic_bool m_lockedW;
+	bool m_lockedR;	//!< Touched by the owning thread only, like the Lock object itself
+	bool m_lockedW;
 	CHECK_LOCK_DEFINE();
 
 	LockReadWrite(LockReadWrite const&) = delete;
@@ -1074,7 +1198,7 @@ public:
 	inline LockReadWrite(MutexReadWrite* mutex, LockState lockState = LS_Unlocked) : m_mutex(mutex), m_lockedR(false), m_lockedW(false)
 	{
 #if defined(XSENS_DEBUG)
-		assert(m_mutex != NULL);
+		assert(m_mutex != nullptr);
 #endif
 
 		if (lockState == LS_Read)
@@ -1182,7 +1306,6 @@ public:
 			if (m_lockedR)
 				unlock();
 			m_lockedW = m_mutex->tryClaimMutex(true, timeout);
-			assert(m_lockedW);
 			return m_lockedW;
 		}
 		else
@@ -1195,7 +1318,6 @@ public:
 			}
 			if (!m_lockedR)
 				m_lockedR = m_mutex->tryClaimMutex(false, timeout);
-			assert(m_lockedR);
 			return m_lockedR;
 		}
 	}
@@ -1240,15 +1362,11 @@ public:
 
 	/*! \brief Constructor
 	*/
-	inline GuardedMutex()
-	{
-	}
+	inline GuardedMutex() = default;
 
 	/*! \brief Destructor
 	*/
-	inline ~GuardedMutex()
-	{
-	}
+	inline ~GuardedMutex() = default;
 
 	/*! \returns true if the mutex is claimed successfully
 	*/
@@ -1313,9 +1431,9 @@ class LockSuspendable
 {
 private:
 	MutexReadWriteSuspendable* m_mutex;
-	volatile std::atomic_bool m_lockedR;
-	volatile std::atomic_bool m_lockedW;
-	volatile std::atomic_bool m_iSuspended;	// Read: I suspended the write lock, this does not mean that it actually IS suspended
+	bool m_lockedR;	//!< Touched by the owning thread only, like the Lock object itself
+	bool m_lockedW;
+	bool m_iSuspended;	// Read: I suspended the write lock, this does not mean that it actually IS suspended
 
 	LockSuspendable(LockSuspendable const&) = delete;
 	LockSuspendable& operator=(LockSuspendable const&) = delete;
@@ -1329,7 +1447,7 @@ public:
 	inline LockSuspendable(MutexReadWriteSuspendable* mutex, LockState lockState) : m_mutex(mutex), m_lockedR(false), m_lockedW(false), m_iSuspended(false)
 	{
 #if defined(XSENS_DEBUG)
-		assert(m_mutex != NULL);
+		assert(m_mutex != nullptr);
 #endif
 
 		if (lockState != LS_Unlocked)
@@ -1341,7 +1459,7 @@ public:
 	inline LockSuspendable(GuardedMutex* mutex, LockState lockState) : m_mutex(mutex), m_lockedR(false), m_lockedW(false), m_iSuspended(false)
 	{
 #if defined(XSENS_DEBUG)
-		assert(m_mutex != NULL);
+		assert(m_mutex != nullptr);
 #endif
 
 		if (lockState != LS_Unlocked)
@@ -1538,7 +1656,7 @@ class LockGuarded
 {
 private:
 	GuardedMutex* m_mutex;
-	volatile std::atomic_bool m_locked;
+	bool m_locked;	//!< Touched by the owning thread only, like the Lock object itself
 
 	LockGuarded(LockGuarded const&) = delete;
 	LockGuarded& operator=(LockGuarded const&) = delete;
@@ -1632,7 +1750,7 @@ public:
 	\brief A protected value class
 */
 template <typename K>
-class ProtectedValue
+class ProtectedValue // NOSONAR cpp:S5414 - public header template; reordering members changes what sibling repos instantiate, and xscommon CI cannot verify them
 {
 private:
 	mutable LockReadWrite* m_lock;
@@ -1652,7 +1770,7 @@ public:
 	{
 		m_lock = pv.m_lock;
 		m_value = pv.m_value;
-		pv.m_lock = NULL;
+		pv.m_lock = nullptr;
 	}
 
 	/*! \brief Destructor
@@ -1674,7 +1792,7 @@ public:
 		assert(pv.m_lock);
 		m_lock = pv.m_lock;
 		m_value = pv.m_value;
-		pv.m_lock = NULL;
+		pv.m_lock = nullptr;
 	}
 
 	K m_value; //!< A type name of this class
@@ -1720,85 +1838,15 @@ public:
 #ifdef _WIN32
 	/*! \brief Constructor
 	*/
-	Semaphore(int32_t initVal = 0, uint32_t nofOtherHandles = 0, HANDLE* otherHandles = NULL);
+	Semaphore(int32_t initVal = 0, uint32_t nofOtherHandles = 0, HANDLE* otherHandles = nullptr);
 #else
 	/*! \brief Constructor
 	*/
-	Semaphore(int32_t initVal = 0, uint32_t nofOtherHandles = 0, sem_t* otherHandles = NULL);
+	Semaphore(int32_t initVal = 0, uint32_t nofOtherHandles = 0, sem_t* otherHandles = nullptr);
 #endif
 	/*! \brief Destructor
 	*/
 	~Semaphore();
-};
-
-/*! \class WaitCondition
-	\brief A platform independent wait condition implementation
-
-	Wait conditions are used to halt consumer threads until changes are made to data they operate on.
-
-	Creating the wait condition:
-	\code
-	Mutex mut;
-	WaitCondition wc(&mut);
-	\endcode
-
-	Consumer thread:
-	\code
-	void func()
-	{
-		Lock locker(&mut);
-
-		if (!wc.wait()) // unlocks the mutex and waits for a signal
-			// the mutex is claimed
-			return;
-
-		// mutex is claimed
-		// copy data
-		lock.unlock();
-		// work with data
-	}
-	\endcode
-
-	Feeder thread:
-	\code
-	void func()
-	{
-		Lock locker(&mut);
-
-		// update data
-		wc.signal(); // signal that changes have been made
-		// alternatively, use wc.broadcast() to allow multiple consumers to handle the data
-	}
-	\endcode
-*/
-class WaitCondition
-{
-	WaitCondition(WaitCondition const&) = delete;
-	WaitCondition& operator=(WaitCondition const&) = delete;
-	WaitCondition(WaitCondition&&) = delete;
-	WaitCondition& operator=(WaitCondition&&) = delete;
-
-public:
-	explicit WaitCondition(Mutex& m);
-	~WaitCondition();
-
-	void signal();
-	void broadcast();
-	bool wait();
-	bool wait(uint32_t timeout);
-private:
-#ifdef _WIN32
-	CONDITION_VARIABLE m_cond;
-#else
-	pthread_cond_t m_cond;
-	pthread_condattr_t m_condattr;
-#ifdef __APPLE__
-	int m_clockId;
-#else
-	clockid_t m_clockId;
-#endif
-#endif
-	Mutex& m_mutex;
 };
 
 /*! \brief An event that can be set/reset and that can be waited for
@@ -1853,7 +1901,7 @@ void multiLock(L1& lock1, L2& lock2, LockState state1 = LockState::LS_Write, Loc
 } // namespace xsens
 
 #ifndef __GNUC__
-	#pragma warning(default: 4127)
+	#pragma warning(pop)
 #endif
 
 #endif

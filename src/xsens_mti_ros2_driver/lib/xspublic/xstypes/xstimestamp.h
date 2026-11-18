@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -93,7 +93,7 @@ struct XsTimeStamp
 	inline explicit XsTimeStamp(double t) : m_msTime((int64_t)(t * 1000.0)) {}
 
 	/*! \brief Construct a copy of \a other. */
-	inline XsTimeStamp(const XsTimeStamp& other) : m_msTime(other.m_msTime) {}
+	inline XsTimeStamp(const XsTimeStamp& other) = default;
 
 	/*! \brief Construct from \a utc */
 	inline XsTimeStamp(const XsTimeInfo& info)
@@ -126,11 +126,7 @@ struct XsTimeStamp
 #endif
 
 	/*! \brief Assign the contents of the \a other timestamp to this timestamp. */
-	inline XsTimeStamp& operator = (const XsTimeStamp& other)
-	{
-		m_msTime = other.m_msTime;
-		return *this;
-	}
+	inline XsTimeStamp& operator = (const XsTimeStamp& other) = default;
 
 	/*! \brief Get the stored time as milliseconds. */
 	inline int64_t msTime(void) const
@@ -283,7 +279,7 @@ struct XsTimeStamp
 	/*! \brief Returns the seconds part of the time (in the range 0-59) */
 	inline int32_t secondPart() const
 	{
-		return (int32_t)((m_msTime / (1000)) % 60);
+		return (int32_t)((m_msTime / 1000) % 60);
 	}
 
 	/*! \brief Returns the minutes part of the time (in the range 0-59) */
@@ -317,7 +313,7 @@ struct XsTimeStamp
 	/*! \brief Returns the difference between now() and the stored time value */
 	inline int64_t elapsedToNow() const
 	{
-		return XsTimeStamp_now(0) - m_msTime;
+		return XsTimeStamp_now(nullptr) - m_msTime;
 	}
 
 	/*! \brief Returns the maximum possible value of an %XsTimeStamp */

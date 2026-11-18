@@ -37,14 +37,14 @@
 
 struct FreeAccelerationPublisher : public PacketCallback
 {
-    rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub;
+    DriverPublisher<geometry_msgs::msg::Vector3Stamped> pub;
     std::string frame_id = DEFAULT_FRAME_ID;
 
-    FreeAccelerationPublisher(rclcpp::Node::SharedPtr node)
+    FreeAccelerationPublisher(DriverNode::SharedPtr node)
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);
-        pub = node->create_publisher<geometry_msgs::msg::Vector3Stamped>("/filter/free_acceleration", pub_queue_size);
+        pub = node->create_publisher<geometry_msgs::msg::Vector3Stamped>("filter/free_acceleration", pub_queue_size);
         node->get_parameter("frame_id", frame_id);
     }
 
