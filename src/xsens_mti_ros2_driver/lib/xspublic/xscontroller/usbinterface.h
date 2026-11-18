@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -38,7 +38,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #ifdef _WIN32
-	#include <windows.h>
+	#ifndef WIN32_LEAN_AND_MEAN
+	#define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
+	#endif
+	#include <Windows.h>
 	//#	include <sys/types.h>
 #else
 	#include <termios.h>
@@ -79,13 +82,13 @@ public:
 	void setRawIo(bool enable);
 	bool getRawIo(void);
 
-	XsResultValue writeData(const XsByteArray& data, XsFilePos* written = NULL) override;
+	XsResultValue writeData(const XsByteArray& data, XsFilePos* written = nullptr) override;
 	XsResultValue readData(XsFilePos maxLength, XsByteArray& data) override;
 	using IoInterface::waitForData;
 
-	XsResultValue writeData(XsFilePos length, const void* data, XsFilePos* written = NULL);
-	XsResultValue readData(XsFilePos maxLength, void* data, XsFilePos* length = NULL);
-	XsResultValue waitForData(XsFilePos maxLength, void* data, XsFilePos* length = NULL);
+	XsResultValue writeData(XsFilePos length, const void* data, XsFilePos* written = nullptr);
+	XsResultValue readData(XsFilePos maxLength, void* data, XsFilePos* length = nullptr);
+	XsResultValue waitForData(XsFilePos maxLength, void* data, XsFilePos* length = nullptr);
 
 	void getPortName(XsString& portname) const;
 

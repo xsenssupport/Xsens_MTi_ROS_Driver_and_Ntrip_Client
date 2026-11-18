@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -32,8 +32,7 @@
 
 #include "enumexpandersbase.h"
 
-extern Journaller* gJournal;	//lint !e752
-
+extern Journaller* gJournal;
 JLENUMEXPANDER(XsResultValue,
 	JLENUMCASE(XRV_OK) //!< 0: Operation was performed successfully
 
@@ -93,7 +92,7 @@ JLENUMEXPANDER(XsResultValue,
 	JLENUMCASE(XRV_COULDNOTREADSETTINGS) //!< 271: A required settings file could not be opened or is missing some data
 	JLENUMCASE(XRV_NODATA) //!< 272: No data is available
 	JLENUMCASE(XRV_READONLY) //!< 273: Tried to change a read-only value
-	JLENUMCASE(XRV_NULLPTR) //!< 274: Tried to supply a NULL value where it is not allowed
+	JLENUMCASE(XRV_NULLPTR) //!< 274: Tried to supply a nullptr value where it is not allowed
 	JLENUMCASE(XRV_INSUFFICIENTDATA) //!< 275: Insufficient data was supplied to a function
 	JLENUMCASE(XRV_BUSY) //!< 276: Busy processing, try again later
 	JLENUMCASE(XRV_INVALIDINSTANCE) //!< 277: Invalid instance called, because of an invalid or missing license

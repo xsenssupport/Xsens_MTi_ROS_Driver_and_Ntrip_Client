@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -30,11 +30,12 @@
 //  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
 //  
 
-#define XSNOEXPORT
 #define XSENS_NO_AUTOLIB
 // include this file in Visual Studio using C/C++->Advanced->Force Includes (the /FI option)
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef XSCOMMON_CONFIG_H
+#define XSCOMMON_CONFIG_H
+
+#include <xstypes/xstypesconfig.h>
 
 #ifndef UNICODE
 	#define UNICODE
@@ -42,8 +43,6 @@
 #ifndef _UNICODE
 	#define _UNICODE
 #endif
-
-#include <xstypes/xstypesconfig.h>
 
 //////////////////////////////////////////////////
 // generic preprocessor defines

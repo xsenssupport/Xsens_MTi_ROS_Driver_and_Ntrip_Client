@@ -3,9 +3,9 @@ cmake_minimum_required(VERSION 3.5)
 project(xsens_mti_ros2_driver)
 
 
-# Set C++ standard, default to C++14
+# Set C++ standard, default to C++17: MT SDK 2026.4 (lib/xspublic) uses C++17.
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 # Find dependencies
@@ -48,6 +48,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ShipMotion.msg"
   "msg/GnssPvt.msg"
   "msg/GnssSatInfo.msg"
+  "msg/GnssHeading.msg"
   DEPENDENCIES std_msgs
 )
 

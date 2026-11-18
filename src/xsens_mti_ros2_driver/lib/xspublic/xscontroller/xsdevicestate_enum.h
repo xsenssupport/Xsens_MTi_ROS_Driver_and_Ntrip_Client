@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -37,13 +37,12 @@
 	@{
 */
 
-//AUTO namespace xscontroller {
 /*! \brief XsDevice state identifiers */
 enum XsDeviceState
 {
 	XDS_Initial,					/*!< Initial unknown state */
 	XDS_Config = 1,					/*!< Configuration mode. */
-	XDS_Idle = 1,					/*!< Idle state. */ /*lint !e849*/
+	XDS_Idle = 1,					/*!< Idle state. */
 	XDS_Measurement,				/*!< Measurement mode, devices are transmitting data. */
 	XDS_WaitingForRecordingStart,	/*!< The device is in measurement mode and waiting for an external trigger to go to recording state. \note Awinda Station only */
 	XDS_Recording,					/*!< Same as measurement mode, but on Awinda systems retransmissions now also occur. \note Only on an Awinda Station is this an actual state in the device. For other devices, the state exists only in XDA. */
@@ -54,6 +53,5 @@ enum XsDeviceState
 };
 /*! @} */
 typedef enum XsDeviceState XsDeviceState;
-//AUTO }
 
 #endif

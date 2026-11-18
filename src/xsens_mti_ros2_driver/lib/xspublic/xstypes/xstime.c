@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -37,7 +37,6 @@
 #include <wchar.h>
 
 #ifdef _WIN32
-	#include <windows.h>
 	#include "xssimpleversion.h"
 #else
 	#include <errno.h>
@@ -162,7 +161,7 @@ uint32_t XsTime_getTimeOfDay(struct tm* date_, time_t* secs_)
 				startTimeSysTime = t;
 			}
 
-			tNow = startTimeSysTime + (1000 * (pc.QuadPart - startTimePerfCount)) / perfCountFreq;	//lint !e414
+			tNow = startTimeSysTime + (1000 * (pc.QuadPart - startTimePerfCount)) / perfCountFreq;
 
 			if (t > tNow || (tNow - t) > CORRECTION_DELTA_MS)
 			{

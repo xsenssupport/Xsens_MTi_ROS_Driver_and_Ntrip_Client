@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -87,16 +87,10 @@ struct XsFingerData
 	}
 
 	//! \brief Copy constructor
-	inline XsFingerData(const XsFingerData& other)
-		: m_orientationIncrement(other.m_orientationIncrement)
-		, m_velocityIncrement(other.m_velocityIncrement)
-		, m_mag(other.m_mag)
-		, m_flags(other.m_flags)
-	{
-	}
+	inline XsFingerData(const XsFingerData& other) = default;
 
 	//! \brief Assignment operator
-	inline const XsFingerData& operator=(const XsFingerData& other)
+	inline XsFingerData& operator=(const XsFingerData& other)
 	{
 		if (this != &other)
 		{
@@ -156,13 +150,13 @@ struct XsFingerData
 	}
 
 	/*! \brief Swap the contents of this with \a other */
-	inline void swap(XsFingerData& other)
+	inline void swap(XsFingerData& other) noexcept
 	{
 		XsFingerData_swap(this, &other);
 	}
 
 	/*! \brief Swap the contents of \a first with \a second */
-	friend void swap(XsFingerData& first, XsFingerData& second)
+	friend void swap(XsFingerData& first, XsFingerData& second) noexcept
 	{
 		first.swap(second);
 	}
@@ -255,20 +249,20 @@ struct XsGloveData
 	}
 
 	//! \brief Assignment operator, copies contents of \a other into this
-	inline XsGloveData const& operator = (XsGloveData const& other)
+	inline XsGloveData& operator = (XsGloveData const& other)
 	{
 		XsGloveData_copy(this, &other);
 		return *this;
 	}
 
 	/*! \brief Swap the contents of this with \a other */
-	inline void swap(XsGloveData& other)
+	inline void swap(XsGloveData& other) noexcept
 	{
 		XsGloveData_swap(this, &other);
 	}
 
 	/*! \brief Swap the contents of \a first with \a second */
-	friend void swap(XsGloveData& first, XsGloveData& second)
+	friend void swap(XsGloveData& first, XsGloveData& second) noexcept
 	{
 		first.swap(second);
 	}

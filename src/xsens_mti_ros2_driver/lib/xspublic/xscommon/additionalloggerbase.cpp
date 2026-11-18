@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -90,7 +90,7 @@ void AdditionalLoggerBase::onLogLevelChanged(JournalLogLevel newLevel, JournalLo
 /*! \brief Called when the debug log level changes
 	This can be overridden in derived classes
 */
-void AdditionalLoggerBase::onDebugLevelChanged(JournalLogLevel newLevel, JournalLogLevel oldLevel)
+void AdditionalLoggerBase::onDebugLevelChanged(JournalLogLevel newLevel, JournalLogLevel oldLevel) // NOSONAR cpp:S4144 - intentional no-op virtual hook; it is identical to onLogLevelChanged because both exist purely to be overridden
 {
 	(void)newLevel;
 	(void)oldLevel;

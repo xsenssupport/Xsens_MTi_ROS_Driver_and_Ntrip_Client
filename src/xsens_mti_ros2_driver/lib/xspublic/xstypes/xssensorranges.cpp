@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -66,9 +66,22 @@ extern "C" {
 		}
 		else if (XsDeviceId_isMti6X0(deviceId))
 		{
-			// Return the value Mti6X0 should have
-			// This way rest of the code does not need exceptions
-			*resultValue = "A1G6";
+			// Parse the range fields from the product code, falling back to
+			// the default for truncated device types that lack them.
+			const char* A = strchr(deviceId->productCodeData(), 'A');
+			if (!A)
+			{
+				*resultValue = "A1G6";
+				return;
+			}
+			const char* G = strchr(A, 'G');
+			if (!G)
+			{
+				*resultValue = "A1G6";
+				return;
+			}
+			assert(G - A <= 3);
+			*resultValue = A;
 		}
 		else
 		{

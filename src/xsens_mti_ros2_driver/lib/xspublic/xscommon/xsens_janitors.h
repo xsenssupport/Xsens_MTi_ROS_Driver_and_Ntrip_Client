@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -46,14 +46,14 @@
 	#define __stdcall
 #elif defined(__GNUC__) && !defined(HAVE_CDECL)
 	#if !defined(__cdecl)
-		#if defined(__x86_64__)
+		#if defined(__x86_64__) || defined(__aarch64__)
 			#define __cdecl
 		#else
 			#define __cdecl __attribute__((cdecl))
 		#endif
 	#endif
 	#if !defined(__stdcall)
-		#if defined(__x86_64__)
+		#if defined(__x86_64__) || defined(__aarch64__)
 			#define __stdcall
 		#else
 			#define __stdcall __attribute__((stdcall))
@@ -339,7 +339,7 @@ class JanitorClassFunc
 public:
 	typedef R(T::*t_func_JanitorClassFunc)(void);  //!< A function prototype for a janitor class
 private:
-	const JanitorClassFunc& operator = (const JanitorClassFunc&);
+	JanitorClassFunc& operator = (const JanitorClassFunc&) = delete;
 
 	T& m_control;
 	t_func_JanitorClassFunc m_funcJCF;
@@ -387,7 +387,7 @@ class JanitorClassFuncP1
 public:
 	typedef R(T::*t_func_JanitorClassFunc)(P1);  //!< A function prototype for a janitor class
 private:
-	const JanitorClassFuncP1& operator = (const JanitorClassFuncP1&);
+	JanitorClassFuncP1& operator = (const JanitorClassFuncP1&) = delete;
 
 	T& m_control;
 	P1 m_param1;
@@ -438,7 +438,7 @@ class JanitorFunc0
 public:
 	typedef ResultType(__cdecl* t_func_JanitorFunc)(void);   //!< A function prototype for a janitor function
 private:
-	const JanitorFunc0& operator = (const JanitorFunc0&);
+	JanitorFunc0& operator = (const JanitorFunc0&) = delete;
 	t_func_JanitorFunc m_funcJF;
 	bool m_enabled;
 public:
@@ -484,7 +484,7 @@ class JanitorStdFunc0
 public:
 	typedef std::function<ResultType(void)> t_func_JanitorFunc;  //!< A function prototype for a janitor function
 private:
-	const JanitorStdFunc0& operator = (const JanitorStdFunc0&);
+	JanitorStdFunc0& operator = (const JanitorStdFunc0&) = delete;
 	t_func_JanitorFunc m_funcJF;
 	bool m_enabled;
 public:
@@ -530,16 +530,16 @@ class JanitorFunc1
 public:
 	typedef ResultType(__cdecl* t_func_JanitorFunc)(ParamType);   //!< A function prototype for a janitor function
 private:
-	const JanitorFunc1& operator = (const JanitorFunc1&);
-	ParamType m_control;
+	JanitorFunc1& operator = (const JanitorFunc1&) = delete;
 	t_func_JanitorFunc m_funcJF;
 	bool m_enabled;
+	ParamType m_control;
 public:
 
 	/*! \brief Constructor
 	*/
 	JanitorFunc1(t_func_JanitorFunc func, ParamType control, bool enabl = true) :
-		m_control(control), m_funcJF(func), m_enabled(enabl) {}
+		m_funcJF(func), m_enabled(enabl), m_control(control) {}
 
 	/*! \brief Destructor
 	*/
@@ -576,16 +576,16 @@ class JanitorFunc1R
 public:
 	typedef ResultType(__cdecl* t_func_JanitorFunc)(ParamType);   //!< A function prototype for a janitor function
 private:
-	const JanitorFunc1R& operator = (const JanitorFunc1R&);
-	ParamType& m_control;
+	JanitorFunc1R& operator = (const JanitorFunc1R&) = delete;
 	t_func_JanitorFunc m_funcJF;
 	bool m_enabled;
+	ParamType& m_control;
 public:
 
 	/*! \brief Constructor
 	*/
 	JanitorFunc1R(t_func_JanitorFunc func, ParamType& control, bool enabl = true) :
-		m_control(control), m_funcJF(func), m_enabled(enabl) {}
+		m_funcJF(func), m_enabled(enabl), m_control(control) {}
 
 	/*! \brief Destructor
 	*/
@@ -622,17 +622,17 @@ class JanitorFunc2
 public:
 	typedef ResultType(__cdecl* t_func_JanitorFunc)(Param1Type, Param2Type);  //!< A function prototype for a janitor function
 private:
-	const JanitorFunc2& operator = (const JanitorFunc2&);
-	Param1Type m_control1;
-	Param2Type m_control2;
+	JanitorFunc2& operator = (const JanitorFunc2&) = delete;
 	t_func_JanitorFunc m_funcJF;
 	bool m_enabled;
+	Param1Type m_control1;
+	Param2Type m_control2;
 public:
 
 	/*! \brief Constructor
 	*/
 	JanitorFunc2(t_func_JanitorFunc func, Param1Type control1, Param2Type control2, bool enabl = true) :
-		m_funcJF(func), m_control1(control1), m_control2(control2), m_enabled(enabl) {}
+		m_funcJF(func), m_enabled(enabl), m_control1(control1), m_control2(control2) {}
 
 	/*! \brief Destructor
 	*/
@@ -669,17 +669,17 @@ class JanitorFunc2R
 public:
 	typedef ResultType(__cdecl* t_func_JanitorFunc)(Param1Type, Param2Type);  //!< A function prototype for a janitor function
 private:
-	const JanitorFunc2R& operator = (const JanitorFunc2R&);
-	Param1Type& m_control1;
-	Param2Type& m_control2;
+	JanitorFunc2R& operator = (const JanitorFunc2R&) = delete;
 	t_func_JanitorFunc m_funcJF;
 	bool m_enabled;
+	Param1Type& m_control1;
+	Param2Type& m_control2;
 public:
 
 	/*! \brief Constructor
 	*/
 	JanitorFunc2R(t_func_JanitorFunc func, Param1Type& control1, Param2Type& control2, bool enabl = true) :
-		m_funcJF(func), m_control1(control1), m_control2(control2), m_enabled(enabl) {}
+		m_funcJF(func), m_enabled(enabl), m_control1(control1), m_control2(control2) {}
 
 	/*! \brief Destructor
 	*/
@@ -716,19 +716,19 @@ class JanitorLogFunc
 public:
 	typedef R(__cdecl* t_func_JanitorLogFunc)(const char*, const char*, ...);   //!< A function prototype for a janitor log function
 private:
-	const JanitorLogFunc& operator = (const JanitorLogFunc&);
+	JanitorLogFunc& operator = (const JanitorLogFunc&) = delete;
 	t_func_JanitorLogFunc m_funcJF;
+	bool m_enabled;
 	const char* m_filter;
 	const char* m_str;
 	const char* m_functionName;
 	T& m_control;
-	bool m_enabled;
 public:
 
 	/*! \brief Constructor with additional 'function name' parameter
 	*/
 	JanitorLogFunc(t_func_JanitorLogFunc func, const char* filter, const char* str, const char* functionName, T& control, bool enable = true) :
-		m_funcJF(func), m_filter(filter), m_str(str), m_functionName(functionName), m_control(control), m_enabled(enable)
+		m_funcJF(func), m_enabled(enable), m_filter(filter), m_str(str), m_functionName(functionName), m_control(control)
 	{}
 
 	/*! \brief Constructor
@@ -775,24 +775,24 @@ class JanitorSimpleLogFunc
 public:
 	typedef R(__cdecl* t_func_JanitorSimpleLogFunc)(const char*, const char*, ...);   //!< A function prototype for a janitor simple log function
 private:
-	const JanitorSimpleLogFunc& operator = (const JanitorSimpleLogFunc&);
+	JanitorSimpleLogFunc& operator = (const JanitorSimpleLogFunc&) = delete;
 	t_func_JanitorSimpleLogFunc m_funcJF;
+	bool m_enabled;
 	const char* m_filter;
 	const char* m_str;
 	const char* m_functionName;
-	bool m_enabled;
 public:
 
 	/*! \brief Constructor with additional 'function name' parameter
 	*/
 	JanitorSimpleLogFunc(t_func_JanitorSimpleLogFunc func, const char* filter, const char* str, const char* functionName, bool enable = true) :
-		m_funcJF(func), m_filter(filter), m_str(str), m_functionName(functionName), m_enabled(enable)
+		m_funcJF(func), m_enabled(enable), m_filter(filter), m_str(str), m_functionName(functionName)
 	{}
 
 	/*! \brief Constructor
 	*/
 	JanitorSimpleLogFunc(t_func_JanitorSimpleLogFunc func, const char* filter, const char* str, bool enable = true) :
-		m_funcJF(func), m_filter(filter), m_str(str), m_functionName(0), m_enabled(enable) {}
+		m_funcJF(func), m_enabled(enable), m_filter(filter), m_str(str), m_functionName(0) {}
 
 	/*! \brief Destructor
 	*/
@@ -838,16 +838,16 @@ public:
 	typedef ResultType(*t_func_JanitorFuncStdCall)(ParamType);   //!< A function prototype for a calling janitor function
 #endif
 private:
-	const JanitorFuncStdCall& operator = (const JanitorFuncStdCall&);
-	ParamType& m_control;
+	JanitorFuncStdCall& operator = (const JanitorFuncStdCall&) = delete;
 	t_func_JanitorFuncStdCall m_funcJFSC;
 	bool m_enabled;
+	ParamType& m_control;
 public:
 
 	/*! \brief Constructor
 	*/
 	JanitorFuncStdCall(t_func_JanitorFuncStdCall func, ParamType& control, bool enabl = true) :
-		m_funcJFSC(func), m_control(control), m_enabled(enabl) {}
+		m_funcJFSC(func), m_enabled(enabl), m_control(control) {}
 
 	/*! \brief Destructor
 	*/
@@ -881,7 +881,7 @@ template <class T>
 class JanitorSet
 {
 private:
-	const JanitorSet& operator = (const JanitorSet&);
+	JanitorSet& operator = (const JanitorSet&) = delete;
 	T& m_control;
 	T  m_value;
 	bool m_enabled;
@@ -1045,7 +1045,7 @@ public:
 
 	/*! \returns A pointer to an element type
 	*/
-	ElementType* get() const throw()
+	ElementType* get() const noexcept
 	{
 		return m_target;
 	}
@@ -1053,7 +1053,7 @@ public:
 	/*! \brief Swaps the current object's variables with an other object's variables
 		\param other The reference to an other object
 	*/
-	void swap(JanitorRCDeallocation& other) throw()
+	void swap(JanitorRCDeallocation& other) noexcept
 	{
 		using std::swap;
 		swap(m_target, other.m_target);
@@ -1065,7 +1065,7 @@ public:
 		\param first The reference to the first object
 		\param second The reference to the second object
 	*/
-	inline friend void swap(JanitorRCDeallocation& first, JanitorRCDeallocation& second)
+	inline friend void swap(JanitorRCDeallocation& first, JanitorRCDeallocation& second) noexcept
 	{
 		first.swap(second);
 	}

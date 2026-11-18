@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -50,6 +50,7 @@
 #include "xseuler.h"
 #include "xsanalogindata.h"
 #include "xstimeinfo.h"
+#include "xsrawgnssheading.h"
 #include "xsrawgnsspvtdata.h"
 #include "xsrawgnsssatinfo.h"
 #include "xsdeviceid.h"
@@ -60,14 +61,8 @@
 #include "xsglovedata.h"
 #include "xshandid.h"
 
-#ifndef XSNOEXPORT
-	#define XSNOEXPORT
-#endif
-
-//AUTO namespace xstypes {
 struct XsDataPacket;
-//AUTO }
-struct XSNOEXPORT DataPacketPrivate;
+/*! \private */ struct DataPacketPrivate;
 
 #ifdef __cplusplus
 extern "C" {
@@ -225,11 +220,21 @@ XSTYPES_DLL_API void XsDataPacket_setAltitude(XsDataPacket* thisPtr, double data
 XSTYPES_DLL_API double XsDataPacket_altitudeMsl(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API int XsDataPacket_containsAltitudeMsl(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API void XsDataPacket_setAltitudeMsl(XsDataPacket* thisPtr, double data);
+XSTYPES_DLL_API XsVector* XsDataPacket_positionStd(const XsDataPacket* thisPtr, XsVector* returnVal, XsDataIdentifier coordinateSystem);
+XSTYPES_DLL_API int XsDataPacket_containsPositionStd(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API void XsDataPacket_setPositionStd(XsDataPacket* thisPtr, const XsVector* data, XsDataIdentifier coordinateSystem);
+XSTYPES_DLL_API XsDataIdentifier XsDataPacket_positionStdIdentifier(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API XsDataIdentifier XsDataPacket_coordinateSystemPositionStd(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API XsVector* XsDataPacket_velocity(const XsDataPacket* thisPtr, XsVector* returnVal, XsDataIdentifier coordinateSystem);
 XSTYPES_DLL_API int XsDataPacket_containsVelocity(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API void XsDataPacket_setVelocity(XsDataPacket* thisPtr, const XsVector* data, XsDataIdentifier coordinateSystem);
 XSTYPES_DLL_API XsDataIdentifier XsDataPacket_velocityIdentifier(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API XsDataIdentifier XsDataPacket_coordinateSystemVelocity(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API XsVector* XsDataPacket_velocityStd(const XsDataPacket* thisPtr, XsVector* returnVal, XsDataIdentifier coordinateSystem);
+XSTYPES_DLL_API int XsDataPacket_containsVelocityStd(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API void XsDataPacket_setVelocityStd(XsDataPacket* thisPtr, const XsVector* data, XsDataIdentifier coordinateSystem);
+XSTYPES_DLL_API XsDataIdentifier XsDataPacket_velocityStdIdentifier(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API XsDataIdentifier XsDataPacket_coordinateSystemVelocityStd(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API XsTimeInfo* XsDataPacket_utcTime(const XsDataPacket* thisPtr, XsTimeInfo* returnVal);
 XSTYPES_DLL_API int XsDataPacket_containsUtcTime(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API void XsDataPacket_setUtcTime(XsDataPacket* thisPtr, const XsTimeInfo* data);
@@ -252,6 +257,9 @@ XSTYPES_DLL_API void XsDataPacket_setRawGnssSatInfo(XsDataPacket* thisPtr, const
 XSTYPES_DLL_API uint32_t XsDataPacket_gnssPvtPulse(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API int XsDataPacket_containsGnssPvtPulse(const XsDataPacket* thisPtr);
 XSTYPES_DLL_API void XsDataPacket_setGnssPvtPulse(XsDataPacket* thisPtr, uint32_t counter);
+XSTYPES_DLL_API XsRawGnssHeading* XsDataPacket_rawGnssHeading(const XsDataPacket* thisPtr, XsRawGnssHeading* returnVal);
+XSTYPES_DLL_API int XsDataPacket_containsRawGnssHeading(const XsDataPacket* thisPtr);
+XSTYPES_DLL_API void XsDataPacket_setRawGnssHeading(XsDataPacket* thisPtr, const XsRawGnssHeading* r);
 
 XSTYPES_DLL_API XsDataPacket* XsDataPacket_merge(XsDataPacket* thisPtr, const XsDataPacket* other, int overwrite);
 XSTYPES_DLL_API void XsDataPacket_setTriggerIndication(XsDataPacket* thisPtr, XsDataIdentifier triggerId, const XsTriggerIndicationData* triggerIndicationData);
@@ -300,7 +308,7 @@ struct XsDataPacket
 		\param msg Either 0 to create an empty object or a pointer to a valid %XsMessage containing
 		MTData2 data.
 	*/
-	inline explicit XsDataPacket(const XsMessage* msg = 0)
+	inline explicit XsDataPacket(const XsMessage* msg = nullptr)
 	{
 		XsDataPacket_construct(this);
 		if (msg)
@@ -342,7 +350,7 @@ struct XsDataPacket
 #ifndef SWIG
 	/*! \brief Swaps \a first with \a second
 	*/
-	XSNOEXPORT inline friend void swap(XsDataPacket& first, XsDataPacket& second)
+	/*! \private */ inline friend void swap(XsDataPacket& first, XsDataPacket& second)
 	{
 		first.swap(second);
 	}
@@ -712,20 +720,20 @@ struct XsDataPacket
 	}
 
 	/*! \brief \copybrief XsDataPacket_correctedMagneticField(const XsDataPacket*, XsVector*) */
-	XSNOEXPORT inline XsVector correctedMagneticField(void) const
+	/*! \private */ inline XsVector correctedMagneticField(void) const
 	{
 		XsVector returnVal;
 		return *XsDataPacket_correctedMagneticField(this, &returnVal);
 	}
 
 	/*! \copydoc XsDataPacket_containsCorrectedMagneticField(const XsDataPacket*) */
-	XSNOEXPORT inline bool containsCorrectedMagneticField(void) const
+	/*! \private */ inline bool containsCorrectedMagneticField(void) const
 	{
 		return 0 != XsDataPacket_containsCorrectedMagneticField(this);
 	}
 
 	/*! \copydoc XsDataPacket_setCorrectedMagneticField(XsDataPacket*, const XsVector*) */
-	XSNOEXPORT inline void setCorrectedMagneticField(const XsVector& vec)
+	/*! \private */ inline void setCorrectedMagneticField(const XsVector& vec)
 	{
 		XsDataPacket_setCorrectedMagneticField(this, &vec);
 	}
@@ -899,20 +907,20 @@ struct XsDataPacket
 	}
 
 	/*! \brief \copybrief XsDataPacket_gloveData(const XsDataPacket*, XsGloveData*, XsHandId) */
-	XSNOCOMEXPORT inline XsGloveData gloveData(XsHandId hand) const
+	inline XsGloveData gloveData(XsHandId hand) const
 	{
 		XsGloveData returnVal;
 		return *XsDataPacket_gloveData(this, &returnVal, hand);
 	}
 
 	/*! \copydoc XsDataPacket_containsGloveData(const XsDataPacket*, XsHandId) */
-	XSNOCOMEXPORT inline bool containsGloveData(XsHandId hand = XHI_Unknown) const
+	inline bool containsGloveData(XsHandId hand = XHI_Unknown) const
 	{
 		return 0 != XsDataPacket_containsGloveData(this, hand);
 	}
 
 	/*! \copydoc XsDataPacket_setGloveData(XsDataPacket*, const XsGloveData*, XsHandId) */
-	XSNOEXPORT inline void setGloveData(const XsGloveData& data, XsHandId hand)
+	/*! \private */ inline void setGloveData(const XsGloveData& data, XsHandId hand)
 	{
 		XsDataPacket_setGloveData(this, &data, hand);
 	}
@@ -1307,6 +1315,49 @@ struct XsDataPacket
 		XsDataPacket_setAltitudeMsl(this, data);
 	}
 
+	/*! \brief \copybrief XsDataPacket_positionStd(const XsDataPacket*, XsVector*, XsDataIdentifier)
+		\param coordinateSystem The coordinate system of the requested position uncertainty. If this does not match
+			the stored coordinate system, it will be transformed to the requested system.
+		\returns A XsVector containing the x, y and z axis values in that order
+	*/
+	inline XsVector positionStd(XsDataIdentifier coordinateSystem) const
+	{
+		XsVector returnVal;
+		return *XsDataPacket_positionStd(this, &returnVal, coordinateSystem);
+	}
+
+	/*! \brief Returns the position uncertainty with the stored coordinate system
+	*/
+	inline XsVector positionStd(void) const
+	{
+		XsVector returnVal;
+		return *XsDataPacket_positionStd(this, &returnVal, coordinateSystemPositionStd());
+	}
+
+	/*! \copydoc XsDataPacket_containsPositionStd(const XsDataPacket*) */
+	inline bool containsPositionStd(void) const
+	{
+		return 0 != XsDataPacket_containsPositionStd(this);
+	}
+
+	/*! \copydoc XsDataPacket_setPositionStd(XsDataPacket*, const XsVector*, XsDataIdentifier) */
+	inline void setPositionStd(const XsVector& data, XsDataIdentifier coordinateSystem)
+	{
+		XsDataPacket_setPositionStd(this, &data, coordinateSystem);
+	}
+
+	/*! \brief \copybrief XsDataPacket_positionStdIdentifier(const XsDataPacket*) */
+	inline XsDataIdentifier positionStdIdentifier() const
+	{
+		return XsDataPacket_positionStdIdentifier(this);
+	}
+
+	/*! \copydoc XsDataPacket_coordinateSystemPositionStd(const XsDataPacket*) */
+	inline XsDataIdentifier coordinateSystemPositionStd() const
+	{
+		return XsDataPacket_coordinateSystemPositionStd(this);
+	}
+
 	/*! \brief \copybrief XsDataPacket_velocity(const XsDataPacket*, XsVector*, XsDataIdentifier)
 		\param coordinateSystem The coordinate system of the requested velocity. If this does not match
 			the stored coordinate system, it will be transformed to the requested velocity.
@@ -1347,6 +1398,48 @@ struct XsDataPacket
 	inline XsDataIdentifier coordinateSystemVelocity() const
 	{
 		return XsDataPacket_coordinateSystemVelocity(this);
+	}
+
+	/*! \brief \copybrief XsDataPacket_velocityStd(const XsDataPacket*, XsVector*, XsDataIdentifier)
+		\param coordinateSystem The coordinate system of the requested velocity uncertainty. If this does not match
+			the stored coordinate system, it will be transformed to the requested system.
+		\returns A XsVector containing the x, y and z axis values in that order
+	*/
+	inline XsVector velocityStd(XsDataIdentifier coordinateSystem) const
+	{
+		XsVector returnVal;
+		return *XsDataPacket_velocityStd(this, &returnVal, coordinateSystem);
+	}
+
+	/*! \brief Returns the velocity uncertainty with the stored coordinate system */
+	inline XsVector velocityStd(void) const
+	{
+		XsVector returnVal;
+		return *XsDataPacket_velocityStd(this, &returnVal, coordinateSystemVelocityStd());
+	}
+
+	/*! \copydoc XsDataPacket_containsVelocityStd(const XsDataPacket*) */
+	inline bool containsVelocityStd(void) const
+	{
+		return 0 != XsDataPacket_containsVelocityStd(this);
+	}
+
+	/*! \copydoc XsDataPacket_setVelocityStd(XsDataPacket*, const XsVector*, XsDataIdentifier) */
+	inline void setVelocityStd(const XsVector& data, XsDataIdentifier coordinateSystem)
+	{
+		XsDataPacket_setVelocityStd(this, &data, coordinateSystem);
+	}
+
+	/*! \brief \copybrief XsDataPacket_velocityStdIdentifier(const XsDataPacket*) */
+	inline XsDataIdentifier velocityStdIdentifier() const
+	{
+		return XsDataPacket_velocityStdIdentifier(this);
+	}
+
+	/*! \copydoc XsDataPacket_coordinateSystemVelocityStd(const XsDataPacket*) */
+	inline XsDataIdentifier coordinateSystemVelocityStd() const
+	{
+		return XsDataPacket_coordinateSystemVelocityStd(this);
 	}
 
 	/*! \brief \copybrief XsDataPacket_utcTime(const XsDataPacket*, XsTimeInfo*)
@@ -1423,7 +1516,7 @@ struct XsDataPacket
 	}
 
 	/*! \brief \copybrief XsDataPacket_setRawGnssPvtData */
-	XSNOEXPORT inline void setRawGnssPvtData(XsRawGnssPvtData const& raw)
+	/*! \private */ inline void setRawGnssPvtData(XsRawGnssPvtData const& raw)
 	{
 		XsDataPacket_setRawGnssPvtData(this, &raw);
 	}
@@ -1441,7 +1534,7 @@ struct XsDataPacket
 	}
 
 	/*! \brief \copybrief XsDataPacket_setGnssAge(XsDataPacket*, uint8_t) */
-	XSNOEXPORT inline void setGnssAge(uint8_t age)
+	/*! \private */ inline void setGnssAge(uint8_t age)
 	{
 		XsDataPacket_setGnssAge(this, age);
 	}
@@ -1462,7 +1555,7 @@ struct XsDataPacket
 	}
 
 	/*! \copydoc XsDataPacket_setRawGnssSatInfo(XsDataPacket*, const XsRawGnssSatInfo*) */
-	XSNOEXPORT inline void setRawGnssSatInfo(XsRawGnssSatInfo const& data)
+	/*! \private */ inline void setRawGnssSatInfo(XsRawGnssSatInfo const& data)
 	{
 		XsDataPacket_setRawGnssSatInfo(this, &data);
 	}
@@ -1487,6 +1580,27 @@ struct XsDataPacket
 		XsDataPacket_setGnssPvtPulse(this, counter);
 	}
 
+	/*! \brief \copybrief XsDataPacket_rawGnssHeading(const XsDataPacket*, XsRawGnssHeading*)
+			\return a struct with RawGnssPvtData
+		*/
+	inline XsRawGnssHeading rawGnssHeading(void) const
+	{
+		XsRawGnssHeading returnVal;
+		return *XsDataPacket_rawGnssHeading(this, &returnVal);
+	}
+
+	/*! \brief \copybrief XsDataPacket_containsRawGnssHeading(const XsDataPacket*) */
+	inline bool containsRawGnssHeading(void) const
+	{
+		return 0 != XsDataPacket_containsRawGnssHeading(this);
+	}
+
+	/*! \brief \copybrief XsDataPacket_setRawGnssPvtData */
+	/*! \private */ inline void setRawGnssHeading(XsRawGnssHeading const& raw)
+	{
+		XsDataPacket_setRawGnssHeading(this, &raw);
+	}
+
 	/*! \brief \copybrief XsDataPacket_fullSnapshot(const XsDataPacket*, XsSnapshot*) */
 	inline XsSnapshot fullSnapshot(void) const
 	{
@@ -1501,25 +1615,25 @@ struct XsDataPacket
 	}
 
 	/*! \copydoc XsDataPacket_setFullSnapshot(XsDataPacket*, XsSnapshot const *, int) */
-	XSNOEXPORT inline void setFullSnapshot(XsSnapshot const& data, bool retransmission)
+	/*! \private */ inline void setFullSnapshot(XsSnapshot const& data, bool retransmission)
 	{
 		XsDataPacket_setFullSnapshot(this, &data, retransmission ? 1 : 0);
 	}
 	/*! \brief \copybrief XsDataPacket_awindaSnapshot */
-	XSNOEXPORT inline XsSnapshot awindaSnapshot(void) const
+	/*! \private */ inline XsSnapshot awindaSnapshot(void) const
 	{
 		XsSnapshot returnVal;
 		return *XsDataPacket_awindaSnapshot(this, &returnVal);
 	}
 
 	/*! \brief \copybrief XsDataPacket_containsAwindaSnapshot(const XsDataPacket*) */
-	XSNOEXPORT inline bool containsAwindaSnapshot(void) const
+	/*! \private */ inline bool containsAwindaSnapshot(void) const
 	{
 		return 0 != XsDataPacket_containsAwindaSnapshot(this);
 	}
 
 	/*! \brief \copybrief XsDataPacket_setAwindaSnapshot */
-	XSNOEXPORT inline void setAwindaSnapshot(XsSnapshot const& raw, bool retransmission)
+	/*! \private */ inline void setAwindaSnapshot(XsSnapshot const& raw, bool retransmission)
 	{
 		XsDataPacket_setAwindaSnapshot(this, &raw, retransmission ? 1 : 0);
 	}
@@ -1531,20 +1645,20 @@ struct XsDataPacket
 	}
 
 	/*! \brief \copybrief XsDataPacket_gloveSnapshot(const XsDataPacket*, XsGloveSnapshot*, XsHandId) */
-	XSNOEXPORT inline XsGloveSnapshot gloveSnapshot(XsHandId hand) const
+	/*! \private */ inline XsGloveSnapshot gloveSnapshot(XsHandId hand) const
 	{
 		XsGloveSnapshot returnVal;
 		return *XsDataPacket_gloveSnapshot(this, &returnVal, hand);
 	}
 
 	/*! \brief \copybrief XsDataPacket_containsGloveSnapshot(const XsDataPacket*, XsHandId) */
-	XSNOEXPORT inline bool containsGloveSnapshot(XsHandId hand = XHI_Unknown) const
+	/*! \private */ inline bool containsGloveSnapshot(XsHandId hand = XHI_Unknown) const
 	{
 		return 0 != XsDataPacket_containsGloveSnapshot(this, hand);
 	}
 
 	/*! \copydoc XsDataPacket_setGloveSnapshot(XsDataPacket*, XsGloveSnapshot const *, int, XsHandId) */
-	XSNOEXPORT inline void setGloveSnapshot(XsGloveSnapshot const& data, bool retransmission, XsHandId hand)
+	/*! \private */ inline void setGloveSnapshot(XsGloveSnapshot const& data, bool retransmission, XsHandId hand)
 	{
 		XsDataPacket_setGloveSnapshot(this, &data, retransmission ? 1 : 0, hand);
 	}
@@ -1695,7 +1809,7 @@ struct XsDataPacket
 	//protected:
 	/*! \privatesection */
 #endif // __cplusplus
-	struct XSNOEXPORT DataPacketPrivate* d;
+	/*! \private */ struct DataPacketPrivate* d;
 
 	XsDeviceId			m_deviceId;					//!< The device Id to which the message belongs
 	XsTimeStamp			m_toa;						//!< Time Of Arrival (live packets only)

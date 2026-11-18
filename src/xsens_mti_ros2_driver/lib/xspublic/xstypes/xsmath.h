@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -261,6 +261,28 @@ XSMATHINLINE2 int32_t XsMath_doubleToLong(double d)
 XSMATHINLINE2 int64_t XsMath_doubleToInt64(double d)
 {
 	return (d >= 0) ? (int64_t) floor(d + 0.5) : (int64_t) ceil(d - 0.5);
+}
+
+/*! \brief Returns \a d TRUNCATED toward zero and converted to an integer
+	\details Use this where discarding the fraction is the intent, rather than a bare
+	cast that happens to do it: the three plausible readings of "make this an int"
+	disagree, and for -0.5 they give 0 (truncation), -1 (\ref XsMath_doubleToLong,
+	which rounds) and -1 (floor). Truncation toward zero is what C and Python's
+	\c int() do, so it is the conversion to reach for when matching either.
+	\sa XsMath_doubleToInt64_trunc
+*/
+XSMATHINLINE2 int32_t XsMath_doubleToLong_trunc(double d)
+{
+	return (d >= 0) ? (int32_t) floor(d) : (int32_t) ceil(d);
+}
+
+/*! \brief Returns \a d TRUNCATED toward zero and converted to a 64-bit integer
+	\details The 64-bit counterpart of \ref XsMath_doubleToLong_trunc; see there for
+	why truncation is spelled out rather than left to a bare cast.
+*/
+XSMATHINLINE2 int64_t XsMath_doubleToInt64_trunc(double d)
+{
+	return (d >= 0) ? (int64_t) floor(d) : (int64_t) ceil(d);
 }
 
 #ifdef __cplusplus

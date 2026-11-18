@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -36,17 +36,16 @@
 /*!	\addtogroup enums Global enumerations
 	@{
 */
-//AUTO namespace xscontroller {
 /*! \brief Lever arm type.
 */
 enum XsLeverArmType
 {
-	XLAT_Cor,	//!< Sensor to Center of Rotation (COR)
-	XLAT_Poi,	//!< Sensor to Point of Interest (POI)	
+	XLAT_Cor,       //!< Sensor to Center of Rotation (COR)
+	XLAT_Poi,       //!< Sensor to Point of Interest (POI)
+	XLAT_Antenna1,  //!< Sensor to Primary Antenna (ANT1)
+	XLAT_Antenna2,  //!< Sensor to Secondary Antenna (ANT2)
 };
 /*! @} */
 typedef enum XsLeverArmType XsLeverArmType;
-
-//AUTO }
 
 #endif

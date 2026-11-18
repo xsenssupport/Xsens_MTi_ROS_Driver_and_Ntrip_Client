@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -69,12 +69,10 @@ int XsPortInfo_empty(const struct XsPortInfo* thisPtr)
 */
 int XsPortInfo_portNumber(const struct XsPortInfo* thisPtr)
 {
-	size_t i;
-
 	if (XsPortInfo_empty(thisPtr))
 		return 0;
 
-	for (i = 0; i < strlen(thisPtr->m_portName); i++)
+	for (size_t i = 0; i < strlen(thisPtr->m_portName); i++)
 	{
 		if (isdigit(thisPtr->m_portName[i]))
 			return atoi(&thisPtr->m_portName[i]);
@@ -168,7 +166,6 @@ int XsPortInfo_usbAddress(const struct XsPortInfo* thisPtr)
 */
 void XsPortInfo_swap(struct XsPortInfo* a, struct XsPortInfo* b)
 {
-	int i;
 	char c;
 	XsPortLinesOptions pLineOpts;
 	uint16_t u;
@@ -179,7 +176,7 @@ void XsPortInfo_swap(struct XsPortInfo* a, struct XsPortInfo* b)
 
 	XsDeviceId_swap(&a->m_deviceId, &b->m_deviceId);
 
-	for (i = 0; i < 256; ++i)
+	for (int i = 0; i < 256; ++i)
 	{
 		c = a->m_portName[i];
 		a->m_portName[i] = b->m_portName[i];

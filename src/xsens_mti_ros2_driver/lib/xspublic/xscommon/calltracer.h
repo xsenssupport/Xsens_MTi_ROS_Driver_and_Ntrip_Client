@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -79,7 +79,7 @@ public:
 		JLTRACE_NODEC(m_journal, m_msg << " exit");
 	}
 };
-#define TRACEFUNC(journal) CallTracer trAceR(journal, std::string(__FILE__) + ":" + __FUNCTION__, NULL)
+#define TRACEFUNC(journal) CallTracer trAceR(journal, std::string(__FILE__) + ":" + __FUNCTION__, nullptr)
 #define TRACETHIS(journal) CallTracer trAceR(journal, std::string(__FILE__) + ":" + __FUNCTION__, this)
 #else
 #define TRACEFUNC(j)	((void) 0)

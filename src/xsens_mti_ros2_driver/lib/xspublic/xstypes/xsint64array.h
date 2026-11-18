@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -75,7 +75,7 @@ struct XsInt64Array : public XsArrayImpl<int64_t, g_xsInt64ArrayDescriptor, XsIn
 
 #ifndef SWIG
 	/*! \brief Swap the contents the \a first and \a second array */
-	friend void swap(XsInt64Array& first, XsInt64Array& second)
+	friend void swap(XsInt64Array& first, XsInt64Array& second) noexcept
 	{
 		first.swap(second);
 	}
