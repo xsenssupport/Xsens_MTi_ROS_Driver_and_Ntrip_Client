@@ -45,7 +45,7 @@ struct GnssPvtPublisher : public PacketCallback
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);
-        pub = node->create_publisher<xsens_mti_ros2_driver::msg::GnssPvt>("/gnss/pvt", pub_queue_size);
+        pub = node->create_publisher<xsens_mti_ros2_driver::msg::GnssPvt>("gnss/pvt", pub_queue_size);
         node->get_parameter("fixed_frame_id", frame_id);
     }
 

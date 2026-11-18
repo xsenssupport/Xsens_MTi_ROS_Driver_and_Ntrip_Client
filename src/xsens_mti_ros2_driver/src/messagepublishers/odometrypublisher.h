@@ -61,7 +61,7 @@ struct ODOMETRYPublisher : public PacketCallback
         node->get_parameter("pub_odometry_tf", publish_tf);
         if (frame_id.empty() || odometry_frame_id.empty() || frame_id == odometry_frame_id)
             throw std::invalid_argument("Odometry parent and sensor frame IDs must be nonempty and distinct");
-        pub = node->create_publisher<nav_msgs::msg::Odometry>("/odometry", queue_size);
+        pub = node->create_publisher<nav_msgs::msg::Odometry>("odometry", queue_size);
         if (publish_tf)
             broadcaster = std::make_shared<tf2_ros::TransformBroadcaster>(*node);
     }
