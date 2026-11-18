@@ -48,6 +48,7 @@
 #include "messagepublishers/accelerationpublisher.h"
 #include "messagepublishers/angularvelocitypublisher.h"
 #include "messagepublishers/freeaccelerationpublisher.h"
+#include "messagepublishers/freeaccelerationbodypublisher.h"
 #include "messagepublishers/gnsspublisher.h"
 #include "messagepublishers/gnsspvtpublisher.h"
 #include "messagepublishers/gnssheadingpublisher.h"
@@ -57,6 +58,7 @@
 #include "messagepublishers/orientationincrementspublisher.h"
 #include "messagepublishers/orientationpublisher.h"
 #include "messagepublishers/orientationeulerpublisher.h"
+#include "messagepublishers/orientationeulerbodypublisher.h"
 #include "messagepublishers/pressurepublisher.h"
 #include "messagepublishers/temperaturepublisher.h"
 #include "messagepublishers/timereferencepublisher.h"
@@ -65,6 +67,7 @@
 #include "messagepublishers/velocityincrementpublisher.h"
 #include "messagepublishers/positionllapublisher.h"
 #include "messagepublishers/velocitypublisher.h"
+#include "messagepublishers/velocitybodypublisher.h"
 #include "messagepublishers/statuspublisher.h"
 #include "messagepublishers/nmeapublisher.h"
 #include "messagepublishers/gnssposepublisher.h"
@@ -194,9 +197,17 @@ void XdaInterface::registerPublishers()
 		{
 			registerCallback(new OrientationEulerPublisher(m_node));
 		}
+		if (m_node->get_parameter("pub_euler_body", should_publish) && should_publish)
+		{
+			registerCallback(new OrientationEulerBodyPublisher(m_node));
+		}
 		if (m_node->get_parameter("pub_free_acceleration", should_publish) && should_publish)
 		{
 			registerCallback(new FreeAccelerationPublisher(m_node));
+		}
+		if (m_node->get_parameter("pub_free_acceleration_body", should_publish) && should_publish)
+		{
+			registerCallback(new FreeAccelerationBodyPublisher(m_node));
 		}
 		if (m_node->get_parameter("pub_transform", should_publish) && should_publish)
 		{
@@ -232,6 +243,10 @@ void XdaInterface::registerPublishers()
 		if (m_node->get_parameter("pub_velocity", should_publish) && should_publish)
 		{
 			registerCallback(new VelocityPublisher(m_node));
+		}
+		if (m_node->get_parameter("pub_velocity_body", should_publish) && should_publish)
+		{
+			registerCallback(new VelocityBodyPublisher(m_node));
 		}
 		if (m_node->get_parameter("pub_twist", should_publish) && should_publish)
 		{
@@ -1852,8 +1867,12 @@ void XdaInterface::declareCommonParameters()
 		m_node->declare_parameter("pub_quaternion", should_publish);
 	if (!m_node->has_parameter("pub_euler"))
 		m_node->declare_parameter("pub_euler", should_publish);
+	if (!m_node->has_parameter("pub_euler_body"))
+		m_node->declare_parameter("pub_euler_body", false);
 	if (!m_node->has_parameter("pub_free_acceleration"))
 		m_node->declare_parameter("pub_free_acceleration", should_publish);
+	if (!m_node->has_parameter("pub_free_acceleration_body"))
+		m_node->declare_parameter("pub_free_acceleration_body", false);
 	if (!m_node->has_parameter("pub_angular_velocity"))
 		m_node->declare_parameter("pub_angular_velocity", should_publish);
 	if (!m_node->has_parameter("pub_acceleration"))
@@ -1884,6 +1903,8 @@ void XdaInterface::declareCommonParameters()
 		m_node->declare_parameter("pub_positionLLA", should_publish);
 	if (!m_node->has_parameter("pub_velocity"))
 		m_node->declare_parameter("pub_velocity", should_publish);
+	if (!m_node->has_parameter("pub_velocity_body"))
+		m_node->declare_parameter("pub_velocity_body", false);
 	if (!m_node->has_parameter("pub_nmea"))
 		m_node->declare_parameter("pub_nmea", should_publish);
 	if (!m_node->has_parameter("pub_gnsspose"))

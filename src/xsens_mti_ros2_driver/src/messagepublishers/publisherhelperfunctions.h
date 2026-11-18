@@ -35,6 +35,29 @@
 #include <string>
 #include <vector>
 #include <rclcpp/rclcpp.hpp>
+#include <xstypes/xsquaternion.h>
+
+// Rotate a vector from the fixed (world) frame into the sensor body
+// frame using the body->world orientation quaternion.
+// Computes v_body = q^-1 * v_world * q in closed form
+// (v + 2*qv_inv x (qv_inv x v + w*v), where qv_inv = -qv).
+inline void rotateWorldToBody(const XsQuaternion &q,
+                              double wx, double wy, double wz,
+                              double &bx, double &by, double &bz)
+{
+    const double qw = q.w();
+    const double qx = q.x();
+    const double qy = q.y();
+    const double qz = q.z();
+
+    const double tx = 2.0 * (-qy * wz + qz * wy);
+    const double ty = 2.0 * (-qz * wx + qx * wz);
+    const double tz = 2.0 * (-qx * wy + qy * wx);
+
+    bx = wx + qw * tx + (-qy * tz + qz * ty);
+    by = wy + qw * ty + (-qz * tx + qx * tz);
+    bz = wz + qw * tz + (-qx * ty + qy * tx);
+}
 
 class PublisherHelperFunctions
 {
