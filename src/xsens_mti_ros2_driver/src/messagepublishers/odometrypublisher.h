@@ -45,14 +45,14 @@
 // A GNSS/INS measurement of the sensor, not a continuous vehicle odometry source.
 struct ODOMETRYPublisher : public PacketCallback
 {
-    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub;
+    DriverPublisher<nav_msgs::msg::Odometry> pub;
     std::string frame_id = DEFAULT_FRAME_ID;
     std::string odometry_frame_id = "local_enu";
     bool publish_tf = false;
     xsens::LocalEnu local;
     std::shared_ptr<tf2_ros::TransformBroadcaster> broadcaster;
 
-    ODOMETRYPublisher(rclcpp::Node::SharedPtr node)
+    ODOMETRYPublisher(DriverNode::SharedPtr node)
     {
         int queue_size = 5;
         node->get_parameter("publisher_queue_size", queue_size);

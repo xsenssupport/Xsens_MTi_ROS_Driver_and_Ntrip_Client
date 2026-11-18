@@ -42,7 +42,7 @@ public:
     PublisherHelperFunctions(/* args */);
     ~PublisherHelperFunctions();
 
-    void variance_from_stddev_param(std::string param, double *variance_out, rclcpp::Node::SharedPtr node_handle)
+    void variance_from_stddev_param(std::string param, double *variance_out, DriverNode::SharedPtr node_handle)
     {
         std::vector<double> stddev;
         if (node_handle->get_parameter(param, stddev))

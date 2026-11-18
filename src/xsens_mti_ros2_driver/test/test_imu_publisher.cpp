@@ -7,6 +7,7 @@
 
 #include "messagepublishers/imupublisher.h"
 #include "messagepublishers/gnsspvtpublisher.h"
+#include "messagepublishers/gnssatinfopublisher.h"
 #include <xstypes/xsrawgnsspvtdata.h>
 
 // Default variances used across tests
@@ -212,6 +213,41 @@ TEST(GnssPvtPublisherBuildMessage, HeaderIsSet)
 
     EXPECT_EQ(msg.header.frame_id, "world");
     EXPECT_EQ(msg.header.stamp, stamp);
+}
+
+TEST(PublisherLifecycleIntegration, GnssPublishersFollowNodeState)
+{
+    auto node = std::make_shared<DriverNode>("gnss_lifecycle_test");
+    node->declare_parameter("publisher_queue_size", 5);
+    node->declare_parameter("fixed_frame_id", std::string("world"));
+    GnssPvtPublisher pvt(node);
+    GnssSatInfoPublisher satellites(node);
+    EXPECT_FALSE(pvt.pub->is_activated());
+    EXPECT_FALSE(satellites.pub->is_activated());
+    node->configure();
+    node->activate();
+    EXPECT_TRUE(pvt.pub->is_activated());
+    EXPECT_TRUE(satellites.pub->is_activated());
+    node->deactivate();
+    EXPECT_FALSE(pvt.pub->is_activated());
+    EXPECT_FALSE(satellites.pub->is_activated());
+    node->cleanup();
+}
+
+TEST(PublisherLifecycleIntegration, ImuCanBeRecreatedAfterCleanup)
+{
+    auto node = std::make_shared<DriverNode>("imu_reconfigure_test");
+    node->declare_parameter("publisher_queue_size", 5);
+    for (int cycle = 0; cycle < 2; ++cycle)
+    {
+        ImuPublisher imu(node);
+        node->configure();
+        node->activate();
+        EXPECT_TRUE(imu.pub->is_activated());
+        node->deactivate();
+        EXPECT_FALSE(imu.pub->is_activated());
+        node->cleanup();
+    }
 }
 
 int main(int argc, char **argv)

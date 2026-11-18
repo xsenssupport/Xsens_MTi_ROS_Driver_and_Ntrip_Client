@@ -39,9 +39,9 @@
 
 struct GnssSatInfoPublisher : public PacketCallback
 {
-    rclcpp::Publisher<xsens_mti_ros2_driver::msg::GnssSatInfo>::SharedPtr pub;
+    DriverPublisher<xsens_mti_ros2_driver::msg::GnssSatInfo> pub;
 
-    GnssSatInfoPublisher(rclcpp::Node::SharedPtr node)
+    GnssSatInfoPublisher(DriverNode::SharedPtr node)
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);

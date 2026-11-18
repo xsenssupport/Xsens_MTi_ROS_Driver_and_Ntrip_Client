@@ -70,12 +70,14 @@
 #include "messagepublishers/odometrypublisher.h"
 #include "messagepublishers/shipmotionpublisher.h"
 #include "xsens_log_handler.h"
+#include "xsens_diagnostics.h"
+#include "serial_low_latency.h"
 
 #include <chrono>
 
 #define XS_DEFAULT_BAUDRATE (115200)
 
-XdaInterface::XdaInterface(rclcpp::Node::SharedPtr node)
+XdaInterface::XdaInterface(DriverNode::SharedPtr node)
     : m_device(nullptr), m_xdaCallback(node), m_node(node), m_productCode("")
 {
 	RCLCPP_INFO(node->get_logger(), "Creating XsControl object...");
@@ -91,12 +93,21 @@ XdaInterface::~XdaInterface()
 	m_control->destruct();
 }
 
+void XdaInterface::setDiagnostics(std::shared_ptr<XsensDiagnostics> diagnostics)
+{
+	m_diagnostics = diagnostics;
+	m_xdaCallback.setDiagnostics(diagnostics);
+}
+
 void XdaInterface::spinFor(std::chrono::milliseconds timeout)
 {
 	RosXsDataPacket rosPacket = m_xdaCallback.next(timeout);
 
 	if (!rosPacket.second.empty())
 	{
+		if (m_diagnostics)
+			m_diagnostics->recordPacket(rosPacket.second);
+
 		for (auto &cb : m_callbacks)
 		{
 			cb->operator()(rosPacket.second, rosPacket.first);
@@ -347,9 +358,19 @@ bool XdaInterface::connectDevice()
 
 	RCLCPP_INFO(m_node->get_logger(), "Found a device with ID: %s @ port: %s, baudrate: %d", mtPort.deviceId().toString().toStdString().c_str(), mtPort.portName().toStdString().c_str(), XsBaud::rateToNumeric(mtPort.baudrate()));
 
+	// Best-effort latency reduction, applied before XDA opens the port. A failure
+	// here is not fatal: the driver works at the port's default latency.
+	bool enableLowLatency = false;
+	if (m_node->get_parameter("enable_low_latency", enableLowLatency) && enableLowLatency)
+		xsens::setSerialLowLatency(mtPort.portName().toStdString(), m_node->get_logger());
+
 	RCLCPP_INFO(m_node->get_logger(), "Opening port %s ...", mtPort.portName().toStdString().c_str());
 	if (!m_control->openPort(mtPort))
 		return handleError("Could not open port");
+
+	// Remember the port so that close() can actually release it again, which the
+	// lifecycle 'cleanup' transition relies on.
+	m_port = mtPort;
 
 	m_device = m_control->device(mtPort.deviceId());
 	assert(m_device != 0);
@@ -403,11 +424,21 @@ bool XdaInterface::connectDevice()
 
 	m_device->addCallbackHandler(&m_xdaCallback);
 
+	if (m_diagnostics)
+	{
+		m_diagnostics->setDeviceInfo(m_productCode.toStdString(),
+									 m_device->deviceId().toString().toStdString(),
+									 firmwareVersion.toString().toStdString(),
+									 mtPort.portName().toStdString(),
+									 XsBaud::rateToNumeric(mtPort.baudrate()));
+		m_diagnostics->setConnected(true);
+	}
+
 	return true;
 }
 
 
-bool XdaInterface::prepare()
+bool XdaInterface::configureDevice()
 {
 	assert(m_device != 0);
 
@@ -439,12 +470,23 @@ bool XdaInterface::prepare()
 	if (!m_device->readEmtsAndDeviceConfiguration())
 		return handleError("Could not read device configuration");
 
+	return true;
+}
+
+
+bool XdaInterface::startMeasurement()
+{
+	assert(m_device != 0);
+
 	RCLCPP_INFO(m_node->get_logger(), "Measuring ..");
 	if (!m_device->gotoMeasurement())
 		return handleError("Could not put device into measurement mode");
 
+	if (m_diagnostics)
+		m_diagnostics->setMeasuring(true);
+
 	bool enable_logging = false;
-	
+
 	if(m_node->get_parameter("enable_logging", enable_logging) && enable_logging)
 	{
 		XsensLogHandler logHandler;
@@ -463,7 +505,7 @@ bool XdaInterface::prepare()
 
 	//delay 0.05 second, as the previous actions might take a little delay.
 	rclcpp::sleep_for(std::chrono::milliseconds(50));
-	
+
 	//in any case, send MGBE in the beginning for 6 seconds.
 	manualGyroBiasEstimation(0, 6);
 
@@ -471,6 +513,34 @@ bool XdaInterface::prepare()
     setupManualGyroBiasEstimation();
 
 	return true;
+}
+
+
+void XdaInterface::stopMeasurement()
+{
+	// Drop the periodic gyro bias estimation so it is not re-created on the next
+	// activation and does not talk to a device that is back in config mode.
+	m_manualGyroBiasTimer.reset();
+	m_manualGyroBiasSubscriber.reset();
+
+	if (m_device != nullptr)
+	{
+		m_device->stopRecording();
+		m_device->closeLogFile();
+
+		RCLCPP_INFO(m_node->get_logger(), "Leaving measurement mode ..");
+		if (!m_device->gotoConfig())
+			RCLCPP_WARN(m_node->get_logger(), "Could not put device back into config mode.");
+	}
+
+	if (m_diagnostics)
+		m_diagnostics->setMeasuring(false);
+}
+
+
+bool XdaInterface::prepare()
+{
+	return configureDevice() && startMeasurement();
 }
 
 
@@ -520,8 +590,11 @@ void XdaInterface::setupManualGyroBiasEstimation()
     bool enable_manual_gyro_bias = false;
 	//assign default value {10,3} to manual_gyro_bias_param
     std::vector<long int>  manual_gyro_bias_param = {10, 3};
-	m_node->declare_parameter("enable_manual_gyro_bias", enable_manual_gyro_bias);
-	m_node->declare_parameter("manual_gyro_bias_param",manual_gyro_bias_param);
+	// Guarded, because this runs again on every lifecycle activation.
+	if (!m_node->has_parameter("enable_manual_gyro_bias"))
+		m_node->declare_parameter("enable_manual_gyro_bias", enable_manual_gyro_bias);
+	if (!m_node->has_parameter("manual_gyro_bias_param"))
+		m_node->declare_parameter("manual_gyro_bias_param",manual_gyro_bias_param);
 
 	if(m_node->get_parameter("enable_manual_gyro_bias", enable_manual_gyro_bias) && m_node->get_parameter("manual_gyro_bias_param", manual_gyro_bias_param))
 	{
@@ -589,13 +662,26 @@ void XdaInterface::rtcmCallback(const mavros_msgs::msg::RTCM::SharedPtr msg)
 
 void XdaInterface::close()
 {
+	m_manualGyroBiasTimer.reset();
+	m_manualGyroBiasSubscriber.reset();
+	m_rtcmSubscription.reset();
+
 	if (m_device != nullptr)
 	{
 		m_device->stopRecording();
 		m_device->closeLogFile();
 		m_device->removeCallbackHandler(&m_xdaCallback);
+		m_device = nullptr;
 	}
 	m_control->closePort(m_port);
+
+	clearCallbacks();
+
+	if (m_diagnostics)
+	{
+		m_diagnostics->setMeasuring(false);
+		m_diagnostics->setConnected(false);
+	}
 }
 
 
@@ -603,6 +689,15 @@ void XdaInterface::close()
 void XdaInterface::registerCallback(PacketCallback *cb)
 {
 	m_callbacks.push_back(cb);
+}
+
+void XdaInterface::clearCallbacks()
+{
+	for (auto &cb : m_callbacks)
+	{
+		delete cb;
+	}
+	m_callbacks.clear();
 }
 
 bool XdaInterface::handleError(std::string error)
@@ -693,10 +788,26 @@ bool XdaInterface::configureSensorSettings()
 		//for theses output, always output.
 		configArray.push_back(XsOutputConfiguration(XDI_PacketCounter, 0));
 		configArray.push_back(XsOutputConfiguration(XDI_SampleTimeFine, 0));
-		configArray.push_back(XsOutputConfiguration(XDI_UtcTime, 0));
+		// UTC Time is configured when 'pub_utctime' asks for it, and also whenever
+		// 'time_option' is 0, because that option derives message stamps from the
+		// device's UTC clock and breaks without this output. Dropping UTC Time
+		// matters on bandwidth-limited setups: on an MTi-630 at 2 Mbps, acc_hr
+		// 2000 Hz + gyro_hr 1600 Hz + 400 Hz primary outputs overflows with it and
+		// is overflow-free without it.
+		bool configUtcTime = true;
+		m_node->get_parameter("pub_utctime", configUtcTime);
+		int timeOption = 0;
+		m_node->get_parameter("time_option", timeOption);
+		if (!configUtcTime && timeOption == 0)
+		{
+			RCLCPP_WARN(m_node->get_logger(), "pub_utctime is false but time_option is 0, which needs UTC Time from the device. Keeping UTC Time in the output configuration; set time_option to 1 or 2 to drop it.");
+			configUtcTime = true;
+		}
+		if (configUtcTime)
+			configArray.push_back(XsOutputConfiguration(XDI_UtcTime, 0));
 		//ROS_INFO print the config names and frequencies
-		RCLCPP_INFO(m_node->get_logger(), "XDI_PacketCounter, XDI_SampleTimeFine, XDI_UtcTime");
-		//use ros param to check pub_utctime, if yes, then push back it
+		RCLCPP_INFO(m_node->get_logger(), "XDI_PacketCounter, XDI_SampleTimeFine%s",
+			configUtcTime ? ", XDI_UtcTime" : " (UTC Time omitted, pub_utctime is false)");
 		bool should_config = false;
 		//for these data, all mti series have them.
 		if(m_node->get_parameter("pub_acceleration", should_config) && should_config)
@@ -989,7 +1100,8 @@ bool XdaInterface::configureSensorSettings()
 			if(m_node->get_parameter("enable_rotsensor_frame_config", enable_rotsensor_frame_config)&& enable_rotsensor_frame_config)
 			{
 				std::vector<double> rotsensor_rotation_euler = {0.0, 0.0, 0.0};
-				m_node->declare_parameter("rotsensor_rotation_euler",rotsensor_rotation_euler);
+				if (!m_node->has_parameter("rotsensor_rotation_euler"))
+					m_node->declare_parameter("rotsensor_rotation_euler",rotsensor_rotation_euler);
 				if(m_node->get_parameter("rotsensor_rotation_euler", rotsensor_rotation_euler))
 				{
 					//change sensor's RotSensor frame by euler angles, roll, pitch, yaw
@@ -1171,7 +1283,8 @@ bool XdaInterface::configureSensorSettings()
 		if (xsens_device_id.isRtk())
 		{
 			std::vector<double> gnssLeverArm = {0.0, 0.0, 0.0};
-			m_node->declare_parameter("GNSS_LeverArm",gnssLeverArm);
+			if (!m_node->has_parameter("GNSS_LeverArm"))
+				m_node->declare_parameter("GNSS_LeverArm",gnssLeverArm);
 			if(m_node->get_parameter("GNSS_LeverArm", gnssLeverArm))
 			{
 				if (gnssLeverArm.size() != 3)
@@ -1470,6 +1583,8 @@ void XdaInterface::declareCommonParameters()
 		m_node->declare_parameter("port", "/dev/ttyUSB0");
 	if (!m_node->has_parameter("baudrate"))
 		m_node->declare_parameter("baudrate", 115200);
+	if (!m_node->has_parameter("enable_low_latency"))
+		m_node->declare_parameter("enable_low_latency", false);
 	if (!m_node->has_parameter("device_id"))
 		m_node->declare_parameter("device_id", "");
 	if (!m_node->has_parameter("publisher_queue_size"))

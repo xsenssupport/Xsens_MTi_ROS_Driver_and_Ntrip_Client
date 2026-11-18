@@ -42,7 +42,7 @@
 
 struct NMEAPublisher : public PacketCallback
 {
-    rclcpp::Publisher<nmea_msgs::msg::Sentence>::SharedPtr pub;
+    DriverPublisher<nmea_msgs::msg::Sentence> pub;
     std::string frame_id = DEFAULT_FRAME_ID;
     rclcpp::Logger logger; // Store the logger
 
@@ -50,7 +50,7 @@ struct NMEAPublisher : public PacketCallback
     bool new_data_available = false;
     int packet_counter = 0; // Counter to track the number of packets received
 
-    NMEAPublisher(rclcpp::Node::SharedPtr node)
+    NMEAPublisher(DriverNode::SharedPtr node)
     : logger(node->get_logger()) // Initialize the logger
     {
         int pub_queue_size = 5;

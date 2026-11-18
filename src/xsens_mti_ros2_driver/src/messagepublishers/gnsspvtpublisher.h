@@ -38,10 +38,10 @@
 
 struct GnssPvtPublisher : public PacketCallback
 {
-    rclcpp::Publisher<xsens_mti_ros2_driver::msg::GnssPvt>::SharedPtr pub;
+    DriverPublisher<xsens_mti_ros2_driver::msg::GnssPvt> pub;
     std::string frame_id = "world";
 
-    GnssPvtPublisher(rclcpp::Node::SharedPtr node)
+    GnssPvtPublisher(DriverNode::SharedPtr node)
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);

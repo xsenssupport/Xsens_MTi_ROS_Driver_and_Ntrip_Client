@@ -2,7 +2,7 @@
 #include <cmath>
 #include <algorithm>
 
-HighRateInterpolator::HighRateInterpolator(rclcpp::Node::SharedPtr node, size_t bufferSize)
+HighRateInterpolator::HighRateInterpolator(DriverNode::SharedPtr node, size_t bufferSize)
     : m_node(node)
     , m_bufferSize(bufferSize)
     , m_isInitialized(false)

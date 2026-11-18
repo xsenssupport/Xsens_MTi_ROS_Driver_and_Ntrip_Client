@@ -32,54 +32,101 @@
 
 
 #include <rclcpp/rclcpp.hpp>
-#include "xdainterface.h"
+#include <lifecycle_msgs/msg/state.hpp>
+#include "xsens_mti_lifecycle_node.h"
+#include <xscommon/journaller.h>
 #include <mavros_msgs/msg/rtcm.hpp>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <chrono>
+#include <atomic>
+#include <csignal>
 
 using std::chrono::milliseconds;
+using lifecycle_msgs::msg::State;
 
 Journaller *gJournal = 0;
 
+namespace
+{
+std::atomic_bool g_keep_running{true};
+
+void requestStop(int)
+{
+    g_keep_running = false;
+}
+}  // namespace
+
 int main(int argc, char *argv[])
 {
-    rclcpp::init(argc, argv);
+    // Handle the termination signals ourselves so that the lifecycle 'shutdown'
+    // transition still runs on a valid context, which lets the node leave
+    // measurement mode and close the port in an orderly way.
+    rclcpp::InitOptions init_options;
+    init_options.shutdown_on_signal = false;
+    rclcpp::init(argc, argv, init_options);
+
+    std::signal(SIGINT, requestStop);
+    std::signal(SIGTERM, requestStop);
     // Create an executor that will be responsible for execution of callbacks for a set of nodes.
     // With SingleThreadedExecutor, all callbacks will be called from within this thread (the main thread in this case).
     rclcpp::executors::SingleThreadedExecutor exec;
 
-    // Create a node called "xsens_driver"
-    auto node = std::make_shared<rclcpp::Node>("xsens_driver");
+    // Create the managed node called "xsens_driver"
+    auto node = std::make_shared<XsensMtiLifecycleNode>();
     // Add the node to the executor
-    exec.add_node(node);
+    exec.add_node(node->get_node_base_interface());
 
-    // Declare the XdaInterface with the node
-    auto xdaInterface = std::make_shared<XdaInterface>(node);
-    RCLCPP_INFO(node->get_logger(), "XdaInterface has been initialized");
-
-    if (!xdaInterface->connectDevice()) {
-        RCLCPP_ERROR(node->get_logger(), "Failed to connect device");
-        return -1;
-    }
-
-    xdaInterface->registerPublishers();
-
-    if (!xdaInterface->prepare()) {
-        RCLCPP_ERROR(node->get_logger(), "Failed to prepare device");
-        return -1;
-    }
-
-
-    while (rclcpp::ok())
+    // Unless the node is driven externally (autostart:=false), walk it into the
+    // active state right away so that the node behaves as it always has.
+    if (node->autostart())
     {
-        xdaInterface->spinFor(milliseconds(100));
-        exec.spin_some();
+        if (node->configure().id() != State::PRIMARY_STATE_INACTIVE)
+        {
+            RCLCPP_FATAL(node->get_logger(), "Failed to configure the driver");
+            node->shutdownDriver();
+            rclcpp::shutdown();
+            return -1;
+        }
+
+        if (node->activate().id() != State::PRIMARY_STATE_ACTIVE)
+        {
+            RCLCPP_FATAL(node->get_logger(), "Failed to activate the driver");
+            node->shutdownDriver();
+            rclcpp::shutdown();
+            return -1;
+        }
+    }
+    else
+    {
+        RCLCPP_INFO(node->get_logger(),
+                    "Started with autostart:=false. Waiting for lifecycle transitions on ~/change_state.");
     }
 
-    // Reset the xdaInterface pointer to ensure it is destroyed before calling rclcpp::shutdown()
-    xdaInterface.reset();
+    while (rclcpp::ok() && g_keep_running)
+    {
+        if (node->isActive())
+        {
+            // Blocks until a packet arrives or the timeout expires.
+            node->pumpDeviceData(milliseconds(100));
+            exec.spin_some();
+        }
+        else
+        {
+            // Nothing to read from the device, so just wait for lifecycle
+            // service calls instead of spinning hot.
+            exec.spin_once(milliseconds(100));
+        }
+    }
+
+    // Walk the state machine to 'finalized' so that the node is not destroyed
+    // while it is still active.
+    if (rclcpp::ok() && node->get_current_state().id() != State::PRIMARY_STATE_FINALIZED)
+        node->shutdown();
+
+    // Release the device before dropping the last reference to the node.
+    node->shutdownDriver();
 
     rclcpp::shutdown();
 
