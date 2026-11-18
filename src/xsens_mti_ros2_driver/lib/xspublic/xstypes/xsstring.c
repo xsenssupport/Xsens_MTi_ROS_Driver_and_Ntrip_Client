@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -36,6 +36,9 @@
 #include <ctype.h>
 
 #if defined(WIN32)
+	#ifndef WIN32_LEAN_AND_MEAN
+		#define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
+	#endif
 	#include <Windows.h>
 #endif
 
@@ -309,8 +312,7 @@ XsSize XsString_utf8Len(XsString const* thisPtr)
 #ifndef XSENS_NO_WCHAR
 int32_t shiftUtf8(int32_t t, uint8_t const* p, int bytes)
 {
-	int i;
-	for (i = 0; i < bytes; ++i)
+	for (int i = 0; i < bytes; ++i)
 		t = (t << 6) | (p[i] & 0x3F);
 	return t;
 }
@@ -482,14 +484,14 @@ void XsString_sort(XsString* thisPtr)
 */
 void XsString_reverse(XsString* thisPtr)
 {
-	int i, half;
+	int half;
 	char* data, tmp, *right;
 	if (thisPtr->m_size > 2)
 	{
 		half = (int)((thisPtr->m_size - 1) >> 1);
-		data = (char*) thisPtr->m_data;
+		data = thisPtr->m_data;
 		right = data + thisPtr->m_size - 2;
-		for (i = 0; i < half; ++i)
+		for (int i = 0; i < half; ++i)
 		{
 			tmp = data[i];
 			data[i] = right[-i];
@@ -504,7 +506,7 @@ void XsString_reverse(XsString* thisPtr)
 */
 ptrdiff_t XsString_findSubStr(XsString const* thisPtr, XsString const* needle)
 {
-	XsSize offset, i, end, endN;
+	XsSize i, end, endN;
 	if (!thisPtr)	// no string to search in
 		return -1;
 	if (!needle || needle->m_size <= 1)	// empty string matches start of string, even if searchee is empty
@@ -515,7 +517,7 @@ ptrdiff_t XsString_findSubStr(XsString const* thisPtr, XsString const* needle)
 	end = thisPtr->m_size - needle->m_size;
 	endN = needle->m_size - 1;
 
-	for (offset = 0; offset <= end; ++offset)
+	for (XsSize offset = 0; offset <= end; ++offset)
 	{
 		for (i = 0; i < endN; ++i)
 			if (thisPtr->m_data[offset + i] != needle->m_data[i])
@@ -553,7 +555,7 @@ void XsString_mid(XsString* thisPtr, XsString const* source, XsSize start, XsSiz
 */
 void XsString_replaceAll(XsString* thisPtr, XsString const* src, XsString const* dst)
 {
-	XsSize offset, i, end, endN, start;
+	XsSize i, end, endN, start;
 	XsString rv = XSSTRING_INITIALIZER;
 	XsString sub = XSSTRING_INITIALIZER;
 	if (XsString_empty(thisPtr) || XsString_empty(src))
@@ -565,7 +567,7 @@ void XsString_replaceAll(XsString* thisPtr, XsString const* src, XsString const*
 	endN = src->m_size - 1;
 	start = 0;
 
-	for (offset = 0; offset <= end;)
+	for (XsSize offset = 0; offset <= end;)
 	{
 		for (i = 0; i < endN; ++i)
 			if (thisPtr->m_data[offset + i] != src->m_data[i])
@@ -630,11 +632,10 @@ void XsString_trimmed(XsString* thisPtr, XsString const* source)
 */
 void XsString_toLower(XsString* thisPtr)
 {
-	XsSize i;
 	if (XsString_empty(thisPtr))
 		return;
 
-	for (i = 0; i < thisPtr->m_size-1; ++i)
+	for (XsSize i = 0; i < thisPtr->m_size-1; ++i)
 		thisPtr->m_data[i] = (char) tolower(thisPtr->m_data[i]);
 }
 
@@ -642,10 +643,9 @@ void XsString_toLower(XsString* thisPtr)
 */
 void XsString_toUpper(XsString* thisPtr)
 {
-	XsSize i;
 	if (XsString_empty(thisPtr))
 		return;
 
-	for (i = 0; i < thisPtr->m_size - 1; ++i)
+	for (XsSize i = 0; i < thisPtr->m_size - 1; ++i)
 		thisPtr->m_data[i] = (char)toupper(thisPtr->m_data[i]);
 }

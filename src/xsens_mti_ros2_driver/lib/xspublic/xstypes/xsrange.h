@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -64,18 +64,10 @@ struct XsRange
 	{}
 
 	//! \brief Constructs a range based upon \a other
-	inline XsRange(const XsRange& other)
-		: m_first(other.m_first)
-		, m_last(other.m_last)
-	{}
+	inline XsRange(const XsRange& other) = default;
 
 	//! \brief Assigns the range \a other to this
-	inline XsRange& operator = (const XsRange& other)
-	{
-		m_first = other.m_first;
-		m_last = other.m_last;
-		return *this;
-	}
+	inline XsRange& operator = (const XsRange& other) = default;
 
 	//! \brief \copybrief XsRange_count
 	inline int count() const

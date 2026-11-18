@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -62,11 +62,26 @@ JLENUMEXPANDER(XsConnectivityState,
 	JLENUMCASE(XCS_Unknown)
 )
 
+JLENUMEXPANDER(XsLeverArmType,
+	JLENUMCASE(XLAT_Cor)
+	JLENUMCASE(XLAT_Poi)
+	JLENUMCASE(XLAT_Antenna1)
+	JLENUMCASE(XLAT_Antenna2)
+)
+
+JLENUMEXPANDER(XsDualAntennaMode,
+	JLENUMCASE(XDAM_None)
+	JLENUMCASE(XDAM_Leverarm)
+	JLENUMCASE(XDAM_Angle)
+)
+
 static void forceEnumExpanderInclusion()
 {
 	volatile bool blah = false;
 	JLWRITEG("blah" << XDS_Initial << blah);
 	JLWRITEG("blah" << XOP_Unknown << blah);
 	JLWRITEG("blah" << XCS_File << blah);
+	JLWRITEG("blah" << XLAT_Cor << blah);
+	JLWRITEG("blah" << XDAM_None << blah);
 	(void)blah;
 }

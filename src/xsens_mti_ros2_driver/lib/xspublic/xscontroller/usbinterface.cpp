@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -250,7 +250,7 @@ static DWORD usbReadThreadFunc(void* obj)
 	UsbInterfacePrivate* d = (UsbInterfacePrivate*) obj;
 	d->m_running = true;
 	xsSetThreadPriority(::GetCurrentThread(), XS_THREAD_PRIORITY_HIGHEST);	// not using xsGetCurrentThreadHandle here because we can directly use GetCurrentThread(), which is simpler
-	xsNameThisThread("USB reader");
+	JLNAMETHISTHREAD("USB reader");
 	try
 	{
 		d->threadFunc();
@@ -356,7 +356,7 @@ void UsbInterfacePrivate::threadFunc()
 
 #elif defined(HAVE_LIBUSB)
 int UsbInterfacePrivate::UsbContext::m_claimedContexts = 0;
-libusb_context* UsbInterfacePrivate::UsbContext::m_usbContext = NULL;
+libusb_context* UsbInterfacePrivate::UsbContext::m_usbContext = nullptr;
 #endif
 
 /*! \class UsbInterface
@@ -383,10 +383,10 @@ UsbInterface::UsbInterface()
 	d->m_usbHandle[1] = 0;
 	for (int i = 0; i < UsbInterfacePrivate::m_oCount; ++i)
 	{
-		d->m_waitEvents[i] = ::CreateEvent(NULL, TRUE, FALSE, NULL);
+		d->m_waitEvents[i] = ::CreateEvent(nullptr, TRUE, FALSE, nullptr);
 		::ResetEvent(d->m_waitEvents[i]);
 	}
-	d->m_quitEvent = ::CreateEvent(NULL, TRUE, FALSE, NULL);
+	d->m_quitEvent = ::CreateEvent(nullptr, TRUE, FALSE, nullptr);
 	::ResetEvent(d->m_quitEvent);
 	d->m_readIdx = 0;
 	d->m_threadedResult = XRV_OK;
@@ -451,17 +451,17 @@ XsResultValue UsbInterface::closeUsb(void)
 	if (d->m_usbHandle[0])
 	{
 		d->m_winUsb.Free(d->m_usbHandle[0]);
-		d->m_usbHandle[0] = NULL;
+		d->m_usbHandle[0] = nullptr;
 	}
 	if (d->m_usbHandle[1])
 	{
 		d->m_winUsb.Free(d->m_usbHandle[1]);
-		d->m_usbHandle[1] = NULL;
+		d->m_usbHandle[1] = nullptr;
 	}
 	if (d->m_deviceHandle)
 	{
 		CloseHandle(d->m_deviceHandle);
-		d->m_deviceHandle = NULL;
+		d->m_deviceHandle = nullptr;
 	}
 #elif defined(HAVE_LIBUSB)
 	flushData();
@@ -478,7 +478,7 @@ XsResultValue UsbInterface::closeUsb(void)
 	}
 
 	d->m_contextManager.m_libUsb.close(d->m_deviceHandle);
-	d->m_deviceHandle = NULL;
+	d->m_deviceHandle = nullptr;
 
 	d->m_contextManager.m_libUsb.unref_device(dev);
 	d->m_interface = -1;
@@ -545,7 +545,7 @@ uint32_t UsbInterface::getTimeout(void) const
 //! Return whether the USB communication port is open or not.
 bool UsbInterface::isOpen(void) const
 {
-	return d->m_deviceHandle != NULL;
+	return d->m_deviceHandle != nullptr;
 }
 
 /*! \brief Open a communication channel to the given USB port name. */
@@ -566,11 +566,11 @@ XsResultValue UsbInterface::open(const XsPortInfo& portInfo, XsFilePos, XsFilePo
 	}
 
 #ifdef USE_WINUSB
-	d->m_deviceHandle = CreateFileA(portInfo.portName_c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_WRITE | FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
+	d->m_deviceHandle = CreateFileA(portInfo.portName_c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_WRITE | FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, nullptr);
 
 	if (d->m_deviceHandle == INVALID_HANDLE_VALUE)
 	{
-		d->m_deviceHandle = NULL;
+		d->m_deviceHandle = nullptr;
 		return (d->m_lastResult = XRV_PORTNOTFOUND);
 	}
 
@@ -659,8 +659,8 @@ XsResultValue UsbInterface::open(const XsPortInfo& portInfo, XsFilePos, XsFilePo
 
 	XsResultValue xrv = XRV_OK;
 	int result;
-	libusb_device* device = NULL;
-	for (int i = 0; i < listLength && device == NULL; ++i)
+	libusb_device* device = nullptr;
+	for (int i = 0; i < listLength && device == nullptr; ++i)
 	{
 		libusb_device* dev = deviceList[i];
 		if (d->m_contextManager.m_libUsb.get_bus_number(dev) != bus || d->m_contextManager.m_libUsb.get_device_address(dev) != address)
@@ -811,7 +811,7 @@ XsResultValue UsbInterface::readData(XsFilePos maxLength, void* data, XsFilePos*
 {
 	JLTRACEG("maxLength=" << maxLength << ", data=" << JLHEXLOG(data) << ", length=" << JLHEXLOG(length));
 	XsFilePos ln;
-	if (length == NULL)
+	if (length == nullptr)
 		length = &ln;
 
 	if (!isOpen())
@@ -951,7 +951,7 @@ XsResultValue UsbInterface::waitForData(XsFilePos maxLength, void* data, XsFileP
 	char* bdata = (char*)data;
 
 	XsFilePos ln;
-	if (length == NULL)
+	if (length == nullptr)
 		length = &ln;
 	uint32_t eTime = XsTime::getTimeOfDay() + timeout;
 	XsFilePos newLength = 0;
@@ -996,7 +996,7 @@ XsResultValue UsbInterface::writeData(const XsByteArray& data, XsFilePos* writte
 XsResultValue UsbInterface::writeData(XsFilePos length, const void* data, XsFilePos* written)
 {
 	XsFilePos bytes;
-	if (written == NULL)
+	if (written == nullptr)
 		written = &bytes;
 
 	if (!isOpen())
@@ -1006,7 +1006,7 @@ XsResultValue UsbInterface::writeData(XsFilePos length, const void* data, XsFile
 
 #ifdef USE_WINUSB
 	ULONG dataWritten;
-	d->m_winUsb.WritePipe(d->m_usbHandle[1], d->m_bulkOutPipe, static_cast<PUCHAR>(const_cast<void*>(data)), (ULONG)length, &dataWritten, NULL);
+	d->m_winUsb.WritePipe(d->m_usbHandle[1], d->m_bulkOutPipe, static_cast<PUCHAR>(const_cast<void*>(data)), (ULONG)length, &dataWritten, nullptr);
 
 	*written = dataWritten;
 #elif defined(HAVE_LIBUSB)

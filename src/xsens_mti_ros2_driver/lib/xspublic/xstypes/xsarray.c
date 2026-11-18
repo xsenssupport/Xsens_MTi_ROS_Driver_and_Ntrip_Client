@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -95,16 +95,14 @@ void XsArray_construct(void* thisPtr, XsArrayDescriptor const* const descriptor,
 				thisArray->m_descriptor->rawCopy(thisArray->m_data, src, thisArray->m_size, thisArray->m_descriptor->itemSize);
 			else
 			{
-				XsSize i;
 				assert(thisArray->m_descriptor->itemCopyConstruct);
-				for (i = 0; i < thisArray->m_size; ++i)
+				for (XsSize i = 0; i < thisArray->m_size; ++i)
 					thisArray->m_descriptor->itemCopyConstruct(elemAt(thisArray->m_data, i), elemAt(src, i));
 			}
 		}
 		else if (thisArray->m_descriptor->itemConstruct)
 		{
-			XsSize i;
-			for (i = 0; i < thisArray->m_size; ++i)
+			for (XsSize i = 0; i < thisArray->m_size; ++i)
 				thisArray->m_descriptor->itemConstruct(elemAt(thisArray->m_data, i));
 		}
 	}
@@ -136,12 +134,11 @@ void XsArray_destruct(void* thisPtr)
 	XsArray* thisArray = (XsArray*) thisPtr;
 	if (thisArray->m_data && (thisArray->m_flags & XSDF_Managed))
 	{
-		XsSize i;
 		// clear contents
 		if (thisArray->m_descriptor->itemDestruct)
-			for (i = 0; i < thisArray->m_reserved; ++i)
+			for (XsSize i = 0; i < thisArray->m_reserved; ++i)
 				thisArray->m_descriptor->itemDestruct(elemAt(thisArray->m_data, i));
-		free((void*) thisArray->m_data);
+		free(thisArray->m_data);
 		XsArray_incFreeCount();
 	}
 	// init to 0
@@ -279,7 +276,7 @@ void XsArray_reserve(void* thisPtr, XsSize count)
 
 	XsArray_destruct(thisArray);
 	XsArray_swap(thisArray, &tmp);
-}
+}	// NOSONAR(c:S3584) XsArray_destruct nulls thisArray->m_data before the swap; afterwards tmp.m_data is NULL (ownership moved to thisArray), so nothing leaks
 
 /*! \relates XsArray
 	\brief Copy the contents of \a src to thisArray */
@@ -356,9 +353,8 @@ void XsArray_append(void* thisPtr, void const* other)
 */
 void XsArray_insert(void* thisPtr, XsSize index, XsSize count, void const* src)
 {
-	XsSize s;
 	XsArray* thisArray = (XsArray*) thisPtr;
-	XsSize i, d = count;
+	XsSize d = count;
 	if (thisArray->m_size + count > thisArray->m_reserved)
 	{
 		XsArray_reserve(thisArray, ((thisArray->m_size + count) * 3) / 2);		// we reserve 50% more space here to handle multiple sequential insertions efficiently
@@ -371,7 +367,7 @@ void XsArray_insert(void* thisPtr, XsSize index, XsSize count, void const* src)
 		index = thisArray->m_size;
 
 	// move items to the back by swapping
-	for (i = thisArray->m_size - 1; i >= index && i < thisArray->m_size; --i)
+	for (XsSize i = thisArray->m_size - 1; i >= index && i < thisArray->m_size; --i)
 		thisArray->m_descriptor->itemSwap(elemAt(thisArray->m_data, i), elemAt(thisArray->m_data, i + d));
 
 	// copy items to the array
@@ -379,7 +375,7 @@ void XsArray_insert(void* thisPtr, XsSize index, XsSize count, void const* src)
 		thisArray->m_descriptor->rawCopy(elemAt(thisArray->m_data, index), src, count, thisArray->m_descriptor->itemSize);
 	else
 	{
-		for (s = 0; s < count; ++s)
+		for (XsSize s = 0; s < count; ++s)
 			thisArray->m_descriptor->itemCopy(elemAt(thisArray->m_data, s + index), elemAt(src, s));
 	}
 
@@ -424,9 +420,8 @@ void XsArray_swap(void* a, void* b)
 	else
 	{
 		// elementwise swap
-		XsSize i;
 		assert(aArray->m_size == bArray->m_size);
-		for (i = 0; i < aArray->m_size; ++i)
+		for (XsSize i = 0; i < aArray->m_size; ++i)
 			aArray->m_descriptor->itemSwap(elemAtX(aArray->m_data, i, aArray), elemAtX(bArray->m_data, i, bArray));
 	}
 }
@@ -436,7 +431,7 @@ void XsArray_swap(void* a, void* b)
 */
 void XsArray_erase(void* thisPtr, XsSize index, XsSize count)
 {
-	XsSize i, newCount;
+	XsSize newCount;
 	XsArray* thisArray = (XsArray*) thisPtr;
 
 	if (count == 0 || index >= thisArray->m_size)
@@ -448,7 +443,7 @@ void XsArray_erase(void* thisPtr, XsSize index, XsSize count)
 	newCount = thisArray->m_size - count;
 
 	// move items into the gap by swapping
-	for (i = index; i < newCount; ++i)
+	for (XsSize i = index; i < newCount; ++i)
 		thisArray->m_descriptor->itemSwap(elemAt(thisArray->m_data, i), elemAt(thisArray->m_data, i + count));
 
 	*((XsSize*) &thisArray->m_size) = newCount;
@@ -467,7 +462,6 @@ void XsArray_erase(void* thisPtr, XsSize index, XsSize count)
 */
 int XsArray_compare(void const* a, void const* b)
 {
-	XsSize i;
 	XsArray const* aArray = (XsArray const*) a;
 	XsArray const* bArray = (XsArray const*) b;
 
@@ -479,7 +473,7 @@ int XsArray_compare(void const* a, void const* b)
 
 	assert(aArray->m_descriptor->itemCompare);
 	// we could theoretically only check the sizes and ignore the element-comparison in thisArray case
-	for (i = 0; i < aArray->m_size; ++i) // loop over all elements of the lists
+	for (XsSize i = 0; i < aArray->m_size; ++i) // loop over all elements of the lists
 	{
 		int r = aArray->m_descriptor->itemCompare(elemAtX(aArray->m_data, i, aArray), elemAtX(bArray->m_data, i, bArray));
 		if (r)
@@ -502,7 +496,6 @@ int XsArray_compare(void const* a, void const* b)
 */
 int XsArray_comparePredicate(void const* a, void const* b, XsArrayItemCompareFunc predicate)
 {
-	XsSize i;
 	XsArray const* aArray = (XsArray const*) a;
 	XsArray const* bArray = (XsArray const*) b;
 
@@ -514,7 +507,7 @@ int XsArray_comparePredicate(void const* a, void const* b, XsArrayItemCompareFun
 
 	assert(predicate);
 	// we could theoretically only check the sizes and ignore the element-comparison in thisArray case
-	for (i = 0; i < aArray->m_size; ++i) // loop over all elements of the lists
+	for (XsSize i = 0; i < aArray->m_size; ++i) // loop over all elements of the lists
 	{
 		int r = predicate(elemAtX(aArray->m_data, i, aArray), elemAtX(bArray->m_data, i, bArray));
 		if (r)
@@ -537,7 +530,6 @@ int XsArray_comparePredicate(void const* a, void const* b, XsArrayItemCompareFun
 */
 int XsArray_compareSet(void const* a, void const* b)
 {
-	XsSize n, m;
 	XsArray const* aArray = (XsArray const*) a;
 	XsArray const* bArray = (XsArray const*) b;
 
@@ -547,10 +539,10 @@ int XsArray_compareSet(void const* a, void const* b)
 	if (aArray->m_size != bArray->m_size)
 		return (aArray->m_size < bArray->m_size) ? -1 : 1;
 
-	for (n = 0; n < aArray->m_size; ++n) // loop over all elements of list aArray
+	for (XsSize n = 0; n < aArray->m_size; ++n) // loop over all elements of list aArray
 	{
 		int found = 0;
-		for (m = 0; m < bArray->m_size; ++m)	// loop over all elements of list bArray
+		for (XsSize m = 0; m < bArray->m_size; ++m)	// loop over all elements of list bArray
 		{
 			if (aArray->m_descriptor->itemCompare(elemAtX(aArray->m_data, n, aArray), elemAtX(bArray->m_data, m, bArray)) == 0)
 			{
@@ -573,12 +565,11 @@ int XsArray_compareSet(void const* a, void const* b)
 */
 ptrdiff_t XsArray_find(void const* thisPtr, void const* needle)
 {
-	XsSize i;
 	XsArray const* thisArray = (XsArray const*) thisPtr;
 
 	assert(thisArray->m_descriptor->itemCompare);
 	// we could theoretically only check the sizes and ignore the element-comparison in thisArray case
-	for (i = 0; i < thisArray->m_size; ++i) // loop over all elements of the lists
+	for (XsSize i = 0; i < thisArray->m_size; ++i) // loop over all elements of the lists
 		if (!thisArray->m_descriptor->itemCompare(elemAt(thisArray->m_data, i), needle))
 			return (ptrdiff_t) i;
 	return -1;
@@ -595,12 +586,11 @@ ptrdiff_t XsArray_find(void const* thisPtr, void const* needle)
 */
 ptrdiff_t XsArray_findPredicate(void const* thisPtr, void const* needle, XsArrayItemCompareFunc predicate)
 {
-	XsSize i;
 	XsArray const* thisArray = (XsArray const*) thisPtr;
 
 	assert(predicate);
 	// we could theoretically only check the sizes and ignore the element-comparison in thisArray case
-	for (i = 0; i < thisArray->m_size; ++i) // loop over all elements of the lists
+	for (XsSize i = 0; i < thisArray->m_size; ++i) // loop over all elements of the lists
 		if (!predicate(elemAt(thisArray->m_data, i), needle))
 			return (ptrdiff_t) i;
 	return -1;
@@ -637,13 +627,12 @@ void* XsArray_atIndex(void* thisPtr, XsSize index)
 */
 void XsArray_removeDuplicates(void* thisPtr)
 {
-	XsSize i, j;
 	XsArray* thisArray = (XsArray*) thisPtr;
 	if (thisArray->m_size > 1)
 	{
-		for (i = 0; i < thisArray->m_size - 1; ++i)
+		for (XsSize i = 0; i < thisArray->m_size - 1; ++i)
 		{
-			for (j = thisArray->m_size - 1; j > i; --j)
+			for (XsSize j = thisArray->m_size - 1; j > i; --j)
 			{
 				if (!thisArray->m_descriptor->itemCompare(elemAt(thisArray->m_data, i), elemAt(thisArray->m_data, j)))
 					XsArray_erase(thisPtr, j, 1);
@@ -658,13 +647,12 @@ void XsArray_removeDuplicates(void* thisPtr)
 */
 void XsArray_removeDuplicatesPredicate(void* thisPtr, XsArrayItemCompareFunc predicate)
 {
-	XsSize i, j;
 	XsArray* thisArray = (XsArray*) thisPtr;
 	if (thisArray->m_size > 1)
 	{
-		for (i = 0; i < thisArray->m_size - 1; ++i)
+		for (XsSize i = 0; i < thisArray->m_size - 1; ++i)
 		{
-			for (j = thisArray->m_size - 1; j > i; --j)
+			for (XsSize j = thisArray->m_size - 1; j > i; --j)
 			{
 				if (!predicate(elemAt(thisArray->m_data, i), elemAt(thisArray->m_data, j)))
 					XsArray_erase(thisPtr, j, 1);
@@ -714,10 +702,10 @@ void XsArray_sort(void* thisPtr)
 */
 void XsArray_reverse(void* thisPtr)
 {
-	XsSize i, half;
+	XsSize half;
 	XsArray* thisArray = (XsArray*) thisPtr;
 	half = thisArray->m_size >> 1;
-	for (i = 0; i < half; ++i)
+	for (XsSize i = 0; i < half; ++i)
 		thisArray->m_descriptor->itemSwap(elemAt(thisArray->m_data, i), elemAt(thisArray->m_data, (thisArray->m_size - 1) - i));
 }
 

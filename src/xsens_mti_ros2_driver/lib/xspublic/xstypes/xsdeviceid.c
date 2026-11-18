@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -271,7 +271,7 @@ int XsDeviceId_isDot(struct XsDeviceId const* thisPtr)
 		return 0;
 	else
 	{
-		if (memcmp(thisPtr->m_productCode, "XS-", 3) != 0)
+		if (memcmp(thisPtr->m_productCode, "XS-T0", 5) != 0)
 			return 0;
 
 		return 1;
@@ -309,6 +309,11 @@ int XsDeviceId_hasInternalGnss(struct XsDeviceId const* thisPtr)
 	}
 	if (XsDeviceId_isMtigX10(thisPtr))
 		return 1;
+	if (XsDeviceId_isSirius(thisPtr) || XsDeviceId_isAvior(thisPtr))
+	{
+		if ((thisPtr->m_productCode[2] == 'G' || thisPtr->m_productCode[2] == 'R' || thisPtr->m_productCode[2] == 'D') && XsDeviceId_isRugged(thisPtr))
+			return 1;
+	}
 	return 0;
 
 }
@@ -378,14 +383,19 @@ int XsDeviceId_isBodyHub(const struct XsDeviceId* thisPtr)
 	if (XsDeviceId_isLegacyDeviceId(thisPtr))
 		return 0;
 	else
-		return (memcmp(thisPtr->m_productCode, "XSL-HUB", 7) == 0);
+		return (memcmp(thisPtr->m_productCode, "XS-HUB", 6) == 0);
 }
 
-/*! \brief Test if this device ID represents a bodypack (any version) device.
-	\returns true if this XsDeviceId represents a bodypack (any version) device
+/*! \brief Test if this device ID represents a bodypack (any version) device or a bodyhub.
+	\returns true if this XsDeviceId represents a bodypack (any version) device or a bodyhub
+	\note A bodyhub is treated as a bodypack. This used to be done only by the C++ XsDeviceId::isBodyPack()
+	wrapper (added in PR 4305, "Treat new body hub as body pack"), while this C function did not, so the two
+	disagreed for bodyhub devices. The check now lives here so both the C API and the C++ member agree.
 */
 int XsDeviceId_isBodyPack(const struct XsDeviceId* thisPtr)
 {
+	if (XsDeviceId_isBodyHub(thisPtr))
+		return 1;
 	if (XsDeviceId_isLegacyDeviceId(thisPtr))
 		return XS_DID_BODYPACK(thisPtr->m_deviceId) || (thisPtr->m_deviceId == XS_DID_ABMCLOCKMASTER);
 	else
@@ -652,7 +662,7 @@ int XsDeviceId_isGnss(const struct XsDeviceId* thisPtr)
 	}
 	else if (XsDeviceId_isSirius(thisPtr) || XsDeviceId_isAvior(thisPtr))
 	{
-		if (thisPtr->m_productCode[2] == 'G')
+		if (thisPtr->m_productCode[2] == 'G' || thisPtr->m_productCode[2] == 'R' || thisPtr->m_productCode[2] == 'D')
 			return 1;
 	}
 	else
@@ -686,7 +696,7 @@ int XsDeviceId_isRtk(const struct XsDeviceId* thisPtr)
 		return ((thisPtr->m_deviceId & XS_DID_MK4TYPE_MASK) == XS_DID_MK4TYPE_MT_8_MPU);
 	else if (XsDeviceId_isSirius(thisPtr) || XsDeviceId_isAvior(thisPtr))
 	{
-		if (thisPtr->m_productCode[2] == 'R')
+		if (thisPtr->m_productCode[2] == 'R' || thisPtr->m_productCode[2] == 'D')
 			return 1;
 	}
 	else
@@ -696,6 +706,19 @@ int XsDeviceId_isRtk(const struct XsDeviceId* thisPtr)
 
 		int deviceFamily = atoi(&thisPtr->m_productCode[4]);
 		return ((deviceFamily == 680) || (deviceFamily == 880));
+	}
+	return 0;
+}
+
+/*! \brief Test if this device ID represents a Dual GNSS (capable) device.
+	\returns true if this XsDeviceId represents a Dual GNSS capable device
+*/
+int XsDeviceId_isDualGnss(const struct XsDeviceId* thisPtr)
+{
+	if (XsDeviceId_isSirius(thisPtr) || XsDeviceId_isAvior(thisPtr))
+	{
+		if (thisPtr->m_productCode[2] == 'D')
+			return 1;
 	}
 	return 0;
 }
@@ -773,7 +796,7 @@ void XsDeviceId_toString(const XsDeviceId* thisPtr, XsString* str)
 	if (XsDeviceId_isLegacyDeviceId(thisPtr))
 	{
 		char device[9];
-		sprintf(device, "%08" PRINTF_INT32_MODIFIER "X", (uint32_t)thisPtr->m_deviceId);
+		snprintf(device, sizeof(device), "%08" PRINTF_INT32_MODIFIER "X", (uint32_t)thisPtr->m_deviceId);
 		XsString_assign(str, 8, device);
 	}
 	else
@@ -781,9 +804,9 @@ void XsDeviceId_toString(const XsDeviceId* thisPtr, XsString* str)
 		XsSize n;
 		char device[23];
 		if (thisPtr->m_subDevice)
-			n = (XsSize)(ptrdiff_t) sprintf(device, "%010" PRINTF_INT64_MODIFIER "X/%hu", thisPtr->m_deviceId, (unsigned short int) thisPtr->m_subDevice);
+			n = (XsSize)(ptrdiff_t) snprintf(device, sizeof(device), "%010" PRINTF_INT64_MODIFIER "X/%hu", thisPtr->m_deviceId, (unsigned short int) thisPtr->m_subDevice);
 		else
-			n = (XsSize)(ptrdiff_t) sprintf(device, "%010" PRINTF_INT64_MODIFIER "X", thisPtr->m_deviceId);
+			n = (XsSize)(ptrdiff_t) snprintf(device, sizeof(device), "%010" PRINTF_INT64_MODIFIER "X", thisPtr->m_deviceId);
 		XsString_assign(str, n, device);
 	}
 }
@@ -798,8 +821,15 @@ void XsDeviceId_fromString(XsDeviceId* thisPtr, const XsString* str)
 	if (!thisPtr || !str || !str->m_data)
 		return;
 
-	if (isalpha(str->m_data[0]))
+	for (XsSize idx = 0; idx < str->m_size; ++idx)
+	{
+		char c = str->m_data[idx];
+		if (isxdigit(c))
+			continue;
+		if (c == '/' || c == 0)
+			break;
 		return;
+	}
 
 	int result = sscanf(str->m_data, "%" PRINTF_INT64_MODIFIER "x/%hu", &tmp, &sub);
 	if (result >= 1)
@@ -824,9 +854,9 @@ void XsDeviceId_toDeviceTypeString(const XsDeviceId* thisPtr, XsString* str, int
 	char device[50];
 	XsSize n;
 	if (thisPtr->m_hardwareVersion == 0)
-		n = (XsSize)(ptrdiff_t) sprintf(device, "%s%s%08X.%08X", deviceType.m_productCode, deviceType.m_productCode[0] ? "_" : "", (uint32_t)deviceType.m_deviceId, thisPtr->m_productVariant);
+		n = (XsSize)(ptrdiff_t) snprintf(device, sizeof(device), "%s%s%08X.%08X", deviceType.m_productCode, deviceType.m_productCode[0] ? "_" : "", (uint32_t)deviceType.m_deviceId, thisPtr->m_productVariant);
 	else
-		n = (XsSize)(ptrdiff_t) sprintf(device, "%s%s%08X.%08X.%d_%d", deviceType.m_productCode, deviceType.m_productCode[0] ? "_" : "", (uint32_t)deviceType.m_deviceId, thisPtr->m_productVariant, (uint8_t)((thisPtr->m_hardwareVersion & 0xFF00) >> 8), (uint8_t)(thisPtr->m_hardwareVersion & 0xFF));
+		n = (XsSize)(ptrdiff_t) snprintf(device, sizeof(device), "%s%s%08X.%08X.%d_%d", deviceType.m_productCode, deviceType.m_productCode[0] ? "_" : "", (uint32_t)deviceType.m_deviceId, thisPtr->m_productVariant, (uint8_t)((thisPtr->m_hardwareVersion & 0xFF00) >> 8), (uint8_t)(thisPtr->m_hardwareVersion & 0xFF));
 	XsString_assign(str, n, device);
 }
 
@@ -841,13 +871,14 @@ void XsDeviceId_fromDeviceTypeString(XsDeviceId* thisPtr, const XsString* str)
 	char productCode[24];
 	if (!thisPtr || !str || !str->m_data)
 		return;
-	int result = sscanf(str->m_data, "%24[^_]_%08X.%08X.%d_%d", productCode, &id, &variant, &hwRevH, &hwRevL);
+	int result = sscanf(str->m_data, "%23[^_]_%08X.%08X.%d_%d", productCode, &id, &variant, &hwRevH, &hwRevL);
 	if (result == 5 || result == 3)
 	{
 		thisPtr->m_deviceId = id;
 		thisPtr->m_hardwareVersion = (uint16_t)((uint16_t)hwRevH << 8) + (uint16_t)hwRevL;
 		thisPtr->m_productVariant = variant;
-		strcpy(thisPtr->m_productCode, productCode);
+		strncpy(thisPtr->m_productCode, productCode, XSDEVICEID_PRODUCT_CODE_LEN - 1);
+		thisPtr->m_productCode[XSDEVICEID_PRODUCT_CODE_LEN - 1] = 0;
 	}
 }
 
@@ -937,6 +968,8 @@ void XsDeviceId_typeName(XsDeviceId const* thisPtr, XsString* str)
 		XsString_assignCharArray(str, "MTx2");
 	else if (XsDeviceId_isMtx3(thisPtr))
 		XsString_assignCharArray(str, "MTx3");
+	else if (XsDeviceId_isBodyHub(thisPtr))
+		XsString_assignCharArray(str, "Hub");
 	else if (XsDeviceId_isBodyPackV2(thisPtr))
 		XsString_assignCharArray(str, "BPACK-V2");
 	else if (XsDeviceId_isBodyPack(thisPtr))
@@ -1002,6 +1035,12 @@ void XsDeviceId_typeName(XsDeviceId const* thisPtr, XsString* str)
 			XsString_assignCharArray(str, "Xsens Avior VRU");
 		else if (XsDeviceId_isAhrs(thisPtr))
 			XsString_assignCharArray(str, "Xsens Avior AHRS");
+		else if (XsDeviceId_isDualGnss(thisPtr))
+			XsString_assignCharArray(str, "Xsens Avior Dual GNSS/INS");
+		else if (XsDeviceId_isRtk(thisPtr))
+			XsString_assignCharArray(str, "Xsens Avior RTK GNSS/INS");
+		else if (XsDeviceId_isGnss(thisPtr))
+			XsString_assignCharArray(str, "Xsens Avior GNSS/INS");
 	}
 	else if (XsDeviceId_isSirius(thisPtr))
 	{
@@ -1011,10 +1050,12 @@ void XsDeviceId_typeName(XsDeviceId const* thisPtr, XsString* str)
 			XsString_assignCharArray(str, "Xsens Sirius VRU");
 		else if (XsDeviceId_isAhrs(thisPtr))
 			XsString_assignCharArray(str, "Xsens Sirius AHRS");
-		else if (XsDeviceId_isMtigX10(thisPtr))
-			XsString_assignCharArray(str, "Xsens Sirius GNSS/INS");
-		else if (XsDeviceId_isMtigX00(thisPtr))
+		else if (XsDeviceId_isDualGnss(thisPtr))
+			XsString_assignCharArray(str, "Xsens Sirius Dual GNSS/INS");
+		else if (XsDeviceId_isRtk(thisPtr))
 			XsString_assignCharArray(str, "Xsens Sirius RTK GNSS/INS");
+		else if (XsDeviceId_isGnss(thisPtr))
+			XsString_assignCharArray(str, "Xsens Sirius GNSS/INS");
 	}
 	else if (XsDeviceId_isGlove(thisPtr))
 		XsString_assignCharArray(str, "Glove");
@@ -1036,7 +1077,8 @@ void XsDeviceId_type(struct XsDeviceId const* thisPtr, struct XsDeviceId* type)
 		type->m_deviceId = XS_DID64_BIT;
 		XsString typeName = XsString_INITIALIZER;
 		XsDeviceId_typeName(thisPtr, &typeName);
-		strcpy(type->m_productCode, typeName.m_data);
+		strncpy(type->m_productCode, typeName.m_data, XSDEVICEID_PRODUCT_CODE_LEN - 1);
+		type->m_productCode[XSDEVICEID_PRODUCT_CODE_LEN - 1] = 0;
 	}
 	else
 		type->m_deviceId = thisPtr->m_deviceId & XS_DID_FULLTYPE_MASK;
@@ -1105,7 +1147,8 @@ void XsDeviceId_deviceType(struct XsDeviceId const* thisPtr, int detailed, struc
 	{
 		XsDeviceId_deviceTypeMask(thisPtr, detailed, type);
 		type->m_deviceId = thisPtr->m_deviceId & type->m_deviceId;
-		strcpy(type->m_productCode, thisPtr->m_productCode);
+		strncpy(type->m_productCode, thisPtr->m_productCode, XSDEVICEID_PRODUCT_CODE_LEN - 1);
+		type->m_productCode[XSDEVICEID_PRODUCT_CODE_LEN - 1] = 0;
 	}
 }
 

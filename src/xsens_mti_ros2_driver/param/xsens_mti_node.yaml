@@ -122,9 +122,11 @@
         mti_filter_option: 0
 
         # For MTi-620(R)/MTi-630(R), and Sirius/Avior VRU/AHRS models:  roll pitch options: "Responsive", "General", "Robust"
+        # For Sirius/Avior (RTK) (Dual-Antenna) GNSS/INS models: roll pitch options: "General-INS"
         filter_label_rollpitch: "Robust"
         # MTI-620(R) and Sirius/Avior VRU models, yaw has 2 options: "VRU", "VRUAHS" 
         # MTI-630(R) and Sirius/Avior AHRS models, yaw has 3 options: "FixedMagRef", "NorthReference", "VRU", "VRUAHS" 
+        # For Sirius/Avior (RTK) (Dual-Antenna) GNSS/INS models, yaw has 2 options: "MagAided", "NoMag"
         filter_label_yaw: "NorthReference"
 
 
@@ -138,9 +140,24 @@
         # Note: Adjust the GNSS lever arm settings only if the antenna's position relative to the sensor has changed.
 
         # GNSS Lever Arm (meters): [X, Y, Z]
-        # Applicable to: MTi-8/680(G)
+        # Applicable to: MTi-8/680(G), Sirius/Avior RTK and Dual Antenna.
+        # For Dual Antenna models this is the lever arm to the primary antenna (ANT1).
         # Default: [0.0, 0.0, 0.0] for unchanged antenna position.
-        GNSS_LeverArm: [0.0, 0.0, 0.0] 
+        GNSS_LeverArm: [0.0, 0.0, 0.0]
+
+        # Dual Antenna Configuration
+        # -----------------------------------------------
+        # Applicable to: Sirius/Avior Dual Antenna GNSS/INS only.
+        # dual_antenna_mode, defines how the baseline between the two antennas is determined:
+        # -1 = Keep the device's current dual-antenna settings (default, nothing is sent to the device)
+        #  0 = None, single-antenna operation
+        #  1 = LeverArm, baseline from GNSS_LeverArm (ANT1) and GNSS_LeverArm_Ant2 (ANT2)
+        #  2 = Angle, baseline from GNSS_LeverArm (ANT1) and dual_antenna_angle
+        dual_antenna_mode: -1
+        # Lever arm (meters) from the IMU sensor frame to the secondary antenna (ANT2): [X, Y, Z]. Used in mode 1.
+        GNSS_LeverArm_Ant2: [0.0, 0.0, 0.0]
+        # Angle (degrees, -180 to 180) of the baseline from the secondary to the primary antenna, relative to the sensor. Used in mode 2.
+        dual_antenna_angle: 0.0
 
         # u-blox GNSS Platform Settings
         # -----------------------------
@@ -154,6 +171,13 @@
         # 7 = Airborne < 2g
         # 8 = Airborne < 4g
         # 9 = Wrist
+        # Options 10-15 require a u-blox receiver that supports them:
+        # 10 = Bike
+        # 11 = Mower
+        # 12 = E-scooter
+        # 13 = Rail
+        # 14 = Wrist (swimming)
+        # 15 = Wrist (low power)
         # Applicable to: MTi-7/8/670(G)/680(G)/G-710 (GNSS/INS versions).
         ublox_platform: 0 
 
@@ -198,8 +222,9 @@
         pub_nmea: true          # For GNSS/INS Version of MTI only
         pub_gnsspose: true      # For GNSS/INS Version of MTI only
         pub_odometry: false     # For GNSS/INS Version of MTI only
-        pub_gnsspvt: true       # For GNSS/INS Version of MTI only (MTi-7/8/670G/680G/G-710); fixed 4 Hz output rate
-        pub_gnssatinfo: true    # For GNSS/INS Version of MTI only (MTi-7/8/670G/680G/G-710); satellite info
+        pub_gnsspvt: true       # For GNSS/INS Version of MTI only (MTi-7/8/670G/680G/G-710); fixed 4/10 Hz output rate (10 for dual-antenna, 4 for single-antenna)
+        pub_gnssatinfo: true    # For GNSS/INS Version of MTI only (MTi-7/8/670G/680G/G-710); satellite info 
+        pub_gnss_heading: true  # For Sirius/Avior Dual Antenna only; dual-antenna heading output, 10 Hz
         # Fixed local ENU sensor measurement; GNSS corrections may jump.
         odometry_frame_id: "local_enu"
         # Standalone sensor visualization only; keep false with a robot TF tree.

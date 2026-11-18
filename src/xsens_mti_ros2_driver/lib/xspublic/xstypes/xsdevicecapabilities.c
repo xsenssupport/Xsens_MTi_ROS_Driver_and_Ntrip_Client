@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -126,6 +126,14 @@ int XsDeviceCapabilities_isGnssIns(const struct XsDeviceCapabilities* thisPtr)
 int XsDeviceCapabilities_isRtk(const struct XsDeviceCapabilities* thisPtr)
 {
 	return (thisPtr->m_flags & XDC_Rtk) > 0;
+}
+
+/*!	\brief	Test if the device has dual-antenna GNSS features.
+	\return True if the DualGnss flag is set
+*/
+int XsDeviceCapabilities_hasDualGnss(const struct XsDeviceCapabilities* thisPtr)
+{
+	return (thisPtr->m_flags & XDC_DualGnss) > 0;
 }
 
 /*! @} */

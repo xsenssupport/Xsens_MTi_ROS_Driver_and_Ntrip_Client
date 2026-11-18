@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -63,6 +63,8 @@
 #define XSLISTSWAP(C)	XSLISTSWAP2(C, C##Array)
 
 #ifdef __cplusplus
+#include <cstring>	/* std::memcpy (C++-only: this block is guarded by __cplusplus, so plain-C consumers never see it) */
+
 /*! \brief Byte-wise copy for data (de-)serialization
 	\details The function essentially performs a memcpy from \a src to \a tgt using the size of \a tgt
 	\param tgt The destination of the copy (reference)
@@ -71,7 +73,7 @@
 template <typename T>
 inline static void xsByteCopy(T& tgt, void const* src)
 {
-	memcpy(&tgt, src, sizeof(T));
+	std::memcpy(&tgt, src, sizeof(T));
 }
 
 /*! \brief Byte-wise copy for data (de-)serialization followed by a multiplication
@@ -83,7 +85,7 @@ inline static void xsByteCopy(T& tgt, void const* src)
 template <typename T>
 inline static void xsByteCopyMultiply(T& tgt, void const* src, T mul)
 {
-	memcpy(&tgt, src, sizeof(T));
+	std::memcpy(&tgt, src, sizeof(T));
 	tgt *= mul;
 }
 #endif

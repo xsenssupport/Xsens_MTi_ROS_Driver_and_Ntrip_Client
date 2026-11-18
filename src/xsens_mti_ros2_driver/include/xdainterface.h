@@ -86,6 +86,7 @@ private:
 	bool handleError(std::string error);
 	void declareCommonParameters();
 	bool configureSensorSettings();
+	bool configureDualAntenna();
 	bool manualGyroBiasEstimation(uint16_t sleep, uint16_t duration);
 
 	XsControl *m_control;

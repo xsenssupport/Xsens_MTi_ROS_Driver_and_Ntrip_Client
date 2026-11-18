@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -37,21 +37,114 @@
 #include "xsrssi.h"
 #include "xsmath.h"
 #include <string.h>
+#include <cmath>
 
 #define MAP	(*thisPtr->d)
 
-static const uint64_t coarseFactor = 10000ULL;
-
 using namespace XsDataPacket_Private;
 
-static void detach(XsDataPacket* thisPtr)
+namespace
 {
-	if (thisPtr->d->m_refCount == 1)
-		return;
-	DataPacketPrivate* old = thisPtr->d;
-	thisPtr->d = new DataPacketPrivate(*old);
-	if (--old->m_refCount == 0)	// this can happen in some concurrent situations
-		delete old;
+	/// Conversion factor between SampleTime* and SampleTime64.
+	const uint64_t coarseFactor = 10000ULL;
+
+	/// Detach helper for copy-on-write.
+	void detach(XsDataPacket* thisPtr)
+	{
+		if (thisPtr->d->m_refCount == 1)
+			return;
+		DataPacketPrivate* old = thisPtr->d;
+		thisPtr->d = new DataPacketPrivate(*old);
+		if (--old->m_refCount == 0)	// this can happen in some concurrent situations
+			delete old;
+	}
+
+	/// Helper function to convert an x/y/z vector between known coordinate systems.
+	void convertCoordinateSystem(XsVector* item, XsDataIdentifier from, XsDataIdentifier to)
+	{
+		if (!item || item->size() != 3 || from == to)
+			return;
+
+		XsVector3 input(*item);
+		XsVector& rv = *item;
+
+		switch (from)
+		{
+		case XDI_CoordSysEnu:
+			switch (to)
+			{
+			case XDI_CoordSysNwu:
+				rv[0] = input[1];
+				rv[1] = -input[0];
+				rv[2] = input[2];
+				break;
+
+			case XDI_CoordSysNed:
+				rv[0] = input[1];
+				rv[1] = input[0];
+				rv[2] = -input[2];
+				break;
+
+			default:
+				break;
+			}
+			break;
+
+		case XDI_CoordSysNwu:
+			switch (to)
+			{
+			case XDI_CoordSysEnu:
+				rv[0] = -input[1];
+				rv[1] = input[0];
+				rv[2] = input[2];
+				break;
+
+			case XDI_CoordSysNed:
+				rv[0] = input[0];
+				rv[1] = -input[1];
+				rv[2] = -input[2];
+				break;
+
+			default:
+				break;
+			}
+			break;
+
+		case XDI_CoordSysNed:
+			switch (to)
+			{
+			case XDI_CoordSysEnu:
+				rv[0] = input[1];
+				rv[1] = input[0];
+				rv[2] = -input[2];
+				break;
+
+			case XDI_CoordSysNwu:
+				rv[0] = input[0];
+				rv[1] = -input[1];
+				rv[2] = -input[2];
+				break;
+
+			default:
+				break;
+			}
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	/// Helper function to turn all elements of a vector to their absolute values.
+	void makeAbsolute(XsVector* item)
+	{
+		if (!item)
+			return;
+
+		for (XsSize i = 0; i < item->size(); ++i)
+			item->setValue(i, std::abs(item->value(i)));
+	}
+
 }
 
 Variant* createVariant(XsDataIdentifier id)
@@ -94,7 +187,7 @@ Variant* createVariant(XsDataIdentifier id)
 			return new XsEulerVariant(id);
 		case XDI_QuaternionStd			:// 0x2040,
 			return new XsVector3Variant(id);
-		case XDI_EulerAnglesStd			:// 0x2050,	
+		case XDI_EulerAnglesStd			:// 0x2050,
 			return new XsVector3Variant(id);
 
 		//case XDI_PressureGroup		:// 0x3000,
@@ -116,6 +209,8 @@ Variant* createVariant(XsDataIdentifier id)
 			return new XsVector3Variant(id);
 		case XDI_LatLon					:// 0x5040,
 			return new XsVector2Variant(id);
+		case XDI_PositionStd			:// 0x5080,
+			return new XsVector3Variant(id);
 
 		//case XDI_MaritimeMotionGroup	:// 0x6000,
 		case XDI_HeavePosition			:// 0x6010,
@@ -137,6 +232,8 @@ Variant* createVariant(XsDataIdentifier id)
 			return new XsRawGnssSatInfoVariant(id);
 		case XDI_GnssPvtPulse			:// 0x7030
 			return new SimpleVariant<uint32_t>(id);
+		case XDI_GnssHeading			:// 0x7040
+			return new XsRawGnssHeadingVariant(id);
 
 		//case XDI_AngularVelocityGroup	:// 0x8000,
 		case XDI_RateOfTurn				:// 0x8020,
@@ -177,6 +274,8 @@ Variant* createVariant(XsDataIdentifier id)
 		//case XDI_VelocityGroup		:// 0xD000,
 		case XDI_VelocityXYZ			:// 0xD010,
 			return new XsVector3Variant(id);
+		case XDI_VelocityStd			:// 0xD020,
+			return new XsVector3Variant(id);
 
 		//case XDI_StatusGroup			:// 0xE000,
 		case XDI_StatusByte				:// 0xE010,
@@ -216,8 +315,7 @@ Variant* createVariant(XsDataIdentifier id)
 XsUShortVector* rawVector(const XsDataPacket* thisPtr, XsUShortVector* returnVal, XsDataIdentifier id, XsUShortVector XsScrData::* field)
 {
 	assert(returnVal);
-	auto it = MAP.find(XDI_RawAccGyrMagTemp);
-	if (it != MAP.end())
+	if (auto it = MAP.find(XDI_RawAccGyrMagTemp); it != MAP.end())
 		*returnVal = it->second->toDerived<XsScrDataVariant>().m_data.*field;
 	else
 	{
@@ -231,8 +329,7 @@ XsUShortVector* rawVector(const XsDataPacket* thisPtr, XsUShortVector* returnVal
 XsFloatVector3* rawFloatVector(const XsDataPacket* thisPtr, XsFloatVector3* returnVal, XsFloatVector3 XsScrDataFloat::* field)
 {
 	assert(returnVal);
-	auto it = MAP.find(XDI_RawFloatAccGyrMagTemp);
-	if (it != MAP.end())
+	if (auto it = MAP.find(XDI_RawFloatAccGyrMagTemp); it != MAP.end())
 		*returnVal = it->second->toDerived<XsScrDataFloatVariant>().m_data.*field;
 	return returnVal;
 }
@@ -257,8 +354,7 @@ template <typename T, typename V>
 T* genericGet(const XsDataPacket* thisPtr, T* returnVal, XsDataIdentifier id, T const& failValue = T())
 {
 	assert(returnVal);
-	auto it = MAP.find(id);
-	if (it != MAP.end())
+	if (auto it = MAP.find(id); it != MAP.end())
 		*returnVal = it->second->toDerived<V>().m_data;
 	else
 		*returnVal = failValue;
@@ -285,8 +381,7 @@ struct GenericSimple
 {
 	static T get(const XsDataPacket* thisPtr, XsDataIdentifier id, T const& failValue = T())
 	{
-		auto it = MAP.find(id);
-		if (it != MAP.end())
+		if (auto it = MAP.find(id); it != MAP.end())
 			return it->second->toDerived<V>().m_data;
 		return failValue;
 	}
@@ -670,8 +765,7 @@ extern "C" {
 	XsUShortVector* XsDataPacket_rawGyroscopeTemperatureData(const XsDataPacket* thisPtr, XsUShortVector* returnVal)
 	{
 		assert(returnVal);
-		auto it = MAP.find(XDI_RawGyroTemp);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_RawGyroTemp); it != MAP.end())
 			*returnVal = it->second->toDerived<XsUShortVectorVariant>().m_data;
 		return returnVal;
 	}
@@ -708,8 +802,7 @@ extern "C" {
 	XsScrData* XsDataPacket_rawData(const XsDataPacket* thisPtr, XsScrData* returnVal)
 	{
 		assert(returnVal);
-		auto it = MAP.find(XDI_RawAccGyrMagTemp);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_RawAccGyrMagTemp); it != MAP.end())
 			*returnVal = it->second->toDerived<XsScrDataVariant>().m_data;
 		else
 		{
@@ -834,8 +927,7 @@ extern "C" {
 	XsScrDataFloat* XsDataPacket_rawDataFloat(const XsDataPacket* thisPtr, XsScrDataFloat* returnVal)
 	{
 		assert(returnVal);
-		auto it = MAP.find(XDI_RawFloatAccGyrMagTemp);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_RawFloatAccGyrMagTemp); it != MAP.end())
 			*returnVal = it->second->toDerived<XsScrDataFloatVariant>().m_data;
 		else
 		{
@@ -1082,8 +1174,7 @@ extern "C" {
 	XsQuaternion* XsDataPacket_orientationQuaternion(const XsDataPacket* thisPtr, XsQuaternion* returnVal, XsDataIdentifier coordinateSystem)
 	{
 		assert(returnVal);
-		auto it = MAP.find(XDI_Quaternion);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_Quaternion); it != MAP.end())
 		{
 			*returnVal = it->second->toDerived<XsQuaternionVariant>().m_data;
 			XsDataIdentifier foundId = it->second->dataId();
@@ -1121,8 +1212,7 @@ extern "C" {
 	XsVector* XsDataPacket_orientationQuaternionStd(const XsDataPacket* thisPtr, XsVector* returnVal)
 	{
 		assert(returnVal);
-		auto it = MAP.find(XDI_QuaternionStd);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_QuaternionStd); it != MAP.end())
 		{
 			*returnVal = it->second->toDerived<XsVector3Variant>().m_data;
 		}
@@ -1169,8 +1259,7 @@ extern "C" {
 	XsEuler* XsDataPacket_orientationEuler(const XsDataPacket* thisPtr, XsEuler* returnVal, XsDataIdentifier coordinateSystem)
 	{
 		assert(returnVal);
-		auto it = MAP.find(XDI_EulerAngles);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_EulerAngles); it != MAP.end())
 		{
 			*returnVal = it->second->toDerived<XsEulerVariant>().m_data;
 			XsDataIdentifier foundId = it->second->dataId();
@@ -1216,8 +1305,7 @@ extern "C" {
 	XsVector* XsDataPacket_orientationEulerStd(const XsDataPacket* thisPtr, XsVector* returnVal)
 	{
 		assert(returnVal);
-		auto it = MAP.find(XDI_EulerAnglesStd);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_EulerAnglesStd); it != MAP.end())
 		{
 			*returnVal = it->second->toDerived<XsVector3Variant>().m_data;
 		}
@@ -1255,8 +1343,7 @@ extern "C" {
 	XsMatrix* XsDataPacket_orientationMatrix(const XsDataPacket* thisPtr, XsMatrix* returnVal, XsDataIdentifier coordinateSystem)
 	{
 		assert(returnVal);
-		auto it = MAP.find(XDI_RotationMatrix);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_RotationMatrix); it != MAP.end())
 		{
 			*returnVal = it->second->toDerived<XsMatrixVariant>().m_data;
 			XsDataIdentifier foundId = it->second->dataId();
@@ -1820,7 +1907,67 @@ extern "C" {
 		GenericSimple<double>::set(thisPtr, data, XDI_AltitudeMsl | XDI_SubFormatDouble);
 	}
 
-	/*! \brief  The velocity NWU component of a data item.
+	/*! \brief The position uncertainty component of a data item.
+		\param returnVal The XsVector to put the data in
+		\param coordinateSystem The desired coordinate system of the requested data
+		\returns The position uncertainty stored in the packet or zeroes if no data is available
+		\sa XsDataPacket_containsPositionStd
+	*/
+	XsVector* XsDataPacket_positionStd(const XsDataPacket* thisPtr, XsVector* returnVal, XsDataIdentifier coordinateSystem)
+	{
+		assert(returnVal);
+		if (auto it = MAP.find(XDI_PositionStd); it != MAP.end())
+		{
+			*returnVal = it->second->toDerived<XsVector3Variant>().m_data;
+			XsDataIdentifier actualCsys = (it->second->dataId() & XDI_CoordSysMask);
+			XsDataIdentifier desiredCsys = (coordinateSystem & XDI_CoordSysMask);
+			convertCoordinateSystem(returnVal, actualCsys, desiredCsys);
+			// Standard deviations are always absolute
+			makeAbsolute(returnVal);
+		}
+		return returnVal;
+	}
+
+	/*! \brief Check if data item contains position uncertainty data
+		\returns true if this packet contains position uncertainty data
+	*/
+	int XsDataPacket_containsPositionStd(const XsDataPacket* thisPtr)
+	{
+		return genericContains(thisPtr, XDI_PositionStd);
+	}
+
+	/*! \brief Add/update position uncertainty data for the item
+		\param data The position uncertainty data to store in the packet
+		\param coordinateSystem The coordinate system of the supplied data
+	*/
+	void XsDataPacket_setPositionStd(XsDataPacket* thisPtr, const XsVector* data, XsDataIdentifier coordinateSystem)
+	{
+		detach(thisPtr);
+		if (auto it = MAP.find(XDI_PositionStd); it != MAP.end())
+			MAP.erase(it);
+
+		genericSet<XsVector, XsVector3Variant>(thisPtr, data, XDI_PositionStd | XDI_SubFormatDouble | (coordinateSystem & XDI_CoordSysMask));
+	}
+
+	/*! \brief Returns the data identifier of the first position uncertainty data of any kind in the packet
+		\returns The %XsDataIdentifier of the first position uncertainty data of any kind in the packet
+	*/
+	XsDataIdentifier XsDataPacket_positionStdIdentifier(const XsDataPacket* thisPtr)
+	{
+		if (auto it = MAP.find(XDI_PositionStd); it != MAP.end())
+			return it->second->dataId();
+		return XDI_None;
+	}
+
+	/*! \brief Returns the coordinate system of the first position uncertainty data of any kind in the packet
+		\returns The XsDataIdentifier of the coordinate system of the first position uncertainty data of any kind in the packet
+	*/
+	XsDataIdentifier XsDataPacket_coordinateSystemPositionStd(const XsDataPacket* thisPtr)
+	{
+		return XsDataPacket_positionStdIdentifier(thisPtr) & XDI_CoordSysMask;
+	}
+
+	/*! \brief  The velocity component of a data item.
 
 		\param returnVal : The XsVector to put the data in
 		\param coordinateSystem The coordinate system of the requested velocity. If this does not match
@@ -1830,101 +1977,32 @@ extern "C" {
 	XsVector* XsDataPacket_velocity(const XsDataPacket* thisPtr, XsVector* returnVal, XsDataIdentifier coordinateSystem)
 	{
 		assert(returnVal);
-		auto it = MAP.find(XDI_VelocityXYZ);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_VelocityXYZ); it != MAP.end())
 		{
 			*returnVal = it->second->toDerived<XsVector3Variant>().m_data;
 			XsDataIdentifier actualCsys = (it->second->dataId() & XDI_CoordSysMask);
 			XsDataIdentifier desiredCsys = (coordinateSystem & XDI_CoordSysMask);
-			if (actualCsys != desiredCsys)
-			{
-				XsVector3 vel(*returnVal);
-				XsVector& rv = *returnVal;
-
-				switch (desiredCsys)
-				{
-					case XDI_CoordSysEnu:
-					{
-						if (actualCsys == XDI_CoordSysNwu)
-						{
-							rv[0] = -vel[1];
-							rv[1] = vel[0];
-							rv[2] = vel[2];
-						}
-						else if (actualCsys == XDI_CoordSysNed)
-						{
-							rv[0] = vel[1];
-							rv[1] = vel[0];
-							rv[2] = -vel[2];
-						}
-					}
-					break;
-
-					case XDI_CoordSysNwu:
-					{
-						if (actualCsys == XDI_CoordSysEnu)
-						{
-							rv[0] = vel[1];
-							rv[1] = -vel[0];
-							rv[2] = vel[2];
-						}
-						else if (actualCsys == XDI_CoordSysNed)
-						{
-							rv[0] = vel[0];
-							rv[1] = -vel[1];
-							rv[2] = -vel[2];
-						}
-					}
-					break;
-
-					case XDI_CoordSysNed:
-					{
-						if (actualCsys == XDI_CoordSysEnu)
-						{
-							rv[0] = vel[1];
-							rv[1] = vel[0];
-							rv[2] = -vel[2];
-						}
-						else if (actualCsys == XDI_CoordSysNwu)
-						{
-							rv[0] = vel[0];
-							rv[1] = -vel[1];
-							rv[2] = -vel[2];
-						}
-					}
-					break;
-
-					default:
-					{
-						rv[0] = vel[0];
-						rv[1] = vel[1];
-						rv[2] = vel[2];
-					}
-					break;
-				}
-			}
+			convertCoordinateSystem(returnVal, actualCsys, desiredCsys);
 		}
-
 		return returnVal;
 	}
 
-	/*! \brief Check if data item contains velocity NED data
-		\returns true if this packet contains velocity NED data
+	/*! \brief Check if data item contains velocity data
+		\returns true if this packet contains velocity data
 	*/
 	int XsDataPacket_containsVelocity(const XsDataPacket* thisPtr)
 	{
 		return genericContains(thisPtr, XDI_VelocityXYZ);
 	}
 
-	/*! \brief Add/update velocity NED data for the item
+	/*! \brief Add/update velocity data for the item
 		\param data The new data to set
 		\param coordinateSystem The coordinate system of the requested orientation.
 	*/
 	void XsDataPacket_setVelocity(XsDataPacket* thisPtr, const XsVector* data, XsDataIdentifier coordinateSystem)
 	{
 		detach(thisPtr);
-		auto it = MAP.find(XDI_VelocityXYZ);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_VelocityXYZ); it != MAP.end())
 			MAP.erase(it);
 
 		genericSet<XsVector, XsVector3Variant>(thisPtr, data, XDI_VelocityXYZ | XDI_SubFormatDouble | (coordinateSystem & XDI_CoordSysMask));
@@ -1935,8 +2013,7 @@ extern "C" {
 	*/
 	XsDataIdentifier XsDataPacket_velocityIdentifier(const XsDataPacket* thisPtr)
 	{
-		auto it = MAP.find(XDI_VelocityXYZ);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_VelocityXYZ); it != MAP.end())
 			return it->second->dataId();
 		return XDI_None;
 	}
@@ -1947,6 +2024,66 @@ extern "C" {
 	XsDataIdentifier XsDataPacket_coordinateSystemVelocity(const XsDataPacket* thisPtr)
 	{
 		return XsDataPacket_velocityIdentifier(thisPtr) & XDI_CoordSysMask;
+	}
+
+	/*! \brief The velocity uncertainty component of a data item.
+		\param returnVal The XsVector to put the data in
+		\param coordinateSystem The desired coordinate system of the requested data
+		\returns The velocity uncertainty stored in the packet or zeroes if no data is available
+		\sa XsDataPacket_containsVelocityStd
+	*/
+	XsVector* XsDataPacket_velocityStd(const XsDataPacket* thisPtr, XsVector* returnVal, XsDataIdentifier coordinateSystem)
+	{
+		assert(returnVal);
+		if (auto it = MAP.find(XDI_VelocityStd); it != MAP.end())
+		{
+			*returnVal = it->second->toDerived<XsVector3Variant>().m_data;
+			XsDataIdentifier actualCsys = (it->second->dataId() & XDI_CoordSysMask);
+			XsDataIdentifier desiredCsys = (coordinateSystem & XDI_CoordSysMask);
+			convertCoordinateSystem(returnVal, actualCsys, desiredCsys);
+			// Standard deviations are always absolute
+			makeAbsolute(returnVal);
+		}
+		return returnVal;
+	}
+
+	/*! \brief Check if data item contains velocity uncertainty data
+		\returns true if this packet contains velocity uncertainty data
+	*/
+	int XsDataPacket_containsVelocityStd(const XsDataPacket* thisPtr)
+	{
+		return genericContains(thisPtr, XDI_VelocityStd);
+	}
+
+	/*! \brief Add/update velocity uncertainty data for the item
+		\param data The velocity uncertainty data to store in the packet
+		\param coordinateSystem The coordinate system of the supplied data
+	*/
+	void XsDataPacket_setVelocityStd(XsDataPacket* thisPtr, const XsVector* data, XsDataIdentifier coordinateSystem)
+	{
+		detach(thisPtr);
+		if (auto it = MAP.find(XDI_VelocityStd); it != MAP.end())
+			MAP.erase(it);
+
+		genericSet<XsVector, XsVector3Variant>(thisPtr, data, XDI_VelocityStd | XDI_SubFormatDouble | (coordinateSystem & XDI_CoordSysMask));
+	}
+
+	/*! \brief Returns the data identifier of the first velocity uncertainty data of any kind in the packet
+		\returns The %XsDataIdentifier of the first velocity uncertainty data of any kind in the packet
+	*/
+	XsDataIdentifier XsDataPacket_velocityStdIdentifier(const XsDataPacket* thisPtr)
+	{
+		if (auto it = MAP.find(XDI_VelocityStd); it != MAP.end())
+			return it->second->dataId();
+		return XDI_None;
+	}
+
+	/*! \brief Returns the coordinate system of the first velocity uncertainty data of any kind in the packet
+		\returns The XsDataIdentifier of the coordinate system of the first velocity uncertainty data of any kind in the packet
+	*/
+	XsDataIdentifier XsDataPacket_coordinateSystemVelocityStd(const XsDataPacket* thisPtr)
+	{
+		return XsDataPacket_velocityStdIdentifier(thisPtr) & XDI_CoordSysMask;
 	}
 
 	/*! \brief The status component of a data item.
@@ -2005,8 +2142,7 @@ extern "C" {
 	void XsDataPacket_setStatus(XsDataPacket* thisPtr, uint32_t data)
 	{
 		detach(thisPtr);
-		auto it = MAP.find(XDI_StatusByte);
-		if (it != MAP.end())
+		if (auto it = MAP.find(XDI_StatusByte); it != MAP.end())
 			MAP.erase(it);
 
 		GenericSimple<uint32_t>::set(thisPtr, data, XDI_StatusWord);
@@ -2460,6 +2596,32 @@ extern "C" {
 		genericSet<XsRawGnssSatInfo, XsRawGnssSatInfoVariant>(thisPtr, data, XDI_GnssSatInfo);
 	}
 
+
+	/*! \brief Returns a struct with RawGnssHeading
+	\param returnVal The object to store the requested data in
+	\return a struct with RawGnssHeading
+*/
+	XsRawGnssHeading* XsDataPacket_rawGnssHeading(const XsDataPacket* thisPtr, XsRawGnssHeading* returnVal)
+	{
+		return genericGet<XsRawGnssHeading, XsRawGnssHeadingVariant>(thisPtr, returnVal, XDI_GnssHeading);
+	}
+
+	/*! \brief Returns 1 if data item contains RawGnssHeading, 0 otherwise
+		\returns true if this XsDataPacket contains Raw GNSS heading data
+	*/
+	int XsDataPacket_containsRawGnssHeading(const XsDataPacket* thisPtr)
+	{
+		return genericContains(thisPtr, XDI_GnssHeading);
+	}
+
+	/*! \brief Sets or updates the RawGnssHeading value in the datapacket
+		\param r The new value that should be added to the packet
+	*/
+	void XsDataPacket_setRawGnssHeading(XsDataPacket* thisPtr, const XsRawGnssHeading* r)
+	{
+		genericSet<XsRawGnssHeading, XsRawGnssHeadingVariant>(thisPtr, r, XDI_GnssHeading);
+	}
+
 	/*! \brief Merge the data items from \a other into the packet
 
 		\details The data items contained in XsDataPacket \a other will be added to
@@ -2527,8 +2689,7 @@ extern "C" {
 			if (offset + itemSize + 3 > sz)
 				break;	// the item is corrupt
 
-			Variant* var = createVariant(id);
-			if (var)
+			if (Variant* var = createVariant(id); var != nullptr)
 			{
 				itemSize = var->readFromMessage(*msg, offset + 3, itemSize);
 				MAP.insert(id, var);
@@ -2555,14 +2716,14 @@ extern "C" {
 
 		XsSize offset = 0;
 		msg->resizeData(2048);	// prevent constant message resizing by pre-allocating a large message and later reducing its size
-		for (auto const& i : MAP)
+		for (auto const& [id, variant] : MAP)
 		{
-			XsSize sz = i.second->sizeInMsg();
+			XsSize sz = variant->sizeInMsg();
 			if (sz < 255)
 			{
-				msg->setDataShort((uint16_t) i.second->dataId(), offset);
+				msg->setDataShort((uint16_t) variant->dataId(), offset);
 				msg->setDataByte((uint8_t)sz, offset + 2);
-				i.second->writeToMessage(*msg, offset + 3);
+				variant->writeToMessage(*msg, offset + 3);
 				offset += 3 + sz;
 			}
 			else
@@ -2571,14 +2732,14 @@ extern "C" {
 				XsSize offset2 = offset;
 				while (sz2 >= 255)
 				{
-					msg->setDataShort((uint16_t) i.second->dataId(), offset2);
+					msg->setDataShort((uint16_t) variant->dataId(), offset2);
 					msg->setDataByte((uint8_t)255, offset2 + 2);
 					offset2 += 258;
 					sz2 -= 255;
 				}
-				msg->setDataShort((uint16_t) i.second->dataId(), offset2);
+				msg->setDataShort((uint16_t) variant->dataId(), offset2);
 				msg->setDataByte((uint8_t)sz2, offset2 + 2);	// note that this size may be 0
-				i.second->writeToMessage(*msg, offset + 3);	// individual write functions should takke extended size into account
+				variant->writeToMessage(*msg, offset + 3);	// individual write functions should takke extended size into account
 				offset = offset2 + 3 + sz2;
 			}
 		}

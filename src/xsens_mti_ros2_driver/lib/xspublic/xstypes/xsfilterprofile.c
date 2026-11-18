@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -47,7 +47,7 @@
 void XsFilterProfile_toString(XsFilterProfile const* thisPtr, XsString* out)
 {
 	char outData[3 + 1 + 3 + 1 + 1 + 2 * XS_LEN_FILTERPROFILELABEL_TERM];
-	sprintf(outData, "%d.%d %s", thisPtr->m_type, thisPtr->m_version, thisPtr->m_label);
+	snprintf(outData, sizeof(outData), "%d.%d %s", thisPtr->m_type, thisPtr->m_version, thisPtr->m_label);
 	XsString_assignCharArray(out, outData);
 }
 

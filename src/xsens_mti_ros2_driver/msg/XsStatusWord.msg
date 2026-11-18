@@ -24,6 +24,7 @@ bool syncout_marker
 uint8 filter_mode ##0: Without GNSS, 1: Coasting, 3: With GNSS
 bool have_gnss_time_pulse
 uint8 rtk_status ##0: No RTK, 1: RTK Floating, 2: RTK Fix
+bool dual_antenna_heading_valid ##Sirius/Avior Dual Antenna only, always false on other devices
 #uint8 reserved4
 
 ########################
@@ -52,4 +53,5 @@ uint8 rtk_status ##0: No RTK, 1: RTK Floating, 2: RTK Fix
 ####22) Bit 23:25, Filter Mode, Indicates Filter Mode, currently only available for GNSS/INS devices:000: Without GNSS (filter profile is in VRU mode); 001: Coasting mode (GNSS has been lost <60 sec ago);011: With GNSS (default mode)
 ####23) Bit 26, HaveGnssTimePulse, Indicates that the 1PPS GNSS time pulse is present
 ####24) 27:28, RtkStatus, Indicates the availability and status of RTK: 00: No RTK; 01: RTK floating; 10: RTK fixed
-####25) 29:31, Reserved, Reserved for future use
+####25) Bit 29, Dual Antenna Heading, Indicates whether the GNSS receiver reports a valid dual-antenna heading solution (Sirius/Avior Dual Antenna only)
+####26) 30:31, Reserved, Reserved for future use

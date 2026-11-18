@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -171,7 +171,7 @@ struct XsMessage
 	*/
 	inline explicit XsMessage(XsXbusMessageId msgId = XMID_InvalidMessage, XsSize dataLength = 0)
 		: m_autoUpdateChecksum(1)
-		, m_checksum(0)
+		, m_checksum(nullptr)
 	{
 		XsMessage_constructSized(this, dataLength, msgId);
 	}
@@ -187,7 +187,7 @@ struct XsMessage
 	*/
 	inline XsMessage(const uint8_t* source, XsSize size)
 		: m_autoUpdateChecksum(1)
-		, m_checksum(0)
+		, m_checksum(nullptr)
 	{
 		XsMessage_load(this, size, source);
 	}
@@ -201,7 +201,7 @@ struct XsMessage
 	*/
 	inline XsMessage(const XsString& source, bool computeChecksum = true)
 		: m_autoUpdateChecksum(1)
-		, m_checksum(0)
+		, m_checksum(nullptr)
 	{
 		XsSize szm = source.size() / 2;
 		XsSize szmcc = szm + (computeChecksum ? 1 : 0);
@@ -217,7 +217,7 @@ struct XsMessage
 			return 0;
 		};
 		for (XsSize i = 0; i < szm; ++i)
-			tmp[i] = tonibble(source[i * 2]) * (uint8_t)16 + tonibble(source[i * 2 + 1]);	//lint !e734
+			tmp[i] = tonibble(source[i * 2]) * (uint8_t)16 + tonibble(source[i * 2 + 1]);
 		XsMessage_load(this, tmp.size(), tmp.data());
 		if (computeChecksum)
 			XsMessage_recomputeChecksum(this);
@@ -227,7 +227,7 @@ struct XsMessage
 	inline XsMessage(const XsMessage& src)
 		: m_message(src.m_message)
 		, m_autoUpdateChecksum(src.m_autoUpdateChecksum)
-		, m_checksum(0)
+		, m_checksum(nullptr)
 	{
 		updateChecksumPtr();
 	}
@@ -622,7 +622,7 @@ private:
 		if (sz)
 			*const_cast<uint8_t**>(&m_checksum) = &m_message[sz - 1];
 		else
-			*const_cast<uint8_t**>(&m_checksum) = 0;
+			*const_cast<uint8_t**>(&m_checksum) = nullptr;
 	}
 
 #endif

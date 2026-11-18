@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -54,27 +54,27 @@ void XsWinUsb::initLibrary()
 	if (!m_libraryLoader->isLoaded())
 		m_libraryLoader->load("winusb.dll");
 
-	m_winUsb.AbortPipe = NULL;
-	m_winUsb.Initialize = NULL;
-	m_winUsb.Free = NULL;
-	m_winUsb.GetAssociatedInterface = NULL;
-	m_winUsb.GetDescriptor = NULL;
-	m_winUsb.QueryInterfaceSettings = NULL;
-	m_winUsb.QueryDeviceInformation = NULL;
-	m_winUsb.SetCurrentAlternateSetting = NULL;
-	m_winUsb.GetCurrentAlternateSetting = NULL;
-	m_winUsb.QueryPipe = NULL;
-	m_winUsb.SetPipePolicy = NULL;
-	m_winUsb.GetPipePolicy = NULL;
-	m_winUsb.ReadPipe = NULL;
-	m_winUsb.WritePipe = NULL;
-	m_winUsb.ControlTransfer = NULL;
-	m_winUsb.ResetPipe = NULL;
-	m_winUsb.AbortPipe = NULL;
-	m_winUsb.FlushPipe = NULL;
-	m_winUsb.SetPowerPolicy = NULL;
-	m_winUsb.GetPowerPolicy = NULL;
-	m_winUsb.GetOverlappedResult = NULL;
+	m_winUsb.AbortPipe = nullptr;
+	m_winUsb.Initialize = nullptr;
+	m_winUsb.Free = nullptr;
+	m_winUsb.GetAssociatedInterface = nullptr;
+	m_winUsb.GetDescriptor = nullptr;
+	m_winUsb.QueryInterfaceSettings = nullptr;
+	m_winUsb.QueryDeviceInformation = nullptr;
+	m_winUsb.SetCurrentAlternateSetting = nullptr;
+	m_winUsb.GetCurrentAlternateSetting = nullptr;
+	m_winUsb.QueryPipe = nullptr;
+	m_winUsb.SetPipePolicy = nullptr;
+	m_winUsb.GetPipePolicy = nullptr;
+	m_winUsb.ReadPipe = nullptr;
+	m_winUsb.WritePipe = nullptr;
+	m_winUsb.ControlTransfer = nullptr;
+	m_winUsb.ResetPipe = nullptr;
+	m_winUsb.AbortPipe = nullptr;
+	m_winUsb.FlushPipe = nullptr;
+	m_winUsb.SetPowerPolicy = nullptr;
+	m_winUsb.GetPowerPolicy = nullptr;
+	m_winUsb.GetOverlappedResult = nullptr;
 
 	if (m_libraryLoader->isLoaded())
 	{
@@ -394,7 +394,7 @@ BOOL XsWinUsb::WritePipe(WINUSB_INTERFACE_HANDLE InterfaceHandle, UCHAR PipeID, 
 	\param[in]	SetupPacket	The 8-byte setup packet of type WINUSB_SETUP_PACKET.
 	\param[in,out]	Buffer	A caller-allocated buffer that contains the data to transfer.
 	\param[in]	BufferLength	The number of bytes to transfer, not including the setup packet. This number must be less than or equal to the size, in bytes, of Buffer.
-	\param[out]	LengthTransferred	A pointer to a UINT variable that receives the actual number of transferred bytes. If the application does not expect any data to be transferred during the data phase (BufferLength is zero), LengthTransferred can be NULL.
+	\param[out]	LengthTransferred	A pointer to a UINT variable that receives the actual number of transferred bytes. If the application does not expect any data to be transferred during the data phase (BufferLength is zero), LengthTransferred can be nullptr.
 	\param[in]	Overlapped	An optional pointer to an OVERLAPPED structure, which is used for asynchronous operations. If this parameter is specified, ControlTransfer immediately returns, and the event is signaled when the operation is complete. If Overlapped is not supplied, the ControlTransfer function transfers data synchronously.
 
 	\returns On success, TRUE. Otherwise FALSE. Use GetLastError() to get extended error information. If an Overlapped member is supplied and the operation succeeds this function returns FALSE and sets last error to ERROR_IO_PENDING.
@@ -518,7 +518,7 @@ BOOL XsWinUsb::GetPowerPolicy(WINUSB_INTERFACE_HANDLE InterfaceHandle, ULONG Pol
 	The caller can specify that an event object is manually reset in the standard windows OVERLAPPED structure. If an automatic reset event object is used, the event handle must not be specified in any other wait operation in the interval between starting the overlapped operation and the call to \a GetOverlappedResult. For example, the event object is sometimes specified in one of the wait routines to wait for the operation to be completed. When the wait routine returns, the system sets an auto-reset event's state to nonsignaled, and a successive call to \a GetOverlappedResult with the bWait parameter set to TRUE causes the function to be blocked indefinitely.
 	If the bWait parameter is TRUE, GetOverlappedResult determines whether the pending operation has been completed by waiting for the event object to be in the signaled state.
 
-	If the hEvent member of the standard windows OVERLAPPED structure is NULL, the system uses the state of the file handle to signal when the operation has been completed. Do not use file handles for this purpose. It is better to use an event object because of the confusion that can occur when multiple concurrent overlapped operations are performed on the same file. In this situation, you cannot know which operation caused the state of the object to be signaled.
+	If the hEvent member of the standard windows OVERLAPPED structure is nullptr, the system uses the state of the file handle to signal when the operation has been completed. Do not use file handles for this purpose. It is better to use an event object because of the confusion that can occur when multiple concurrent overlapped operations are performed on the same file. In this situation, you cannot know which operation caused the state of the object to be signaled.
 
 	\param[in]	InterfaceHandle	An initialized usb handle, see \a Initialize
 	\param[in]	Overlapped	A pointer to a standard windows OVERLAPPED structure that was specified when the overlapped operation was started.

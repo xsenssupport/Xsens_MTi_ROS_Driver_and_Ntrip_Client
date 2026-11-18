@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -34,7 +34,10 @@
 #define XSBAUDRATE_H
 
 #ifdef _WIN32
-	#include <windows.h>
+	#ifndef WIN32_LEAN_AND_MEAN
+	#define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
+	#endif
+	#include <Windows.h>
 #else
 	#include <termios.h>
 	#ifndef	B460800
@@ -50,7 +53,6 @@
 */
 #ifdef _WIN32
 
-//AUTO namespace xstypes {
 /*! \brief Communication speed. */
 enum XsBaudRate
 {
@@ -71,12 +73,11 @@ enum XsBaudRate
 	XBR_3500k					= 3500000,		//!< 3500k0 (3500000 bps)
 	XBR_4000k					= 4000000		//!< 4000k0 (4000000 bps)
 };
-//AUTO }
 
 #else
 
 /*! \brief Communication speed. */
-enum XSNOCOMEXPORT XsBaudRate
+enum XsBaudRate
 {
 
 	// support high baudrates on MAC OS X
