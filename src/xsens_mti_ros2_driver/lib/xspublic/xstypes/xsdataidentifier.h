@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -38,7 +38,6 @@
 	@{
 */
 
-//AUTO namespace xstypes {
 /*!	\enum XsDataIdentifier
 	\brief Defines the data identifiers
 
@@ -60,8 +59,8 @@ enum XsDataIdentifier
 
 	XDI_SubFormatMask			= 0x0003,	//!< Determines, float, fp12.20, fp16.32, double output... (where applicable)
 	XDI_SubFormatFloat			= 0x0000,	//!< Floating point format
-	XDI_SubFormatFp1220			= 0x0001,	//!< \deprecated Fixed point 12.20
-	XDI_SubFormatFp1632			= 0x0002,	//!< \deprecated Fixed point 16.32
+	XDI_SubFormatFp1220			= 0x0001,	//!< Fixed point 12.20
+	XDI_SubFormatFp1632			= 0x0002,	//!< Fixed point 16.32
 	XDI_SubFormatDouble			= 0x0003,	//!< Double format
 
 	XDI_SubFormatLeft			= 0x0000,	//!< Left side data (ie XDI_GloveData for the left hand)
@@ -113,6 +112,7 @@ enum XsDataIdentifier
 	XDI_AltitudeEllipsoid		= 0x5020,	//!< Altitude at ellipsoid
 	XDI_PositionEcef			= 0x5030,	//!< Position in earth-centered, earth-fixed format
 	XDI_LatLon					= 0x5040,	//!< Position in latitude, longitude
+	XDI_PositionStd				= 0x5080,	//!< Position uncertainty
 
 	XDI_MaritimeMotionGroup		= 0x6000,	//!< Group for maritime motion related outputs
 	XDI_HeavePosition			= 0x6010,	//!< Heave position in meters
@@ -122,6 +122,7 @@ enum XsDataIdentifier
 	XDI_GnssPvtData				= 0x7010,	//!< Gnss position, velocity and time data
 	XDI_GnssSatInfo				= 0x7020,	//!< Gnss satellite information
 	XDI_GnssPvtPulse			= 0x7030,	//!< Time of the PVT timepulse (4Hz upsampled from the 1PPS)
+	XDI_GnssHeading				= 0x7040,	//!< Gnss heading and relative position data
 
 	XDI_AngularVelocityGroup	= 0x8000,	//!< Group for angular velocity related outputs
 	XDI_RateOfTurn				= 0x8020,	//!< Rate of turn data in rad/sec
@@ -164,6 +165,7 @@ enum XsDataIdentifier
 
 	XDI_VelocityGroup			= 0xD000,	//!< Group for velocity related outputs
 	XDI_VelocityXYZ				= 0xD010,	//!< Velocity in XYZ coordinate frame
+	XDI_VelocityStd				= 0xD020,	//!< Velocity uncertainty
 
 	XDI_StatusGroup				= 0xE000,	//!< Group for status related outputs
 	XDI_StatusByte				= 0xE010,	//!< Status byte
@@ -175,7 +177,6 @@ enum XsDataIdentifier
 /*! @} */
 
 typedef enum XsDataIdentifier XsDataIdentifier;
-//AUTO }
 
 #ifdef __cplusplus
 inline XsDataIdentifier operator | (XsDataIdentifier a, XsDataIdentifier b)

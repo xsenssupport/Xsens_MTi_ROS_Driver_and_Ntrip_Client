@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -41,7 +41,9 @@
 namespace XsMath
 {
 #ifdef __GNUC__
-	#pragma GCC diagnostic push
+	#ifndef __AVR32__
+		#pragma GCC diagnostic push
+	#endif
 	#pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 //! \brief The value e
@@ -98,7 +100,7 @@ XSMATHCONST XsReal sqrt2 = XsMath_sqrt2;
 XSMATHCONST XsReal sqrtHalf = XsMath_sqrtHalf;
 //! \brief infinity
 XSMATHCONST XsReal infinity = XsMath_infinity;
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__AVR32__)
 	#pragma GCC diagnostic pop
 #endif
 

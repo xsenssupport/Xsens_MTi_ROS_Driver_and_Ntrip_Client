@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -38,7 +38,7 @@
 /*! \brief Internal baud rate configuration codes
 */
 
-enum XSNOCOMEXPORT XsBaudCode
+enum XsBaudCode
 {
 	// Baudrate codes for SetBaudrate message
 	XBC_4k8           = 0x0B,		//!< 4k8 (4800 bps)

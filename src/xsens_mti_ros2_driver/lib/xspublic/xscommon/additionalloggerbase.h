@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -40,7 +40,7 @@
 	Already implements functionality such as log level that should be common for all additional loggers
 	Custom additional loggers can be derived from this
 */
-class AdditionalLoggerBase : public virtual AbstractAdditionalLogger
+class AdditionalLoggerBase : public virtual AbstractAdditionalLogger // NOSONAR cpp:S1011 - virtual inheritance is deliberate: it lets a custom logger derive from both the interface and this helper base without ambiguity
 {
 public:
 	AdditionalLoggerBase(JournalLogLevel initialLogLevel = JLL_Alert);

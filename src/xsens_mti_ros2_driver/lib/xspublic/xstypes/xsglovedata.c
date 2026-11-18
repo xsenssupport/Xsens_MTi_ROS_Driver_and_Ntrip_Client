@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -48,9 +48,8 @@
 */
 void XsGloveData_construct(struct XsGloveData* thisPtr)
 {
-	int i;
 	memset(thisPtr, 0, sizeof(XsGloveData));
-	for (i = 0; i < XSFINGERSEGMENTCOUNT; i++)
+	for (int i = 0; i < XSFINGERSEGMENTCOUNT; i++)
 		XsFingerData_construct(&thisPtr->m_fingerData[i]);
 }
 
@@ -72,10 +71,9 @@ void XsGloveData_copy(struct XsGloveData* copy, struct XsGloveData const* src)
 {
 	if (copy == src)
 		return;
-	int i;
 	copy->m_frameNumber = src->m_frameNumber;
 	copy->m_validSampleFlags = src->m_validSampleFlags;
-	for (i = 0; i < XSFINGERSEGMENTCOUNT; i++)
+	for (int i = 0; i < XSFINGERSEGMENTCOUNT; i++)
 		XsFingerData_copy(&copy->m_fingerData[i], &src->m_fingerData[i]);
 }
 
@@ -88,10 +86,9 @@ void XsGloveData_swap(struct XsGloveData* lhs, struct XsGloveData* rhs)
 {
 	if (lhs == rhs)
 		return;
-	int i;
 	SWAP(uint32_t, lhs->m_frameNumber, rhs->m_frameNumber);
 	SWAP(uint16_t, lhs->m_validSampleFlags, rhs->m_validSampleFlags);
-	for (i = 0; i < XSFINGERSEGMENTCOUNT; i++)
+	for (int i = 0; i < XSFINGERSEGMENTCOUNT; i++)
 		XsFingerData_swap(&lhs->m_fingerData[i], &rhs->m_fingerData[i]);
 }
 

@@ -38,11 +38,11 @@
 
 struct VelocityPublisher : public PacketCallback
 {
-    rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub;
+    DriverPublisher<geometry_msgs::msg::Vector3Stamped> pub;
     std::string frame_id = DEFAULT_FRAME_ID;
 
 
-    VelocityPublisher(rclcpp::Node::SharedPtr node)
+    VelocityPublisher(DriverNode::SharedPtr node)
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -101,7 +101,7 @@ XSTYPES_DLL_API void XsString_push_backWChar(XsString* thisPtr, wchar_t c);
 /*  We need some special template implementations for strings to keep them 0-terminated
 */
 // this typedef is not _always_ interpreted correctly by doxygen, hence the occasional function where we're NOT using it.
-typedef XsArrayImpl<char, g_xsStringDescriptor, XsString> XsStringType;
+using XsStringType = XsArrayImpl<char, g_xsStringDescriptor, XsString>;
 
 /*! \brief Returns the number of items currently in the array, excluding the terminating 0
 	\details This function returns the number of bytes in the underlying char array. This doesn't mean it returns the number of characters as XsString assumes the char* is a utf-8 encoded string.
@@ -182,7 +182,7 @@ template<> inline void XsArrayImpl<char, g_xsStringDescriptor, XsString>::resize
 template<> inline void XsArrayImpl<char, g_xsStringDescriptor, XsString>::setSize(XsSize count)
 {
 	if (count != size())
-		XsString_assign((XsString*) this, count, 0);
+		XsString_assign((XsString*) this, count, nullptr);
 }
 
 /*! \copydoc XsArray_append \sa XsArray_append */
@@ -194,7 +194,7 @@ template<> inline void XsArrayImpl<char, g_xsStringDescriptor, XsString>::append
 struct XsString : public XsStringType
 {
 	//! \brief Constructs an XsString
-	inline explicit XsString(XsSize sz = 0, char const* src = 0)
+	inline explicit XsString(XsSize sz = 0, char const* src = nullptr)
 		: XsStringType()
 	{
 		if (sz || src)
@@ -212,6 +212,22 @@ struct XsString : public XsStringType
 		: XsStringType(other)
 	{
 	}
+#endif
+
+#ifndef SWIG
+	// Rule of five, explicitly defaulted. The copy members are re-declared (rather than
+	// left implicit) because declaring the move members would otherwise delete them; all
+	// five delegate to the XsStringType (XsArrayImpl) special members.
+	//! \brief Copy constructor
+	XsString(const XsString& other) = default;
+	//! \brief Move constructor, leaves \a other in a valid empty state
+	XsString(XsString&& other) noexcept = default;
+	//! \brief Copy-assignment operator
+	XsString& operator=(const XsString& other) = default;
+	//! \brief Move-assignment operator, leaves \a other in a valid empty state
+	XsString& operator=(XsString&& other) noexcept = default;
+	//! \brief Destructor
+	~XsString() = default;
 #endif
 
 	//! \brief Constructs an XsInt64Array that references the data supplied in \a ref
@@ -330,7 +346,7 @@ struct XsString : public XsStringType
 	{
 		if (empty())
 			return std::wstring();
-		size_t s = XsString_copyToWCharArray(this, NULL, 0);
+		size_t s = XsString_copyToWCharArray(this, nullptr, 0);
 		std::wstring w;
 		w.resize(s - 1);
 		(void) XsString_copyToWCharArray(this, &w[0], (XsSize)s);
@@ -388,7 +404,7 @@ struct XsString : public XsStringType
 	{
 		char buffer[32];
 		XSENS_MSC_WARNING_SUPPRESS(4996)
-		append(XsString(buffer, (XsSize)(ptrdiff_t) std::sprintf(buffer, "%d", i), XSDF_None));
+		append(XsString(buffer, (XsSize)(ptrdiff_t) std::snprintf(buffer, sizeof(buffer), "%d", i), XSDF_None));
 		return *this;
 	}
 
@@ -503,7 +519,7 @@ struct XsString : public XsStringType
 		\param offset When not null, this will be filled with the first index where \a other was found
 		\return true when the string contains the given string
 	*/
-	inline bool contains(XsString const& other, bool caseSensitive = false, XsSize* offset = 0) const
+	inline bool contains(XsString const& other, bool caseSensitive = false, XsSize* offset = nullptr) const
 	{
 		return 0 != XsString_contains(this, &other, caseSensitive ? 1 : 0, offset);
 	}

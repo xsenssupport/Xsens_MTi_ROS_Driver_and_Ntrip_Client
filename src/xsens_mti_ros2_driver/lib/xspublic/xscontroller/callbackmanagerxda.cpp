@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -40,7 +40,7 @@ using namespace xsens;
 struct CallbackHandlerXdaItem
 {
 	XsCallbackPlainC* m_handler;	//!< The callback handler
-	CallbackHandlerXdaItem* m_next;	//!< The next item in the list or NULL if this is the last item
+	CallbackHandlerXdaItem* m_next;	//!< The next item in the list or nullptr if this is the last item
 };
 
 /*! \brief Linked list item that contains a chained CallbackManagerXda
@@ -48,7 +48,7 @@ struct CallbackHandlerXdaItem
 struct CallbackManagerItem
 {
 	CallbackManagerXda* m_manager;		//!< The callback managger
-	CallbackManagerItem* m_next;	//!< The next item in the list or NULL if this is the last item
+	CallbackManagerItem* m_next;	//!< The next item in the list or nullptr if this is the last item
 };
 
 /*! \class CallbackManagerXda
@@ -71,8 +71,8 @@ struct CallbackManagerItem
 CallbackManagerXda::CallbackManagerXda()
 {
 	m_callbackMutex = new MutexReadWrite;
-	m_handlerList = NULL;
-	m_managerList = NULL;
+	m_handlerList = nullptr;
+	m_managerList = nullptr;
 }
 
 /*! \brief Destructor, clears the callback list.
@@ -104,7 +104,7 @@ void CallbackManagerXda::clearCallbackHandlers(bool chain)
 		delete currentHdlr;
 		currentHdlr = next;
 	}
-	m_handlerList = NULL;
+	m_handlerList = nullptr;
 
 	if (chain)
 	{
@@ -120,7 +120,7 @@ void CallbackManagerXda::clearCallbackHandlers(bool chain)
 /*! \brief Add a handler to the list
 	\param cb The handler to add to the list.
 	\param chain When set to true (default) the callback is added to chained managers as well
-	\note NULL and duplicate handlers are ignored, but chaining is still done.
+	\note nullptr and duplicate handlers are ignored, but chaining is still done.
 	\note The name is chosen like this since it is inherited and exposed by other objects
 */
 void CallbackManagerXda::addCallbackHandler(XsCallbackPlainC* cb, bool chain)
@@ -144,7 +144,7 @@ void CallbackManagerXda::addCallbackHandler(XsCallbackPlainC* cb, bool chain)
 	{
 		CallbackHandlerXdaItem* current = new CallbackHandlerXdaItem;
 		current->m_handler = cb;
-		current->m_next = NULL;
+		current->m_next = nullptr;
 		m_handlerList = current;
 		return;
 	}
@@ -161,14 +161,14 @@ void CallbackManagerXda::addCallbackHandler(XsCallbackPlainC* cb, bool chain)
 
 	current = new CallbackHandlerXdaItem;
 	current->m_handler = cb;
-	current->m_next = NULL;
+	current->m_next = nullptr;
 	last->m_next = current;
 }
 
 /*! \brief Remove a handler from the list
 	\param cb The handler to remove from the list.
 	\param chain When set to true (default) the callback is added to chained managers as well
-	\note If \a cb is not found in the list or if \a cb is NULL, the list is not changed, but
+	\note If \a cb is not found in the list or if \a cb is nullptr, the list is not changed, but
 			chaining is still done.
 	\note The name is chosen like this since it is inherited and exposed by other objects
 */
@@ -189,7 +189,7 @@ void CallbackManagerXda::removeCallbackHandler(XsCallbackPlainC* cb, bool chain)
 		}
 	}
 
-	CallbackHandlerXdaItem* last = NULL;
+	CallbackHandlerXdaItem* last = nullptr;
 	CallbackHandlerXdaItem* current = m_handlerList;
 	while (current)
 	{
@@ -220,12 +220,12 @@ void CallbackManagerXda::clearChainedManagers()
 		delete current;
 		current = next;
 	}
-	m_managerList = NULL;
+	m_managerList = nullptr;
 }
 
 /*! \brief Add a chained manager to the list
 	\param cm The manager to add to the list.
-	\note NULL and duplicate managers are ignored.
+	\note nullptr and duplicate managers are ignored.
 */
 void CallbackManagerXda::addChainedManager(CallbackManagerXda* cm)
 {
@@ -238,7 +238,7 @@ void CallbackManagerXda::addChainedManager(CallbackManagerXda* cm)
 	{
 		CallbackManagerItem* current = new CallbackManagerItem;
 		current->m_manager = cm;
-		current->m_next = NULL;
+		current->m_next = nullptr;
 		m_managerList = current;
 		return;
 	}
@@ -255,13 +255,13 @@ void CallbackManagerXda::addChainedManager(CallbackManagerXda* cm)
 
 	current = new CallbackManagerItem;
 	current->m_manager = cm;
-	current->m_next = NULL;
+	current->m_next = nullptr;
 	last->m_next = current;
 }
 
 /*! \brief Remove achained  manager from the list
 	\param cm The manager to remove from the list.
-	\note If \a cm is not found in the list or if \a cm is NULL, the list is not changed.
+	\note If \a cm is not found in the list or if \a cm is nullptr, the list is not changed.
 */
 void CallbackManagerXda::removeChainedManager(CallbackManagerXda* cm)
 {
@@ -270,7 +270,7 @@ void CallbackManagerXda::removeChainedManager(CallbackManagerXda* cm)
 
 	LockReadWrite locky(m_callbackMutex, LS_Write);
 
-	CallbackManagerItem* last = NULL;
+	CallbackManagerItem* last = nullptr;
 	CallbackManagerItem* current = m_managerList;
 	while (current)
 	{

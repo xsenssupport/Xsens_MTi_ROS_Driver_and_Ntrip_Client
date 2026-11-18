@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -78,7 +78,7 @@ typedef union Itypes Itypes;
 uint8_t byteSum(const uint8_t* buffer, XsSize count)
 {
 	register uint8_t sum = 0;
-	for (; count; --count, sum += *(buffer++));
+	for (; count; --count, sum += *(buffer++));	// NOSONAR(c:S2259) no caller passes a NULL buffer with count>0; the only data-derived call is preceded by XsMessage_ensureDataSize
 	return sum;
 }
 
@@ -95,12 +95,12 @@ static inline uint16_t XsMessageHeader_dataSize(const XsMessageHeader* hdr)
 	// Check the extended part
 	uint16_t len = ((uint16_t)(hdr->m_payload[0] << 8) | hdr->m_payload[1]);
 
-	// Additional sanity check: extended length should be >= 255
-	// since values < 255 should use the normal length field
-	// Also take into account the max msg lenth, which prevents using
-	// unitialized fields in case of a malformed message
-	if (len < 255 || len > XS_MAXMSGLEN)
-		len = 0; // Treat as minimum valid length
+	// Extended length is a 16-bit field; do NOT clamp against XS_MAXMSGLEN. Legit
+	// messages (e.g. the stored XkfState) exceed 8192, and zeroing their length made
+	// updateChecksumAddress() pick the wrong byte, silently dropping them on read.
+	// Truncation/underflow is caught where the actual buffer size is known.
+	if (len < 255)
+		len = 0; // values below 255 must use the normal length field
 
 	return len;
 }
@@ -205,7 +205,7 @@ static inline uint8_t* XsMessage_dataAtOffset(XsMessage* thisPtr, XsSize offset)
 	assert(thisPtr->m_message.m_data);
 	assert(offset < XsMessage_dataSize(thisPtr));
 
-	XsMessageHeader* hdr = XsMessage_getHeader(thisPtr);
+	const XsMessageHeader* hdr = XsMessage_getHeader(thisPtr);
 	return XsMessageHeader_dataPtr(hdr) + offset;
 }
 
@@ -590,7 +590,7 @@ double XsMessage_getDataDouble(XsMessage const* thisPtr, XsSize offset)
 	return ret;
 }
 
-/*! \deprecated Returns the F12.20 value at \a offset in the data of the message
+/*! \brief Returns the F12.20 value at \a offset in the data of the message
 	\param offset the offset in the payload at which to read data
 
 	\returns the 12.20 fixed point value at offset \a offset in the message payload
@@ -606,7 +606,7 @@ double XsMessage_getDataF1220(XsMessage const* thisPtr, XsSize offset)
 	return rv.d;
 }
 
-/*! \deprecated Returns the F16.32 value at \a offset in the data of the message
+/*! \brief Returns the F16.32 value at \a offset in the data of the message
 	\param offset the offset in the payload at which to read data
 
 	\returns the 16.32 fixed point value at offset \a offset in the message payload
@@ -701,7 +701,7 @@ void XsMessage_setDataDouble(XsMessage* thisPtr, double value, XsSize offset)
 	XsMessage_setEndianCorrectData(thisPtr, &value, sizeof(value), offset);
 }
 
-/*! \deprecated Sets the F12.20 at \a offset in the message to \a value
+/*! \brief Sets the F12.20 at \a offset in the message to \a value
 
 	\param value the 12.20 fixed point value to set
 	\param offset the offset in the message payload at which to write the data
@@ -717,7 +717,7 @@ void XsMessage_setDataF1220(XsMessage* thisPtr, double value, XsSize offset)
 	XsMessage_setDataLong(thisPtr, (val & ~1UL) | (fp.i64 & 1), offset);
 }
 
-/*! \deprecated Sets the F16.32 at \a offset in the message to \a value
+/*! \brief Sets the F16.32 at \a offset in the message to \a value
 
 	\param value the 16.32 fixed point value to set
 	\param offset the offset in the message payload at which to write the data
@@ -732,7 +732,7 @@ void XsMessage_setDataFP1632(XsMessage* thisPtr, double value, XsSize offset)
 
 	fp.d = value;
 	b = (uint32_t)(fp.i64 & 1);
-	dexp = ((fp.i32.i0 & (0x7fffffffL)) >> 20) - 1023;
+	dexp = ((fp.i32.i0 & 0x7fffffffL) >> 20) - 1023;
 
 	if (dexp <= 14)
 	{
@@ -840,8 +840,7 @@ static float convertToFloat(double d)
 */
 void XsMessage_getDataFPValuesById(XsMessage const* thisPtr, XsDataIdentifier dataIdentifier, double* dest, XsSize offset, XsSize numValues)
 {
-	XsSize i;
-	for (i = 0; i < numValues; i++)
+	for (XsSize i = 0; i < numValues; i++)
 	{
 		switch (dataIdentifier & XDI_SubFormatMask)
 		{
@@ -881,8 +880,7 @@ void XsMessage_getDataFPValuesById(XsMessage const* thisPtr, XsDataIdentifier da
 */
 void XsMessage_setDataFPValuesById(XsMessage* thisPtr, XsDataIdentifier dataIdentifier, double const* data, XsSize offset, XsSize numValues)
 {
-	XsSize i;
-	for (i = 0; i < numValues; i++)
+	for (XsSize i = 0; i < numValues; i++)
 	{
 		switch (dataIdentifier & XDI_SubFormatMask)
 		{
@@ -923,8 +921,7 @@ void XsMessage_setDataFPValuesById(XsMessage* thisPtr, XsDataIdentifier dataIden
 */
 void XsMessage_getDataRealValuesById(XsMessage const* thisPtr, XsDataIdentifier dataIdentifier, XsReal* dest, XsSize offset, XsSize numValues)
 {
-	XsSize i;
-	for (i = 0; i < numValues; i++)
+	for (XsSize i = 0; i < numValues; i++)
 	{
 		switch (dataIdentifier & XDI_SubFormatMask)
 		{
@@ -980,8 +977,7 @@ void XsMessage_getDataRealValuesById(XsMessage const* thisPtr, XsDataIdentifier 
 */
 void XsMessage_setDataRealValuesById(XsMessage* thisPtr, XsDataIdentifier dataIdentifier, XsReal const* data, XsSize offset, XsSize numValues)
 {
-	XsSize i;
-	for (i = 0; i < numValues; i++)
+	for (XsSize i = 0; i < numValues; i++)
 	{
 		switch (dataIdentifier & XDI_SubFormatMask)
 		{
@@ -1016,11 +1012,11 @@ void XsMessage_setDataRealValuesById(XsMessage* thisPtr, XsDataIdentifier dataId
 */
 uint8_t XsMessage_computeChecksum(XsMessage const* thisPtr)
 {
-	XsSize i, msgSize;
+	XsSize msgSize;
 	uint8_t cs = 0;
 
 	msgSize = XsMessage_getTotalMessageSize(thisPtr) - 1;
-	for (i = 1; i < msgSize; ++i)
+	for (XsSize i = 1; i < msgSize; ++i)
 		cs -= thisPtr->m_message.m_data[i];
 
 	return cs;
@@ -1030,7 +1026,8 @@ uint8_t XsMessage_computeChecksum(XsMessage const* thisPtr)
 */
 void XsMessage_recomputeChecksum(XsMessage* thisPtr)
 {
-	assert(thisPtr->m_checksum);
+	if (!thisPtr->m_checksum)
+		return;
 	thisPtr->m_checksum[0] = XsMessage_computeChecksum(thisPtr);
 }
 
@@ -1039,10 +1036,40 @@ void XsMessage_recomputeChecksum(XsMessage* thisPtr)
 void XsMessage_updateChecksumAddress(XsMessage* thisPtr)
 {
 	XsMessageHeader* hdr = XsMessage_getHeader(thisPtr);
-	if (hdr)
-		*((uint8_t**)&thisPtr->m_checksum) = &XsMessageHeader_dataPtr(hdr)[XsMessageHeader_payloadSize(hdr)];
-	else
+	if (!hdr)
+	{
 		*((uint8_t**)&thisPtr->m_checksum) = 0;
+		return;
+	}
+
+	XsSize bufferSize = thisPtr->m_message.m_size;
+
+	// Minimum buffer size check: must have at least the header
+	if (bufferSize < XS_LEN_MSGHEADER)
+	{
+		*((uint8_t**)&thisPtr->m_checksum) = 0;
+		return;
+	}
+
+	// If extended length marker is present, we need at least 2 more bytes to read the extended length
+	// Without this check, reading hdr->m_payload[0..1] for extended length could be out of bounds
+	if (hdr->m_length == XS_EXTLENCODE && bufferSize < XS_LEN_MSGEXTHEADER)
+	{
+		*((uint8_t**)&thisPtr->m_checksum) = 0;
+		return;
+	}
+
+	uint8_t* checksumPtr = &XsMessageHeader_dataPtr(hdr)[XsMessageHeader_payloadSize(hdr)];
+	const uint8_t* bufferEnd = (uint8_t*)hdr + bufferSize;
+
+	// Verify checksum pointer is within the buffer bounds
+	if (checksumPtr < (uint8_t*)hdr || checksumPtr >= bufferEnd)
+	{
+		*((uint8_t**)&thisPtr->m_checksum) = 0;
+		return;
+	}
+
+	*((uint8_t**)&thisPtr->m_checksum) = checksumPtr;
 }
 
 /*! \brief Returns non-zero if the checksum inside the message is correct for the message, zero otherwise
@@ -1050,7 +1077,8 @@ void XsMessage_updateChecksumAddress(XsMessage* thisPtr)
 */
 int XsMessage_isChecksumOk(XsMessage const* thisPtr)
 {
-	assert(thisPtr->m_checksum);
+	if (!thisPtr->m_checksum)
+		return 0;
 	return thisPtr->m_checksum[0] == XsMessage_computeChecksum(thisPtr);
 }
 
@@ -1085,10 +1113,12 @@ int XsMessage_empty(XsMessage const* thisPtr)
 */
 void XsMessage_resizeData(XsMessage* thisPtr, XsSize newSize)
 {
-	XsSize index, oldSize;
+	XsSize oldSize;
 	XsByteArray old = XSBYTEARRAY_INITIALIZER;
-	XsMessageHeader* oldHdr, * newHdr;
-	uint8_t* oldData, * newData;
+	const XsMessageHeader* oldHdr;
+	XsMessageHeader* newHdr;
+	const uint8_t* oldData;
+	uint8_t* newData;
 
 	oldSize = XsMessage_dataSize(thisPtr);
 	if (oldSize == newSize)
@@ -1110,7 +1140,7 @@ void XsMessage_resizeData(XsMessage* thisPtr, XsSize newSize)
 
 	if (oldSize > newSize)
 		oldSize = newSize;	// speed up the loop
-	for (index = 0; index < oldSize; ++index)
+	for (XsSize index = 0; index < oldSize; ++index)
 		newData[index] = oldData[index];
 
 	if (thisPtr->m_autoUpdateChecksum)
@@ -1134,10 +1164,10 @@ void XsMessage_setBusId(XsMessage* thisPtr, uint8_t busId)
 	assert(thisPtr->m_message.m_data != NULL); // Assert construction succeeded
 
 	hdr = XsMessage_getHeader(thisPtr);
-	if (thisPtr->m_autoUpdateChecksum)
+	if (thisPtr->m_autoUpdateChecksum && thisPtr->m_checksum)
 		thisPtr->m_checksum[0] += hdr->m_busId;
 	hdr->m_busId = busId;
-	if (thisPtr->m_autoUpdateChecksum)
+	if (thisPtr->m_autoUpdateChecksum && thisPtr->m_checksum)
 		thisPtr->m_checksum[0] -= hdr->m_busId;
 }
 
@@ -1192,7 +1222,7 @@ void XsMessage_setMessageId(XsMessage* thisPtr, XsXbusMessageId msgId)
 		XsMessageHeader_setMessageId(hdr, msgId);
 
 		// Resize the data buffer to remove the 2 bytes
-		XsMessage_resizeData(thisPtr, dataLen);		
+		XsMessage_resizeData(thisPtr, dataLen);
 	}
 
 	if (thisPtr->m_autoUpdateChecksum)
@@ -1208,8 +1238,10 @@ void XsMessage_insertData(XsMessage* thisPtr, XsSize count, XsSize offset)
 {
 	XsSize index, oldSize, newSize;
 	XsByteArray old = XSBYTEARRAY_INITIALIZER;
-	XsMessageHeader* oldHdr, * newHdr;
-	uint8_t* oldData, * newData;
+	const XsMessageHeader* oldHdr;
+	XsMessageHeader* newHdr;
+	const uint8_t* oldData;
+	uint8_t* newData;
 
 	if (!count)
 		return;
@@ -1265,8 +1297,10 @@ void XsMessage_deleteData(XsMessage* thisPtr, XsSize count, XsSize offset)
 {
 	XsSize index, oldSize, newSize;
 	XsByteArray old = XSBYTEARRAY_INITIALIZER;
-	XsMessageHeader* oldHdr, * newHdr;
-	uint8_t* oldData, * newData;
+	const XsMessageHeader* oldHdr;
+	XsMessageHeader* newHdr;
+	const uint8_t* oldData;
+	uint8_t* newData;
 
 	oldSize = XsMessage_dataSize(thisPtr);
 	if (!count || offset >= oldSize)
@@ -1353,7 +1387,7 @@ void XsMessage_toHexString(XsMessage const* thisPtr, XsSize maxBytes, XsString* 
 	if (maxBytes)
 	{
 		XsString_resize(resultValue, maxBytes * 3 - 1);
-		s = (char*)resultValue->m_data;
+		s = resultValue->m_data;
 		for (i = 0; i < maxBytes - 1; ++i)
 			sprintf(s + (i * 3), "%02X ", (unsigned int)((uint8_t const*)thisPtr->m_message.m_data)[i]);
 		sprintf(s + ((maxBytes - 1) * 3), "%02X", (unsigned int)((uint8_t const*)thisPtr->m_message.m_data)[maxBytes - 1]);

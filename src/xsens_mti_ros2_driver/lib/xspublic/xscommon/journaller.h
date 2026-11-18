@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -40,10 +40,44 @@
 	#include <iomanip>
 #endif
 #include <xstypes/xsstring.h>
+#include <atomic>
 #include <memory>
+#include <optional>
 
 class JournalFile;
 class JournalThreader;
+
+/*! \brief Send the debug channel to file descriptor \a fd instead of stderr.
+
+	The debug channel is where a Journaller mirrors lines above its debug level: stderr on
+	POSIX, OutputDebugString on Windows. Pass -1 to restore the default.
+
+	This exists for a process that redirects its own stderr and then feeds what it captures
+	back into a Journaller — a unit-test runner teeing stderr into a log, for instance. Left
+	on stderr, the Journaller's mirror lands in that capture, comes back round as new input,
+	and is logged again one prefix longer every pass: an unbounded loop. Pointing the channel
+	at the saved original stderr breaks it by construction.
+
+	No-op on Windows, where the channel is OutputDebugString and no descriptor is involved.
+*/
+void journalSetDebugChannelFd(int fd);
+
+/*! \brief Move the debug channel onto \a consoleStderrFd, a descriptor for the real console.
+
+	The one-call form of journalSetDebugChannelFd() for a test library: it takes the console
+	descriptor a test runner reports once it has captured stdout/stderr, duplicates it so the
+	channel outlives the runner's own descriptor, and points the debug channel there. Ignores
+	a negative \a consoleStderrFd, and does nothing on Windows, where the channel is
+	OutputDebugString rather than a descriptor.
+
+	A test library backed by a Journaller should call this from its runner's
+	"output is now captured" hook — for xsens_unittest that is
+	xsensUnitTestLogRedirectReady() — so that the Journaller does not mirror into the
+	runner's capture and feed itself (mvn #4117). Keeping the work here rather than in each
+	test library means the next one only writes the one call.
+*/
+void journalUseConsoleStderrFd(int consoleStderrFd);
+
 class Journaller
 {
 public:
@@ -97,7 +131,7 @@ public:
 	void flush();
 	void cleanupThread();
 
-	const XsString filename() const;
+	XsString filename() const;
 
 	void setTag(const std::string& tag);
 	std::string tag() const;
@@ -107,13 +141,13 @@ public:
 	//! \returns True if it has an additional logger
 	inline static bool hasAdditionalLogger()
 	{
-		return m_additionalLogger != nullptr;
+		return additionalLogger() != nullptr;
 	}
 
 	//! \returns The additional logger
 	inline static AbstractAdditionalLogger* additionalLogger()
 	{
-		return m_additionalLogger;
+		return m_additionalLogger.load();
 	}
 
 	static std::string tagFromFilename(const std::string& fn);
@@ -134,7 +168,7 @@ private:
 
 	bool m_useDateTime;
 
-	static AbstractAdditionalLogger* m_additionalLogger;
+	static std::atomic<AbstractAdditionalLogger*> m_additionalLogger;
 
 	// no copying allowed
 	Journaller& operator = (Journaller const&) = delete;
@@ -142,15 +176,15 @@ private:
 };
 
 #if 1 && (defined(MSC_VER) || 1)	// add exceptions to compilers here that do not (yet) support constexpr. These will fall back to the full path. If the first 1 is set to 0, no path stripping will be done in any case.
-inline static constexpr char const* jlStrippedPath(char const* a, char const* b)
+static constexpr char const* jlStrippedPath(char const* a, char const* b)
 {
-	return (a[0] ? (a[0] == '/' || a[0] == '\\' ? jlStrippedPath(a + 1, a + 1) : jlStrippedPath(a + 1, b)) : b);
+	return (a[0] ? (a[0] == '/' || a[0] == '\\' ? jlStrippedPath(a + 1, a + 1) : jlStrippedPath(a + 1, b)) : b); // NOSONAR cpp:S3358 - C++11 single-return constexpr form; extracting a statement needs C++14 relaxed constexpr, which the guard above exists to avoid requiring
 }
-inline static constexpr char const* jlStrippedPathFile(char const* a)
+static constexpr char const* jlStrippedPathFile(char const* a)
 {
 	return jlStrippedPath(a, a);
 }
-#define STRIPPEDFILE	jlStrippedPathFile(__FILE__)
+#define STRIPPEDFILE	jlStrippedPathFile(__FILE__) // NOSONAR cpp:S6190 - std::source_location would make logging arguments evaluate eagerly; the macro keeps them inside the level guard
 #else
 #define STRIPPEDFILE	__FILE__
 #endif
@@ -161,23 +195,23 @@ inline static constexpr char const* jlStrippedPathFile(char const* a)
 	#define JLGENERIC_LINEINFO	""
 #endif
 
-#define JLGENERIC(journal, level, msg)\
-	do { /*lint --e{506}*/ \
+#define JLGENERIC(journal, level, msg) /* NOSONAR cpp:S6190 - a std::source_location function would evaluate msg eagerly at every call site; the macro only evaluates it inside the level guard */ \
+	do { \
 		if (journal && journal->logLevel(level)) \
 		{ \
 			std::ostringstream os; \
 			os << JLGENERIC_LINEINFO << __FUNCTION__ << " " << msg; \
 			journal->log(level, os.str()); \
 		} \
-		if (Journaller::hasAdditionalLogger() && Journaller::additionalLogger()->logLevel(level)) \
+		if (auto* jlAdd = Journaller::additionalLogger(); jlAdd && jlAdd->logLevel(level)) \
 		{ \
 			std::ostringstream os; \
 			os << msg; \
-			Journaller::additionalLogger()->log(level, STRIPPEDFILE, __LINE__, __FUNCTION__, os.str()); \
+			jlAdd->log(level, STRIPPEDFILE, __LINE__, __FUNCTION__, os.str()); \
 		} \
 	} while(0)
 
-#define JLGENERIC_NODEC(journal, level, msg)\
+#define JLGENERIC_NODEC(journal, level, msg) /* NOSONAR cpp:S6190 - a std::source_location function would evaluate msg eagerly at every call site; the macro only evaluates it inside the level guard */ \
 	do { \
 		if (journal && journal->logLevel(level)) \
 		{ \
@@ -185,11 +219,11 @@ inline static constexpr char const* jlStrippedPathFile(char const* a)
 			os << msg << '\n'; \
 			journal->writeMessage(os.str()); \
 		} \
-		if (Journaller::hasAdditionalLogger() && Journaller::additionalLogger()->logLevel(level)) \
+		if (auto* jlAdd = Journaller::additionalLogger(); jlAdd && jlAdd->logLevel(level)) \
 		{ \
 			std::ostringstream os; \
 			os << msg << '\n'; \
-			Journaller::additionalLogger()->logNoDecoration(level, STRIPPEDFILE, __LINE__, __FUNCTION__, os.str()); \
+			jlAdd->logNoDecoration(level, STRIPPEDFILE, __LINE__, __FUNCTION__, os.str()); \
 		} \
 	} while(0)
 
@@ -255,11 +289,19 @@ inline static constexpr char const* jlStrippedPathFile(char const* a)
 	// these can be used to log the final result of a value when leaving the function.
 	// use JLWRITEFINALG(myvar); or JLDEBUGFINALG(myvar); at the start of your function
 	#define JLFINALNAME(a)						#a ": "
-	#define JLFINALVALUE(journal, level, a)		JournalValueJanitor<decltype(a)> jlFinalValue ## a(journal, a, [](char const* fi, char const* fu, char const* va) { std::stringstream os; os << fi << " " << fu << " exit " << va; return os.str(); }(__FILE__, __FUNCTION__, JLFINALNAME(a)), level, true)
+	#define JLFINALVALUE(journal, level, a)		JournalValueJanitor<decltype(a)> jlFinalValue ## a(journal, a, [](char const* fi, char const* fu, char const* va) { std::stringstream os; os << fi << " " << fu << " exit " << va; return os.str(); }(__FILE__, __FUNCTION__, JLFINALNAME(a)), level, true) // NOSONAR cpp:S6190 - __FILE__/__FUNCTION__ are captured at the call site by design; a function parameter would report this header instead
 	#define JLWRITEFINAL(journal, a)			JLFINALVALUE(journal, JLL_Write, a)
 	#define JLWRITEFINALG(a)					JLWRITEFINAL(gJournal, a)
 	#define JLDEBUGFINAL(journal, a)			JLFINALVALUE(journal, JLL_Debug, a)
 	#define JLDEBUGFINALG(a)					JLDEBUGFINAL(gJournal, a)
+
+	// Name the calling thread and log that it happened. Part of the JL set above: a consumer that
+	// pre-defines JLDEBUG (a Journaller-less build) supplies its own, so this must stay inside the guard.
+	#define JLNAMETHISTHREAD(name) \
+		do { \
+			JLDEBUGG("Naming this thread: " << name); \
+			xsNameThisThread(name); \
+		} while(0)
 
 #endif
 
@@ -289,7 +331,7 @@ public:
 };
 
 template <typename T>
-std::ostream& operator << (std::ostream& os, JlHexLogger<T> const& hex)
+std::ostream& operator << (std::ostream& os, JlHexLogger<T> const& hex) // NOSONAR cpp:S2807 - a hidden friend would change the public shape of JlHexLogger, which sibling repos stream through
 {
 	std::ios_base::fmtflags f = os.flags();
 	os << std::hex << std::uppercase << hex.m_value << std::setiosflags(f);
@@ -333,7 +375,7 @@ std::ostream& operator<< (std::ostream& stream, wchar_t const* ws);
 
 /*! Use this macro to define enum bit field expansion to a text stream, items will show up as "full hex=EnumName1(hex) | EnumName2(hex)". supply the type as parameter \a E and all
 	enum values you want to expand as a sequence of JLENUMCASEBITS(item) (no commas) */
-#define JLENUMEXPANDERBITS(E, items)	/*! \brief Translate \a e into a text representation */ JLENUMEXPPROTO(E) { /*lint --e{438, 650, 587} */ bool first = true; dbg << std::hex << std::uppercase << static_cast<unsigned long long>(e) << "="; items if (first) dbg << "<None>"; dbg << std::dec << std::nouppercase; return dbg; }
+#define JLENUMEXPANDERBITS(E, items)	/*! \brief Translate \a e into a text representation */ JLENUMEXPPROTO(E) { bool first = true; dbg << std::hex << std::uppercase << static_cast<unsigned long long>(e) << "="; items if (first) dbg << "<None>"; dbg << std::dec << std::nouppercase; return dbg; }
 #define JLENUMCASEBITS(a)				if ((static_cast<unsigned long long>(e) & static_cast<unsigned long long>(a)) == static_cast<unsigned long long>(a)) { if (first) first = false; else dbg << " | "; dbg << #a << "(" << static_cast<unsigned long long>(a) << ")"; e = static_cast<decltype(e)>(static_cast<unsigned long long>(e) & ~static_cast<unsigned long long>(a)); }
 #define JLENUMCASEBITSNONE(a)			if (first) { dbg << #a << "(0)"; first = false; }
 
@@ -378,17 +420,22 @@ std::ostream& operator<< (std::ostream& stream, wchar_t const* ws);
 /*!	\class JournalValueJanitor
 	\brief Class for journalling a referenced value when the janitor leaves scope
 	\details The class stores a reference to the supplied object and uses streaming to output
-	it to the journal. Like all journalling this means that for the supplied type T
+	it to the journal, so the value logged is the one held at scope exit. Like all journalling
+	this means that for the supplied type T
 	std::stringstream& std::stringstream::operator << (std::stringstream&, const T& value) must
 	be defined.
+	A temporary is moved into the janitor and owned by it instead, because a reference to it
+	would dangle long before the destructor runs.
 */
 template <typename T = int>
-class JournalValueJanitor
+class JournalValueJanitor // NOSONAR cpp:S5414 - m_enabled is a public API member consumers set directly; making it private would break them
 {
 private:
-	const JournalValueJanitor& operator = (const JournalValueJanitor&);
+	JournalValueJanitor(const JournalValueJanitor&) = delete;
+	JournalValueJanitor& operator = (const JournalValueJanitor&) = delete;
 
 	Journaller* m_journal;
+	std::optional<T> m_owned;
 	const T& m_value;
 	std::string m_msg;
 	JournalLogLevel m_level;
@@ -399,7 +446,19 @@ public:
 	*/
 	JournalValueJanitor(Journaller* journal, const T& value, const std::string& msg = std::string(), JournalLogLevel level = JLL_Debug, bool enabled = true)
 		: m_journal(journal)
+		, m_owned()
 		, m_value(value)
+		, m_msg(msg)
+		, m_level(level)
+		, m_enabled(enabled && journal)
+	{}
+
+	/*! \brief Constructor taking ownership of a temporary
+	*/
+	JournalValueJanitor(Journaller* journal, T&& value, const std::string& msg = std::string(), JournalLogLevel level = JLL_Debug, bool enabled = true)
+		: m_journal(journal)
+		, m_owned(std::move(value))
+		, m_value(*m_owned)
 		, m_msg(msg)
 		, m_level(level)
 		, m_enabled(enabled && journal)
@@ -409,11 +468,18 @@ public:
 	*/
 	~JournalValueJanitor()
 	{
-		if (m_enabled)
+		try
 		{
-			std::stringstream os;
-			os << m_msg << m_value;
-			m_journal->log(m_level, os.str());
+			if (m_enabled)
+			{
+				std::stringstream os;
+				os << m_msg << m_value;
+				m_journal->log(m_level, os.str());
+			}
+		}
+		catch (...) // NOSONAR cpp:S2486 - a destructor must not let exceptions escape; the swallow is intentional
+		{
+			// Best-effort logging in a janitor destructor; never let an exception escape.
 		}
 	}
 };

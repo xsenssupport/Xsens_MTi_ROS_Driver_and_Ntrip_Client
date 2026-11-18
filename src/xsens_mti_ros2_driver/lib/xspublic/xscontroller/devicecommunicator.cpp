@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -164,13 +164,19 @@ XsResultValue DeviceCommunicator::getDeviceId()
 		productCode = result;
 	}
 
+	XsMessage rcv_pv;
+	snd.setMessageId(XMID_ReqProductVariant);
+	uint32_t productVariant = 0;
+	if (doTransaction(snd, rcv_pv))
+		productVariant = rcv_pv.getDataLong();
+
 	XsMessage rcv_hw;
 	snd.setMessageId(XMID_ReqHardwareVersion);
 	uint16_t hardwareVersion = 0;
 	if (doTransaction(snd, rcv_hw))
 		hardwareVersion = rcv_hw.getDataShort();
 
-	setMasterDeviceId(XsDeviceId(productCode.c_str(), hardwareVersion, 0, deviceId));
+	setMasterDeviceId(XsDeviceId(productCode.c_str(), hardwareVersion, productVariant, deviceId));
 
 	return XRV_OK;
 }

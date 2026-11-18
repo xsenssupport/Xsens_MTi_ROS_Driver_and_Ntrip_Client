@@ -3,14 +3,17 @@ cmake_minimum_required(VERSION 3.5)
 project(xsens_mti_ros2_driver)
 
 
-# Set C++ standard, default to C++14
+# Set C++ standard, default to C++17: MT SDK 2026.4 (lib/xspublic) uses C++17.
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -43,6 +46,9 @@ message(STATUS "Detected ROS_DISTRO: ${ROS_DISTRO}")
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/XsStatusWord.msg"
   "msg/ShipMotion.msg"
+  "msg/GnssPvt.msg"
+  "msg/GnssSatInfo.msg"
+  "msg/GnssHeading.msg"
   DEPENDENCIES std_msgs
 )
 
@@ -63,7 +69,7 @@ ExternalProject_Add(
   PREFIX ${CMAKE_BINARY_DIR}/xspublic
   SOURCE_DIR ${CMAKE_SOURCE_DIR}/lib/xspublic
   CONFIGURE_COMMAND ""  # No configure step
-  BUILD_COMMAND make
+  BUILD_COMMAND env --unset=MAKEFLAGS make
   BUILD_IN_SOURCE 1  # Build in the source directory
   INSTALL_COMMAND ""  # No install step
 )
@@ -87,6 +93,8 @@ add_executable(
 	src/ntrip_util.cpp
 	src/xsens_time_handler.cpp
   src/high_rate_interpolator.cpp
+	src/xsens_diagnostics.cpp
+	src/xsens_mti_lifecycle_node.cpp
 )
 
 # Make sure xsens_mti_node depends on the xspublic build
@@ -98,18 +106,40 @@ add_dependencies(xsens_mti_node xspublic ${PROJECT_NAME})
 #   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp> 
 #   $<INSTALL_INTERFACE:include>)
 
-ament_target_dependencies(xsens_mti_node 
-	rclcpp
-	tf2
-	tf2_ros
-	std_msgs
-	geometry_msgs
-	sensor_msgs
-	nav_msgs
-	nmea_msgs
-	mavros_msgs
-	rosidl_default_runtime
-)
+if(COMMAND ament_target_dependencies)
+	ament_target_dependencies(xsens_mti_node
+		rclcpp
+		rclcpp_lifecycle
+		lifecycle_msgs
+		diagnostic_msgs
+		tf2
+		tf2_ros
+		std_msgs
+		geometry_msgs
+		sensor_msgs
+		nav_msgs
+		nmea_msgs
+		mavros_msgs
+		rosidl_default_runtime
+	)
+else()
+	# ament_target_dependencies() was removed on newer ROS releases in favour of
+	# linking the exported CMake targets directly.
+	target_link_libraries(xsens_mti_node
+		rclcpp::rclcpp
+		rclcpp_lifecycle::rclcpp_lifecycle
+		tf2::tf2
+		tf2_ros::tf2_ros
+		${lifecycle_msgs_TARGETS}
+		${diagnostic_msgs_TARGETS}
+		${std_msgs_TARGETS}
+		${geometry_msgs_TARGETS}
+		${sensor_msgs_TARGETS}
+		${nav_msgs_TARGETS}
+		${nmea_msgs_TARGETS}
+		${mavros_msgs_TARGETS}
+	)
+endif()
 
 # Handle typesupport linking differently based on ROS distro
 if(${ROS_DISTRO} STREQUAL "foxy")
@@ -145,6 +175,41 @@ target_link_libraries(
 
 
 #############
+## Testing ##
+#############
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_imu_publisher
+    test/test_imu_publisher.cpp
+  )
+  add_dependencies(test_imu_publisher xspublic ${PROJECT_NAME})
+  target_include_directories(test_imu_publisher PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/xspublic
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/
+    ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
+  )
+  if(COMMAND ament_target_dependencies)
+    ament_target_dependencies(test_imu_publisher
+      rclcpp rclcpp_lifecycle sensor_msgs geometry_msgs
+    )
+  else()
+    target_link_libraries(test_imu_publisher
+      rclcpp::rclcpp rclcpp_lifecycle::rclcpp_lifecycle
+      ${geometry_msgs_TARGETS} ${sensor_msgs_TARGETS}
+    )
+  endif()
+  rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
+  target_link_libraries(test_imu_publisher
+    "${cpp_typesupport_target}"
+    xstypes
+    pthread
+    dl
+  )
+endif()
+
+#############
 ## Install ##
 #############
 
@@ -178,6 +243,9 @@ install(DIRECTORY headers/
 #the dependencies listed inside ament_export_dependencies will be made available to that dependent package.
 ament_export_dependencies(
 	rclcpp
+	rclcpp_lifecycle
+	lifecycle_msgs
+	diagnostic_msgs
 	tf2
 	tf2_ros
 	std_msgs
@@ -194,5 +262,12 @@ ament_export_include_directories(
 	include
 )
 
+
+if(BUILD_TESTING)
+  enable_testing()
+  add_executable(test_local_enu test/test_local_enu.cpp)
+  target_include_directories(test_local_enu PRIVATE include ${EIGEN3_INCLUDE_DIRS})
+  add_test(NAME local_enu_regression COMMAND test_local_enu)
+endif()
 
 ament_package()

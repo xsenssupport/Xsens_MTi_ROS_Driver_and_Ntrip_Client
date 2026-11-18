@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -37,8 +37,13 @@
 
 #ifdef USE_WINUSB
 
-#include <windows.h>
-#include <winusb.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
+#endif
+#include <Windows.h>
+#include <SetupAPI.h>      // For USB device enumeration types
+#include <winusb.h>        // For WINUSB types
+#include <usb.h>           // For USB descriptor types
 
 struct XsLibraryLoader;
 

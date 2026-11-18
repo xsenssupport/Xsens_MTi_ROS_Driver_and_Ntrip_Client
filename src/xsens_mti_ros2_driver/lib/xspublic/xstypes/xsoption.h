@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -40,7 +40,6 @@
 	\details These options are used to specify whether XDA should compute certain kinds of data from
 	available other data. XsOptions can be logically ORed together
 */
-//AUTO namespace xstypes {
 enum XsOption
 {
 	XSO_None = 0					//!< No option
@@ -64,8 +63,6 @@ enum XsOption
 
 /*! @} */
 typedef enum XsOption XsOption;
-
-//AUTO }
 
 #ifdef __cplusplus
 //! \brief Logical OR operator for XsOption values

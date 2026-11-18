@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -72,16 +72,13 @@ XSTYPES_DLL_API void XsByteArray_mid(XsByteArray* thisPtr, XsByteArray const* so
 struct XsByteArray : public XsArrayImpl<uint8_t, g_xsByteArrayDescriptor, XsByteArray>
 {
 	//! \brief Constructs an XsByteArray
-	inline explicit XsByteArray(XsSize sz = 0, uint8_t const* src = 0)
+	inline explicit XsByteArray(XsSize sz = 0, uint8_t const* src = nullptr)
 		: ArrayImpl(sz, src)
 	{
 	}
 
 	//! \brief Constructs an XsByteArray as a copy of \a other
-	inline XsByteArray(XsByteArray const& other)
-		: ArrayImpl(other)
-	{
-	}
+	inline XsByteArray(XsByteArray const& other) = default;
 
 	//! \brief Constructs an XsByteArray that references the data supplied in \a ref
 	inline explicit XsByteArray(uint8_t* ref, XsSize sz, XsDataFlags flags /* = XSDF_None */)
@@ -91,7 +88,7 @@ struct XsByteArray : public XsArrayImpl<uint8_t, g_xsByteArrayDescriptor, XsByte
 
 #ifndef SWIG
 	/*! \brief Swap the contents the \a first and \a second array */
-	friend void swap(XsByteArray& first, XsByteArray& second)
+	friend void swap(XsByteArray& first, XsByteArray& second) noexcept
 	{
 		first.swap(second);
 	}

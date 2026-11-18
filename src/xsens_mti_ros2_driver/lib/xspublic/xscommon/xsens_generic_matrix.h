@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -143,9 +143,9 @@ public:
 	//! Copy a matrix into this one
 	GenericMatrix<T>& operator = (const GenericMatrix<T>& src);
 	//! Swap a matrix with this one
-	void swap(GenericMatrix<T>& other);
+	void swap(GenericMatrix<T>& other) XSNOEXCEPT;
 	//! Swap a matrix with this one
-	friend void swap(GenericMatrix<T>& first, GenericMatrix<T>& second)
+	friend void swap(GenericMatrix<T>& first, GenericMatrix<T>& second) XSNOEXCEPT
 	{
 		first.swap(second);
 	}
@@ -239,8 +239,17 @@ template <typename T> GenericMatrix<T>::GenericMatrix(const uint32_t newRows, co
 
 template <typename T> GenericMatrix<T>::~GenericMatrix()
 {
+	// This removed the warning about freeing non-heap objects, in this case when using GenericMatrixF, which alwas sets FixedSize
+	// but GCC has a false positive here.
+#ifdef __GNUC__
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wfree-nonheap-object"
+#endif
 	if (m_flags & XSDF_Managed)
 		free(m_data);
+#ifdef __GNUC__
+	#pragma GCC diagnostic pop
+#endif
 
 	if (!(m_flags & XSDF_FixedSize))
 		m_data = NULL;
@@ -334,7 +343,7 @@ void GenericMatrix<T>::zeroValues()
 }
 
 template <typename T>
-void GenericMatrix<T>::swap(GenericMatrix<T>& other)
+void GenericMatrix<T>::swap(GenericMatrix<T>& other) XSNOEXCEPT
 {
 	swapb(m_rows, other.m_rows);
 	swapb(m_cols, other.m_cols);

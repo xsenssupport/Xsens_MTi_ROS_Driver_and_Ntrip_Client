@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -118,10 +118,10 @@ struct XsDeviceConfiguration
 		\sa XsDeviceConfiguration_construct
 	*/
 	explicit XsDeviceConfiguration(uint16_t numberOfDevs = 0)
-		: m_numberOfDevices(0)
+		: m_masterInfo()
+		, m_numberOfDevices(0)
 		, m_deviceInfo(0)
 	{
-		memset(this, 0, sizeof(XsDeviceConfiguration));
 		if (numberOfDevs)
 			XsDeviceConfiguration_assign(this, numberOfDevs, 0);
 	}
@@ -131,10 +131,10 @@ struct XsDeviceConfiguration
 		\sa XsDeviceConfiguration_copy
 	*/
 	XsDeviceConfiguration(const XsDeviceConfiguration& other)
-		: m_numberOfDevices(0)
+		: m_masterInfo()
+		, m_numberOfDevices(0)
 		, m_deviceInfo(0)
 	{
-		memset(this, 0, sizeof(XsDeviceConfiguration));
 		XsDeviceConfiguration_copy(this, &other);
 	}
 
@@ -145,7 +145,7 @@ struct XsDeviceConfiguration
 		\returns a const reference to this object
 		\sa XsDeviceConfiguration_copy
 	*/
-	inline const XsDeviceConfiguration& operator = (const XsDeviceConfiguration& other)
+	inline XsDeviceConfiguration& operator = (const XsDeviceConfiguration& other)
 	{
 		XsDeviceConfiguration_copy(this, &other);
 		return *this;

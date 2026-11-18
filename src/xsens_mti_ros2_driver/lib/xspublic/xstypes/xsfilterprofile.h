@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -102,7 +102,7 @@ struct XsFilterProfile
 		\returns true if the filter profile is empty
 		\sa XsFilterProfile_empty
 	*/
-	inline bool empty()
+	inline bool empty() const
 	{
 		return (0 != XsFilterProfile_empty(this));
 	}
@@ -111,7 +111,7 @@ struct XsFilterProfile
 		\returns a string representation of this filter profile
 		\sa XsFilterProfile_toString
 	*/
-	inline XsString toString()
+	inline XsString toString() const
 	{
 		XsString out;
 		XsFilterProfile_toString(this, &out);
@@ -236,14 +236,14 @@ struct XsFilterProfile
 
 	/*! \brief Swap the contents with \a other
 	*/
-	inline void swap(XsFilterProfile& other)
+	inline void swap(XsFilterProfile& other) noexcept
 	{
 		XsFilterProfile_swap(this, &other);
 	}
 
 	/*! \brief Swap the contents of \a first with \a second
 	*/
-	friend void swap(XsFilterProfile& first, XsFilterProfile& second)
+	friend void swap(XsFilterProfile& first, XsFilterProfile& second) noexcept
 	{
 		first.swap(second);
 	}

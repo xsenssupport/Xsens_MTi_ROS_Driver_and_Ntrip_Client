@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -41,6 +41,7 @@
 #include <xstypes/xsportinfo.h>
 #include "iointerfacefile.h"
 #include "messageextractor.h"
+#include <atomic>
 
 using namespace xsens;
 
@@ -345,7 +346,7 @@ private:
 		ReaderThread(Xs4FileTask* task);
 		int32_t innerFunction(void) override;
 		Xs4FileTask* m_task;
-		bool m_done;
+		std::atomic<bool> m_done;
 	} m_thread;
 
 	friend class ReaderThread;
@@ -363,7 +364,7 @@ int32_t Xs4FileTask::ReaderThread::innerFunction(void)
 	{
 		XsString filename = m_task->m_device->logFileName();
 		std::string name = xprintf("FileReader: %s", filename.c_str());
-		xsNameThisThread(name.c_str());
+		JLNAMETHISTHREAD(name.c_str());
 		JLDEBUGG("Loading file " << filename);
 	}
 #endif

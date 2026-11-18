@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -79,13 +79,13 @@ MtiBaseDevice::BaseFrequencyResult Mti6X0Device::getBaseFrequencyInternal(XsData
 
 	if ((dataType & XDI_FullTypeMask) == XDI_AccelerationHR)
 	{
-		result.m_frequency = 2000;
+		result.m_frequency = hardwareVersion().major() == 2 ? 1600 : 2000;
 		return result;
 	}
 
 	if ((dataType & XDI_FullTypeMask) == XDI_RateOfTurnHR)
 	{
-		result.m_frequency = hardwareVersion().major() == 2 ? 2000 : 1600;
+		result.m_frequency = 1600;
 		return result;
 	}
 
@@ -402,7 +402,7 @@ XsUbloxGnssPlatform Mti6X0Device::ubloxGnssPlatform() const
 
 		//only read the value for u-blox devices
 		XsGnssReceiverType actualType = (XsGnssReceiverType)gnssReceiverModel;
-		if (actualType == XGRT_Ublox_Max_M8Q || actualType == XGRT_Ublox_Neo_M8P || actualType == XGRT_Ublox_ZED_F9P)
+		if (XsGnssReceiverType_isUblox(actualType))
 			platform = static_cast<XsUbloxGnssPlatform>(gnssReceiverOptions & 0xFFFF);
 	}
 	return platform;
@@ -421,7 +421,7 @@ bool Mti6X0Device::setUbloxGnssPlatform(XsUbloxGnssPlatform ubloxGnssPlatform)
 
 		//only set the value for u-blox devices
 		XsGnssReceiverType actualType = (XsGnssReceiverType)gnssReceiverModel;
-		if (actualType == XGRT_Ublox_Max_M8Q || actualType == XGRT_Ublox_Neo_M8P || actualType == XGRT_Ublox_ZED_F9P)
+		if (XsGnssReceiverType_isUblox(actualType))
 		{
 			gnssReceivSett[3] = (int) ((((unsigned int)gnssReceiverOptions) & 0xFFFF0000U) | uint16_t(ubloxGnssPlatform));
 			result = setGnssReceiverSettings(gnssReceivSett);

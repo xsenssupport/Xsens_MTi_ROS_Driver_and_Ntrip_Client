@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -67,11 +67,14 @@ MtiBaseDevice::~MtiBaseDevice()
 {
 }
 
-/*! \copybrief XsDevice::setHeadingOffset
+/*! \copybrief XsDevice::setInitialHeading
 */
-bool MtiBaseDevice::setHeadingOffset(double)
+bool MtiBaseDevice::setInitialHeading(double heading)
 {
-	return false;
+	XsMessage snd(XMID_SetInitialHeading, 4);
+	snd.setBusId(busId());
+	snd.setDataFloat(float(heading));
+	return doTransaction(snd);
 }
 
 /*! \copybrief XsDevice::outputConfiguration
@@ -565,11 +568,30 @@ XsIccRepMotionResult MtiBaseDevice::stopRepresentativeMotion()
 	snd.setDataByte(XIC_StopRepMotion);
 
 	if (doTransaction(snd, rcv, 3500))
-	{
-		result.m_ddtAccuracy = rcv.getDataFloat(1);
-		result.m_dimension = rcv.getDataByte(5);
-		result.m_status = rcv.getDataByte(6);
-	}
+		result.readFromMessage(rcv);
+
+	return result;
+}
+
+/*! \brief Query the status of the In-Run Compass Calibration while it is running
+	\returns A struct containing the state of the current In-Run Compass Calibration
+*/
+XsIccRepMotionResult MtiBaseDevice::getIccState()
+{
+	XsIccRepMotionResult result;
+
+	if (!hasIccSupport())
+		return result;
+
+	if (!deviceUsesOnBoardFiltering())
+		return result;
+
+	XsMessage snd(XMID_IccCommand, 1), rcv;
+	snd.setBusId(busId());
+	snd.setDataByte(XIC_Status);
+
+	if (doTransaction(snd, rcv, 3500))
+		result.readFromMessage(rcv);
 
 	return result;
 }
@@ -587,6 +609,74 @@ bool MtiBaseDevice::storeIccResults()
 	snd.setDataByte(XIC_StoreResults);
 
 	return doTransaction(snd, 2000);
+}
+
+/*!	\brief Request the duration that the filter will attempt deadreckoning before giving up.
+	\details Note that deadreckoning duration only applies to devices that support GNSS.
+	\returns Duration in seconds or 0 when using default / not available.
+*/
+uint16_t MtiBaseDevice::deadReckoningDuration() const
+{
+	if (!deviceId().isGnss())
+		return 0;
+
+	XsMessage snd(XMID_ReqDeadReckoningDuration, 0), rcv;
+	snd.setBusId(busId());
+
+	if (!doTransaction(snd, rcv, 2000))
+		return 0;
+
+	return rcv.getDataSize() == 2 ? rcv.getDataShort(0) : 0;
+}
+
+/*!	\brief Set the duration that the filter will attempt deadreckoning before giving up.
+	\details The device may reject values that are deemed excessive and it may
+	not strictly honour the requested duration based on filtering circumstances.
+	\param seconds Desired duration in seconds.
+	\returns true if the duration was accepted and saved, false otherwise
+*/
+bool MtiBaseDevice::setDeadReckoningDuration(uint16_t seconds)
+{
+	if (!deviceId().isGnss())
+		return false;
+
+	XsMessage snd(XMID_SetDeadReckoningDuration, 2);
+	snd.setBusId(busId());
+	snd.setDataShort(seconds);
+
+	return doTransaction(snd, 2000);
+}
+
+/*!	\brief Request the modeling parameters for a sensing element
+	\details The available sensing elements and resulting modeling parameters
+	are not guaranteed to be stable across sensing elements and device families.
+	\param sensingElement index of the sensing element
+	\returns a vector with various sensing element-specific modeling parameters
+*/
+XsVector MtiBaseDevice::modelingParameters(uint8_t sensingElement) const
+{
+	XsVector result;
+
+	XsMessage snd(XMID_ReqModelingParameters, 1), rcv;
+	snd.setBusId(busId());
+	snd.setDataByte(sensingElement);
+	if (doTransaction(snd, rcv))
+	{
+		XsSize const dataSize = rcv.getDataSize();
+		if (dataSize >= 1)
+		{
+			uint8_t receivedElement = rcv.getDataByte(0);
+			if (receivedElement == sensingElement)
+			{
+				XsSize const elements = (dataSize - 1) / sizeof(float);
+				result.setSize(elements);
+				for (XsSize i = 0; i < elements; ++i)
+					result.setValue(i, rcv.getDataFloat(1 + i * sizeof(float)));
+			}
+		}
+	}
+
+	return result;
 }
 
 /*! \returns True if this device has an ICC support

@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -43,7 +43,7 @@ class AbstractAdditionalLogger
 {
 public:
 	/*! \brief Destructor */
-	virtual ~AbstractAdditionalLogger() {}
+	virtual ~AbstractAdditionalLogger() = default;
 
 	/*! \returns true if loglevel \a level should be logged, false otherwise
 		\param[in] level The log level to check

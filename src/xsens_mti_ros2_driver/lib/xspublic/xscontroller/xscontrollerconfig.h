@@ -1,5 +1,5 @@
 
-//  Copyright (c) 2003-2025 Movella Technologies B.V. or subsidiaries worldwide.
+//  Copyright (c) 2003-2026 Xsens Technologies B.V. or subsidiaries worldwide.
 //  All rights reserved.
 //  
 //  Redistribution and use in source and binary forms, with or without modification,
@@ -34,6 +34,8 @@
 // include this file in Visual Studio using C/C++->Advanced->Force Includes (the /FI option)
 #ifndef XSCONTROLLER_CONFIG_H
 #define XSCONTROLLER_CONFIG_H
+
+#include <xstypes/xstypesconfig.h>
 
 // define to build with Journaller
 #ifndef HAVE_JOURNALLER
@@ -72,31 +74,6 @@
 #endif
 #ifndef _CRT_SECURE_NO_WARNINGS
 	#define _CRT_SECURE_NO_WARNINGS
-#endif
-
-#ifdef __GNUC__
-	#include <limits.h>
-	#if __WORDSIZE == 64
-		#define XSENS_64BIT
-	#else
-		#define XSENS_32BIT
-	#endif
-#endif
-
-#if defined(_WIN64) || defined(_M_X64) || defined(_M_IA64)
-	#ifndef XSENS_64BIT
-		#define XSENS_64BIT
-	#endif
-	#ifndef XSENS_WINDOWS
-		#define XSENS_WINDOWS
-	#endif
-	#ifndef WIN64
-		#define WIN64
-	#endif
-#else
-	#ifndef XSENS_32BIT
-		#define XSENS_32BIT
-	#endif
 #endif
 
 // all xsens libraries should use unicode
@@ -141,14 +118,14 @@
 
 	The common way to setup configuration-dependent defines:
 	#if defined(XSENS_DEBUG)
-	//// Debug or RelWithDeb build
+	// Debug or RelWithDeb build
 	#if defined(XSENS_RELEASE)
-		//// RelWithDeb build
+		// RelWithDeb build
 	#else
-		//// Debug build
+		// Debug build
 	#endif
 	#else
-	//// Release build
+	// Release build
 	#endif
 */
 
@@ -165,6 +142,7 @@
 #ifdef __cplusplus
 	#ifdef HAVE_JOURNALLER
 		#include <xscommon/journaller.h>
+		#include <type_traits>
 	#else
 		class Journaller;
 	#endif
@@ -172,7 +150,9 @@
 #endif
 
 #if defined(HAVE_JOURNALLER) && (defined(XSENS_DEBUG) || defined(XS_LOG_ALWAYS))
-	#define XSEXITLOGC(j)	JournalValueJanitor<XsResultValue> _xsExitLogC(j, m_lastResult, std::string(__FUNCTION__) + " exit, lastResult = ")
+	// The janitor must be typed on m_lastResult itself: a LastResultManager converted to XsResultValue
+	// is a temporary, which the janitor copies at entry and then logs instead of the exit value.
+	#define XSEXITLOGC(j)	JournalValueJanitor<std::remove_cv_t<decltype(m_lastResult)>> _xsExitLogC(j, m_lastResult, std::string(__FUNCTION__) + " exit, lastResult = ")
 	#define XSEXITLOGD(j)	XSEXITLOGC(j)	//JournalValueJanitor<int> _xsExitLogD(j, d->m_lastResult, std::string(__FUNCTION__) + " exit, lastResult = ")
 	#define XSEXITLOGN(j)	JournalValueJanitor<std::string> _xsExitLogN(j, std::string(), std::string(__FUNCTION__) + " exit")
 	#ifndef DIDLOG
@@ -211,15 +191,11 @@
 		#define JLDEBUGFINAL(...)	((void)0)
 		#define JLDEBUGFINALG(...)	((void)0)
 		#define JLIFG(...)			((void)0)
+		// Not a logging statement, so it must keep working without the Journaller: same contract as
+		// the journaller.h definition minus the log line (caller has xstypes/xsthread.h in scope).
+		#define JLNAMETHISTHREAD(name)	xsNameThisThread(name)
 	#endif
 
-#endif
-
-#ifndef XSNOEXPORT
-	#define XSNOEXPORT
-#endif
-#ifndef XSNOLINUXEXPORT
-	#define XSNOLINUXEXPORT
 #endif
 
 #endif
