@@ -41,10 +41,10 @@
 // resulting topic is the IMU's own forward/lateral/vertical velocity.
 struct VelocityBodyPublisher : public PacketCallback
 {
-    rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub;
+    DriverPublisher<geometry_msgs::msg::Vector3Stamped> pub;
     std::string frame_id = DEFAULT_FRAME_ID;
 
-    VelocityBodyPublisher(rclcpp::Node::SharedPtr node)
+    VelocityBodyPublisher(DriverNode::SharedPtr node)
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);
