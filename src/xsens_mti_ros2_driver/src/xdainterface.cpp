@@ -952,6 +952,15 @@ bool XdaInterface::configureSensorSettings()
 					RCLCPP_INFO(m_node->get_logger(), "XDI_HeavePosition and XDI_HeavePeriod, %dHz", ODRoptionLower);
 				}
 			}
+			//baro for Sirius/Avior/MTi-600 AHRS/VRU models, max 100Hz (GNSS/INS models are handled in the block below)
+			if (!isDeviceGnssIns && (xsens_device_id.isAvior() || xsens_device_id.isSirius() || xsens_device_id.isMti6X0()))
+			{
+				if (m_node->get_parameter("pub_pressure", should_config) && should_config)
+				{
+					configArray.push_back(XsOutputConfiguration(XDI_BaroPressure, ODRoptionLower));
+					RCLCPP_INFO(m_node->get_logger(), "XDI_BaroPressure, %dHz", ODRoptionLower);
+				}
+			}
 		}
 
 		if(isDeviceGnssIns)
@@ -1109,13 +1118,12 @@ bool XdaInterface::configureSensorSettings()
 					// Normalize the quaternion
 					rotsensor_quat.normalize();
 
-					// Apply the alignment rotation quaternion to the device
+					// Apply the alignment rotation quaternion to the device.
+					// Don't return here: the option flags, filter profile and baudrate below still need to be applied.
 					if (!m_device->setAlignmentRotationQuaternion(XAF_Sensor, rotsensor_quat)) {
 						RCLCPP_WARN(m_node->get_logger(), "Failed to set alignment rotation quaternion");
-						return false;
 					} else {
 						RCLCPP_INFO(m_node->get_logger(), "Successfully set alignment rotation from Euler angles");
-						return true;
 					}
 				}
 			}
