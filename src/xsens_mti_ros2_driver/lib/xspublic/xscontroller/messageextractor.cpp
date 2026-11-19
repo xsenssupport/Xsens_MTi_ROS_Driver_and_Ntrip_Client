@@ -152,7 +152,21 @@ XsResultValue MessageExtractor::processNewData(XsDevice* devicePtr, XsByteArray 
 			else
 			{
 				if (type == XPT_Nmea || !m_protocolManager->validateMessage(message))
+				{
+					// A rejected candidate can be embedded in the payload of an
+					// earlier, incomplete message. Preserve that message until the
+					// same bounded retry budget used for accepted candidates expires.
+					// Otherwise a normal serial read boundary can discard a valid
+					// MTData2 frame merely because its payload resembles a message
+					// with a checksum-valid but invalid bus ID.
+					if (location.m_incompletePos != -1 && m_retryTimeout++ < m_maxIncompleteRetryCount)
+					{
+						popped += (XsSize)(ptrdiff_t) location.m_incompletePos;
+						break;
+					}
 					popped += (XsSize)(ptrdiff_t)(location.m_size + location.m_startPos);
+					m_retryTimeout = 0;
+				}
 				else
 					break;
 			}
